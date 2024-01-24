@@ -1,0 +1,30 @@
+#
+# Build for Linux
+# Require: -lSDL2 -lSDL2_image -lGLEW -lGLU -lGL
+#
+
+CXX         = x86_64-w64-mingw32-g++
+SDLCFG		= /usr/x86_64-w64-mingw32/bin/sdl2-config
+CXXFLAGS	= -O -fomit-frame-pointer -pipe -Wall -DGLEW_STATIC $(shell $(SDLCFG) --cflags)
+LDFLAGS		= -static ./build/glew/x64/glew32s.lib -lopengl32 -lSDL2_image $(shell $(SDLCFG) --static-libs)
+OBJDIR		= ./build/obj/w64
+SRCDIR		= .
+
+SRC		= $(wildcard $(SRCDIR)/*.cpp)
+OBJ		= $(patsubst $(SRCDIR)/%.cpp,$(OBJDIR)/%.o,$(SRC))
+
+TARGET		= ../emulator.exe
+
+
+$(TARGET): $(OBJ)
+	$(CXX) $^ ${LDFLAGS} -o $@
+
+$(OBJDIR)/%.o: $(SRCDIR)/%.cpp
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+
+all: $(OBJ)
+
+clean:
+	rm -f $(OBJDIR)/*.o
+	rm -f $(TARGET)

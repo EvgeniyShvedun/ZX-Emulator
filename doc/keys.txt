@@ -1,0 +1,14 @@
+Cassete:
+
+F1 - Start play
+F2 - Stop play
+
+Reset:
+
+F5 - ROM 48
+F6 - ROM 128
+F7 - TRDOS 128 (if exist)
+
+Other:
+
+F12 - Maximal speed switc

@@ -1,0 +1,31 @@
+#
+# Build for Linux
+# Require: -lSDL2 -lSDL2_image -lGLEW -lGLU -lGL
+#
+
+CXX		= c++
+SDLCFG		= sdl2-config
+CXXFLAGS	= -O -fomit-frame-pointer -pipe -Wall $(shell $(SDLCFG) --cflags)
+LDFLAGS		= -lGLEW -lGLU -lGL -lSDL2_image $(shell $(SDLCFG) --libs)
+
+OBJDIR		= ./build/obj/linux
+SRCDIR		= .
+
+SRC		= $(wildcard $(SRCDIR)/*.cpp)
+OBJ		= $(patsubst $(SRCDIR)/%.cpp,$(OBJDIR)/%.o,$(SRC))
+
+TARGET		= ../emulator
+
+
+$(TARGET): $(OBJ)
+	$(CXX) $^ ${LDFLAGS} -o $@
+
+$(OBJDIR)/%.o: $(SRCDIR)/%.cpp
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+
+all: $(OBJ)
+
+clean:
+	rm -f $(OBJDIR)/*.o
+	rm -f $(TARGET)
