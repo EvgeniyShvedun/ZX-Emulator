@@ -171,7 +171,7 @@ int main(int argc, char **argv){
         return fatal_error("GLEW: Initialization");
     SDL_GL_SetSwapInterval(0);
 
-    SDL_Surface* icon = IMG_Load("data/logo.png");
+    SDL_Surface* icon = IMG_Load("data/icon.png");
     SDL_SetWindowIcon(p_win, icon);
 
     /*
