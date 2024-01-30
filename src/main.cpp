@@ -48,8 +48,8 @@ GLuint gVertexShaderId = 0;
 GLuint gFragmentShaderId = 0;
 GLuint gVAOId = 0;
 GLuint gVBOId = 0;
-GLuint gPBOId[2] = {0, 0};
-GLuint textureId[2] = {0, 0};
+GLuint gPBOId = 0;
+GLuint textureId = 0;
 GLfloat projection_matrix[16];
 
 void info(){
@@ -104,24 +104,20 @@ void free_all(){
     if (gProgramId)
         glDeleteProgram(gProgramId);
     gProgramId = 0;
-    if (textureId[0])
-        glDeleteTextures(1, &textureId[0]);
-    textureId[0] = 0;
-    if (textureId[1])
-        glDeleteTextures(1, &textureId[1]);
-    textureId[1] = 0;
+    if (textureId)
+        glDeleteTextures(1, &textureId);
+    textureId = 0;
+    if (textureId)
+        glDeleteTextures(1, &textureId);
     if (gVAOId)
         glDeleteVertexArrays(1, &gVAOId);
     gVAOId = 0;
     if (gVBOId)
         glDeleteBuffers(1, &gVBOId);
     gVBOId = 0;
-	if (gPBOId[0])
-		glDeleteBuffers(1, &gPBOId[0]);
-	gPBOId[0] = 0;
-	if (gPBOId[1])
-		glDeleteBuffers(1, &gPBOId[1]);
-	gPBOId[1] = 0;
+	if (gPBOId)
+		glDeleteBuffers(1, &gPBOId);
+	gPBOId = 0;
 
     SDL_GL_DeleteContext(p_context);
     p_context = NULL;
@@ -238,8 +234,8 @@ int main(int argc, char **argv){
     glEnableVertexAttribArray(1);
 
     glEnable(GL_TEXTURE_2D);
-    glGenTextures(2, textureId);
-    glBindTexture(GL_TEXTURE_2D, textureId[0]);
+    glGenTextures(1, &textureId);
+    glBindTexture(GL_TEXTURE_2D, textureId);
     if (p_cfg->get_case_index("scale_filter", 0, regex(R"((nearest)|(linear))", regex_constants::icase)) == 0){
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -251,29 +247,16 @@ int main(int argc, char **argv){
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA4, SCREEN_WIDTH, SCREEN_HEIGHT, 0, GL_RGBA, GL_UNSIGNED_SHORT_4_4_4_4, 0);
 
-    glBindTexture(GL_TEXTURE_2D, textureId[1]);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA4, window_width, window_height, 0, GL_RGBA, GL_UNSIGNED_SHORT_4_4_4_4, 0);
-
-	glGenBuffers(2, gPBOId);
-	glBindBuffer(GL_PIXEL_UNPACK_BUFFER, gPBOId[0]);
+	glGenBuffers(1, &gPBOId);
+	glBindBuffer(GL_PIXEL_UNPACK_BUFFER, gPBOId);
     glBufferData(GL_PIXEL_UNPACK_BUFFER, SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(GLushort), 0, GL_STREAM_DRAW);
-	glBindBuffer(GL_PIXEL_UNPACK_BUFFER, gPBOId[1]);
-    glBufferData(GL_PIXEL_UNPACK_BUFFER, window_width * window_height * sizeof(GLushort), 0, GL_STREAM_DRAW);
 
     glUseProgram(gProgramId);
     GLint projectionLocation = glGetUniformLocation(gProgramId, "projectionMatrix");
     glGetFloatv(GL_PROJECTION_MATRIX, projection_matrix);
     glUniformMatrix4fv(projectionLocation, 1, GL_FALSE, projection_matrix);
 
-    glClearColor(0.f, 0.f, 0.f, 0.0f);
 	glDisable(GL_DEPTH_TEST);
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    glClear(GL_COLOR_BUFFER_BIT);
 
     p_board = new Board(HW::SPECTRUM_128);
     p_keyboard = new Keyboard();
@@ -632,21 +615,13 @@ int main(int argc, char **argv){
             continue;
         }
 
-        glClear(GL_COLOR_BUFFER_BIT);
-
-        glBindBuffer(GL_PIXEL_UNPACK_BUFFER, gPBOId[0]);
-        glBindTexture(GL_TEXTURE_2D, textureId[0]);
+        //glClearColor(0.f, 0.f, 0.f, 0.0f);
+        //glClear(GL_COLOR_BUFFER_BIT);
+        glBindBuffer(GL_PIXEL_UNPACK_BUFFER, gPBOId);
+        glBindTexture(GL_TEXTURE_2D, textureId);
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, GL_RGBA, GL_UNSIGNED_SHORT_4_4_4_4, NULL);
         p_board->frame();
-
         glBufferData(GL_PIXEL_UNPACK_BUFFER, SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(GLushort), p_board->get_frame_buffer(), GL_STREAM_DRAW);
-        glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
-        glBindBuffer(GL_PIXEL_UNPACK_BUFFER, gPBOId[1]);
-        glBindTexture(GL_TEXTURE_2D, textureId[1]);
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, window_width, window_height, GL_RGBA, GL_UNSIGNED_SHORT_4_4_4_4, NULL);
-
-
-        glBufferData(GL_PIXEL_UNPACK_BUFFER, window_width * window_height * sizeof(GLushort), p_ui_buffer, GL_STREAM_DRAW);
         glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
         SDL_GL_SwapWindow(p_win);
 
