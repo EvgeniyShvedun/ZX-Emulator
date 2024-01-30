@@ -614,13 +614,10 @@ int main(int argc, char **argv){
             SDL_Delay(1);
             continue;
         }
-
-        //glClearColor(0.f, 0.f, 0.f, 0.0f);
-        //glClear(GL_COLOR_BUFFER_BIT);
+        p_board->frame();
         glBindBuffer(GL_PIXEL_UNPACK_BUFFER, gPBOId);
         glBindTexture(GL_TEXTURE_2D, textureId);
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, GL_RGBA, GL_UNSIGNED_SHORT_4_4_4_4, NULL);
-        p_board->frame();
         glBufferData(GL_PIXEL_UNPACK_BUFFER, SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(GLushort), p_board->get_frame_buffer(), GL_STREAM_DRAW);
         glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
         SDL_GL_SwapWindow(p_win);
