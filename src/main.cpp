@@ -143,20 +143,9 @@ int main(int argc, char **argv){
     window_width = SCREEN_WIDTH * scale;
     window_height = SCREEN_HEIGHT * scale;
 
+    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_TIMER | SDL_INIT_JOYSTICK) != 0)
         return fatal_error("SDL: Can't initialize");
-    //SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-    //SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
-    //SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-    //SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
-    //SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_COMPATIBILITY);
-	/*
-    SDL_GL_SetAttribute(
-        SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG
-    );*/
-    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-    //SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 8);
-
     p_win = SDL_CreateWindow(WINDOW_TITLE, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, window_width, window_height, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
     if (!p_win)
         return fatal_error("SDL: Create window");
@@ -169,13 +158,6 @@ int main(int argc, char **argv){
 
     SDL_Surface* icon = IMG_Load("data/icon.png");
     SDL_SetWindowIcon(p_win, icon);
-
-    /*
-	printf("Version: 	%s\n", glGetString(GL_VERSION));
-	printf("Vendor: 	%s\n", glGetString(GL_VENDOR));
-	printf("Renderer: 	%s\n", glGetString(GL_RENDERER));
-	printf("Shading: 	%s\n", glGetString(GL_SHADING_LANGUAGE_VERSION));
-    */
 
     glViewport(0, 0, (GLsizei)window_width, (GLsizei)window_height);
     glMatrixMode(GL_PROJECTION);
@@ -198,9 +180,6 @@ int main(int argc, char **argv){
     glCompileShader(gFragmentShaderId);
     glGetShaderiv(gFragmentShaderId, GL_COMPILE_STATUS, &gSuccess);
     if (gSuccess != GL_TRUE){
-		//char buffer[512];
-        //glGetShaderInfoLog(gFragmentShaderId, 512, NULL, buffer);
-		//printf("Compilation error: %s\n", buffer);
         return fatal_error("GL: Compile fragment shader");
 	}
     // Link.
@@ -233,7 +212,6 @@ int main(int argc, char **argv){
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(GLfloat) * 4, (void*)(2*sizeof(GLfloat)));
     glEnableVertexAttribArray(1);
 
-    glEnable(GL_TEXTURE_2D);
     glGenTextures(1, &textureId);
     glBindTexture(GL_TEXTURE_2D, textureId);
     if (p_cfg->get_case_index("scale_filter", 0, regex(R"((nearest)|(linear))", regex_constants::icase)) == 0){
