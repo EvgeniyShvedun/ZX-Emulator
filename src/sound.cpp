@@ -148,24 +148,24 @@ void Sound::update(int clk){
 
 bool Sound::io_wr(unsigned short port, unsigned char byte, int clk){
 	if (!(port & 0x01)){
-        unsigned char bits = pwFE ^ byte;
+        unsigned char bits = wFE ^ byte;
         if (bits & (SPEAKER | TAPE_OUT)){
             update(clk);
             if (bits & SPEAKER)
                 speaker_out ^= speaker_volume;
             if (bits & TAPE_OUT)
            	    tape_out ^= tape_volume;
-            pwFE = byte;
+            wFE = byte;
 		}
     }else{
         if ((port & 0xC002) == 0xC000){
-            pwFFFD = byte & 0x0F;
+            wFFFD = byte & 0x0F;
             return true;
         }else{
             if ((port & 0xC002) == 0x8000){
                 update(clk);
-                registers[pwFFFD] = byte;
-				switch(pwFFFD){
+                registers[wFFFD] = byte;
+				switch(byte){
 					case A_PCH_H:
                         registers[A_PCH_H] &= 0x0F;
 					case A_PCH_L:
@@ -218,14 +218,14 @@ bool Sound::io_wr(unsigned short port, unsigned char byte, int clk){
 
 bool Sound::io_rd(unsigned short port, unsigned char *p_byte, int clk){
     if (!(port & 0x01)){
-        if ((prFE ^ *p_byte) & TAPE_IN){
+        if ((rFE ^ *p_byte) & TAPE_IN){
             update(clk);
             tape_in ^= tape_volume;
-            prFE = *p_byte;
+            rFE = *p_byte;
         }
     }
     if ((port & 0xC003) == 0xC001){
-		*p_byte &= registers[pwFFFD];
+		*p_byte &= registers[wFFFD];
         return true;
     }
     return false;
@@ -237,11 +237,11 @@ void Sound::reset(){
     tone_a_max = tone_b_max = tone_c_max = noise_max = envelope_max = 0xFFF;
 	noise_seed = 12345;
     envelope_idx = 0;
+    for (wFFFD = 0x10; wFFFD > 0; wFFFD--)
+        registers[wFFFD] = 0x0;
     speaker_out = tape_in = tape_out = 0;
 	output_left = output_right = 0;
-    for (pwFFFD = 0; pwFFFD < 0x10; pwFFFD++)
-        registers[pwFFFD] = 0x0;
-    pwFFFD = prFE = pwFE = 0;
+    rFE = wFE = 0;
 	frame_idx = 0;
 }
 void Sound::frame(int frame_clk){

@@ -1,7 +1,7 @@
 #define AY_RATE                     177340
 #define FRACT_BITS                  10
-#define TAPE_OUT	    			0b00001000
-#define SPEAKER 	    			0b00010000
+#define TAPE_OUT	   			    0b00001000
+#define SPEAKER     			    0b00010000
 #define TAPE_IN                     0b01000000
 
 class Sound : public Device {
@@ -123,5 +123,5 @@ Register       Function                        Range
             0.169130, 0.264667, 0.352712, 0.449942, 0.570382, 0.687281, 0.848172, 1.000000
         };
 		unsigned char registers[0x10];
-		unsigned char pwFE, prFE, pwFFFD;
+		unsigned char wFE, rFE, wFFFD;
 };

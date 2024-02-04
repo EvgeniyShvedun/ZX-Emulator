@@ -4,8 +4,8 @@
 
 // Port 7FFD
 #define P7FFD_PAGE          0b00000111
-#define P7FFD_SCREEN7       0b00001000
-#define P7FFD_ROM_48        0b00010000
+#define P7FFD_SCR7          0b00001000
+#define P7FFD_ROM48         0b00010000
 #define P7FFD_LOCK          0b00100000
 
 #define ROM_TRDOS           0
@@ -16,9 +16,9 @@ class Memory : public Device {
     public:
         Memory();
         ~Memory();
-        inline unsigned char read_byte(unsigned short ptr, int clk = 0){ return p_page_rd[ptr >> 0x0E][ptr]; };
-        inline unsigned char read_byte_ex(unsigned short ptr, int clk = 0){ return p_page_ex[ptr >> 0x0E][ptr]; };
-        inline void write_byte(unsigned short ptr, unsigned char byte, int clk = 0){ p_page_wr[ptr >> 0x0E][ptr] = byte; };
+        inline unsigned char read_byte(unsigned short ptr){ return p_page_rd[ptr >> 0x0E][ptr]; };
+        inline unsigned char read_byte_ex(unsigned short ptr){ return p_page_ex[ptr >> 0x0E][ptr]; };
+        inline void write_byte(unsigned short ptr, unsigned char byte, int clk=0){ p_page_wr[ptr >> 0x0E][ptr] = byte; };
         bool exec_trap(unsigned short pc);
         bool trdos_active(){ return p_page_ex[0] == p_rom[ROM_TRDOS]; };
         unsigned char* page(int n) { return (n < RAM_PAGES and n >= 0) ? p_ram[n] : NULL; };

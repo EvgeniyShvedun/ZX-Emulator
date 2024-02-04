@@ -53,13 +53,13 @@
     memptrh = a;\
     LD_XR_R(r16, a);
 #define LD_XR_N(r16){\
-    unsigned char byte = p_memory->read_byte(pc++, clk);\
+    unsigned char byte = p_memory->read_byte(pc++);\
     p_memory->write_byte(r16, byte, clk);\
     time(10);\
 }
 
 #define LD_R_XR(r8, r16)\
-    r8 = p_memory->read_byte(r16, clk);\
+    r8 = p_memory->read_byte(r16);\
     time(7);
 // Use memptr. Only for LD A, (BC/DE).
 #define LD_A_XR(r16)\
@@ -69,32 +69,32 @@
     rr0 = rr1;\
     time(6);
 #define LD_RR_NN(r16)\
-    r16##l = p_memory->read_byte(pc++, clk);\
-    r16##h = p_memory->read_byte(pc++, clk);\
+    r16##l = p_memory->read_byte(pc++);\
+    r16##h = p_memory->read_byte(pc++);\
     time(10);
 // Increment memptr only once.
 #define LD_MM_RR(r16)\
-    memptrl = p_memory->read_byte(pc++, clk);\
-    memptrh = p_memory->read_byte(pc++, clk);\
+    memptrl = p_memory->read_byte(pc++);\
+    memptrh = p_memory->read_byte(pc++);\
     p_memory->write_byte(memptr++, r16##l, clk);\
     p_memory->write_byte(memptr, r16##h, clk);\
     time(16);
 #define LD_RR_MM(r16)\
-    memptrl = p_memory->read_byte(pc++, clk);\
-    memptrh = p_memory->read_byte(pc++, clk);\
-    r16##l = p_memory->read_byte(memptr++, clk);\
-    r16##h = p_memory->read_byte(memptr, clk);\
+    memptrl = p_memory->read_byte(pc++);\
+    memptrh = p_memory->read_byte(pc++);\
+    r16##l = p_memory->read_byte(memptr++);\
+    r16##h = p_memory->read_byte(memptr);\
     time(16);
 #define LD_MM_A\
-     memptrl = p_memory->read_byte(pc++, clk);\
-     memptrh = p_memory->read_byte(pc++, clk);\
+     memptrl = p_memory->read_byte(pc++);\
+     memptrh = p_memory->read_byte(pc++);\
      p_memory->write_byte(memptr++, a, clk);\
      memptrh = a;\
      time(13);
 #define LD_A_MM\
-    memptrl = p_memory->read_byte(pc++, clk);\
-    memptrh = p_memory->read_byte(pc++, clk);\
-    a = p_memory->read_byte(memptr++, clk);\
+    memptrl = p_memory->read_byte(pc++);\
+    memptrh = p_memory->read_byte(pc++);\
+    a = p_memory->read_byte(memptr++);\
     time(13);
 
 #define inc8(value)\
@@ -115,13 +115,13 @@
     dec8(r8);\
     time(4);
 #define INC_XR(r16){\
-    unsigned char byte = p_memory->read_byte(r16, clk);\
+    unsigned char byte = p_memory->read_byte(r16);\
     inc8(byte);\
     p_memory->write_byte(r16, byte, clk);\
     time(11);\
 }
 #define DEC_XR(r16){\
-    unsigned char byte = p_memory->read_byte(r16, clk);\
+    unsigned char byte = p_memory->read_byte(r16);\
     dec8(byte);\
     p_memory->write_byte(r16, byte, clk);\
     time(11);\
@@ -138,7 +138,7 @@
 
 
 #define JR_N \
-    pc += (signed char)p_memory->read_byte(pc, clk) + 1;\
+    pc += (signed char)p_memory->read_byte(pc) + 1;\
     memptr = pc;\
     time(12);
 
@@ -189,48 +189,48 @@
     add8(r8);\
     time(4);
 #define ADD_XR(r16)\
-    add8(p_memory->read_byte(r16, clk));\
+    add8(p_memory->read_byte(r16));\
     time(7);
 #define ADD_XS(r16)\
-    memptr = (signed char)p_memory->read_byte(pc++, clk);\
+    memptr = (signed char)p_memory->read_byte(pc++);\
     memptr += r16;\
-    add8(p_memory->read_byte(memptr, clk));\
+    add8(p_memory->read_byte(memptr));\
     time(15);
 
 #define ADC(r8)\
     adc8(r8);\
     time(4);
 #define ADC_XR(r16)\
-    adc8(p_memory->read_byte(r16, clk));\
+    adc8(p_memory->read_byte(r16));\
     time(7);
 #define ADC_XS(r16)\
-    memptr = (signed char)p_memory->read_byte(pc++, clk);\
+    memptr = (signed char)p_memory->read_byte(pc++);\
     memptr += r16;\
-    adc8(p_memory->read_byte(memptr, clk));\
+    adc8(p_memory->read_byte(memptr));\
     time(15);
 
 #define SUB(r8)\
     sub8(r8);\
     time(4);
 #define SUB_XR(r16)\
-    sub8(p_memory->read_byte(r16, clk));\
+    sub8(p_memory->read_byte(r16));\
     time(7);
 #define SUB_XS(r16)\
-    memptr = (signed char)p_memory->read_byte(pc++, clk);\
+    memptr = (signed char)p_memory->read_byte(pc++);\
     memptr += r16;\
-    sub8(p_memory->read_byte(memptr, clk));\
+    sub8(p_memory->read_byte(memptr));\
     time(15);
 
 #define SBC(r8)\
     sbc8(r8);\
     time(4);
 #define SBC_XR(r16)\
-    sbc8(p_memory->read_byte(r16, clk));\
+    sbc8(p_memory->read_byte(r16));\
     time(7);
 #define SBC_XS(r16)\
-    memptr = (signed char)p_memory->read_byte(pc++, clk);\
+    memptr = (signed char)p_memory->read_byte(pc++);\
     memptr += r16;\
-    sbc8(p_memory->read_byte(memptr, clk));\
+    sbc8(p_memory->read_byte(memptr));\
     time(15);
 
 #define RLA {\
@@ -275,48 +275,48 @@
     and8(r8);\
     time(4);
 #define AND_XR(r16)\
-    and8(p_memory->read_byte(r16, clk));\
+    and8(p_memory->read_byte(r16));\
     time(7);
 #define AND_XS(r16)\
-    memptr = (signed char)p_memory->read_byte(pc++, clk);\
+    memptr = (signed char)p_memory->read_byte(pc++);\
     memptr += r16;\
-    and8(p_memory->read_byte(memptr, clk));\
+    and8(p_memory->read_byte(memptr));\
     time(15);
 
 #define XOR(r8)\
     xor8(r8);\
     time(4);
 #define XOR_XR(r16)\
-    xor8(p_memory->read_byte(r16, clk));\
+    xor8(p_memory->read_byte(r16));\
     time(7);
 #define XOR_XS(r16)\
-    memptr = (signed char)p_memory->read_byte(pc++, clk);\
+    memptr = (signed char)p_memory->read_byte(pc++);\
     memptr += r16;\
-    xor8(p_memory->read_byte(memptr, clk));\
+    xor8(p_memory->read_byte(memptr));\
     time(15);
 
 #define OR(r8)\
     or8(r8);\
     time(4);
 #define OR_XR(r16)\
-    or8(p_memory->read_byte(r16, clk));\
+    or8(p_memory->read_byte(r16));\
     time(7);
 #define OR_XS(r16)\
-    memptr = (signed char)p_memory->read_byte(pc++, clk);\
+    memptr = (signed char)p_memory->read_byte(pc++);\
     memptr += r16;\
-    or8(p_memory->read_byte(memptr, clk));\
+    or8(p_memory->read_byte(memptr));\
     time(15);
 
 #define CP(r8)\
     cp8(r8);\
     time(4);
 #define CP_XR(r16)\
-    cp8(p_memory->read_byte(r16, clk));\
+    cp8(p_memory->read_byte(r16));\
     time(7);
 #define CP_XS(r16)\
-    memptr = (signed char)p_memory->read_byte(pc++, clk);\
+    memptr = (signed char)p_memory->read_byte(pc++);\
     memptr += r16;\
-    cp8(p_memory->read_byte(memptr, clk));\
+    cp8(p_memory->read_byte(memptr));\
     time(15);
 
 #define PUSH(r16)\
@@ -325,8 +325,8 @@
     time(11);
 
 #define POP(r16)\
-    r16##l = p_memory->read_byte(sp++, clk);\
-    r16##h = p_memory->read_byte(sp++, clk);\
+    r16##l = p_memory->read_byte(sp++);\
+    r16##h = p_memory->read_byte(sp++);\
     time(10);
 
 #define EX_RR_RR(rr0, rr1)\
@@ -337,17 +337,17 @@
 
 // EX (SP), RR
 #define EX_SP_RR(r16)\
-    memptrl = p_memory->read_byte(sp, clk);\
+    memptrl = p_memory->read_byte(sp);\
     p_memory->write_byte(sp, r16##l, clk);\
     r16##l = memptrl;\
-    memptrh = p_memory->read_byte(sp + 1, clk);\
+    memptrh = p_memory->read_byte(sp + 1);\
     p_memory->write_byte(sp + 1, r16##h, clk);\
     r16##h = memptrh;\
     time(19);
 
 #define JP_NN\
-    memptrl = p_memory->read_byte(pc++, clk);\
-    memptrh = p_memory->read_byte(pc, clk);\
+    memptrl = p_memory->read_byte(pc++);\
+    memptrh = p_memory->read_byte(pc);\
     pc = memptr;\
     time(10);
 
@@ -356,8 +356,8 @@
     time(4);
 
 #define JP_CND_NN(cnd)\
-    memptrl = p_memory->read_byte(pc++, clk);\
-    memptrh = p_memory->read_byte(pc, clk);\
+    memptrl = p_memory->read_byte(pc++);\
+    memptrh = p_memory->read_byte(pc);\
     if (cnd)\
         pc = memptr;\
     else\
@@ -365,15 +365,15 @@
     time(10);
 
 #define CALL_NN\
-    memptrl = p_memory->read_byte(pc++, clk);\
-    memptrh = p_memory->read_byte(pc++, clk);\
+    memptrl = p_memory->read_byte(pc++);\
+    memptrh = p_memory->read_byte(pc++);\
     p_memory->write_byte(--sp, pch, clk);\
     p_memory->write_byte(--sp, pcl, clk);\
     pc = memptr;\
     time(17);
 #define CALL_CND_NN(cnd)\
-    memptrl = p_memory->read_byte(pc++, clk);\
-    memptrh = p_memory->read_byte(pc++, clk);\
+    memptrl = p_memory->read_byte(pc++);\
+    memptrh = p_memory->read_byte(pc++);\
     if (cnd){\
         p_memory->write_byte(--sp, pch, clk);\
         p_memory->write_byte(--sp, pcl, clk);\
@@ -389,14 +389,14 @@
     time(11);
 
 #define RET\
-    memptrl = p_memory->read_byte(sp++, clk);\
-    memptrh = p_memory->read_byte(sp++, clk);\
+    memptrl = p_memory->read_byte(sp++);\
+    memptrh = p_memory->read_byte(sp++);\
     pc = memptr;\
     time(10);
 #define RET_CND(cnd)\
     if (cnd){\
-        memptrl = p_memory->read_byte(sp++, clk);\
-        memptrh = p_memory->read_byte(sp++, clk);\
+        memptrl = p_memory->read_byte(sp++);\
+        memptrh = p_memory->read_byte(sp++);\
         pc = memptr;\
         time(11);\
     }else{\
@@ -404,14 +404,14 @@
     }
 
 #define OUT_N_A\
-    memptrl = p_memory->read_byte(pc++, clk);\
+    memptrl = p_memory->read_byte(pc++);\
     memptrh = a;\
     p_io->write(memptr++, a, clk);\
     time(11);
 
 #define IN_A_N\
     memptrh = a;\
-    memptrl = p_memory->read_byte(pc++, clk);\
+    memptrl = p_memory->read_byte(pc++);\
     a = p_io->read(memptr++, clk);\
     time(11);
 // ............
@@ -422,7 +422,7 @@
     f = flag_sz53p[r8] | (r8 & CF);\
     time(8);
 #define RLC_XR(r16){\
-        unsigned char byte = p_memory->read_byte(r16, clk);\
+        unsigned char byte = p_memory->read_byte(r16);\
         byte = (byte << 1) | (byte >> 7);\
         f = flag_sz53p[byte] | (byte & CF);\
         p_memory->write_byte(r16, byte, clk);\
@@ -435,7 +435,7 @@
     f |= flag_sz53p[r8];\
     time(8);
 #define RRC_XR(r16){\
-        unsigned char byte = p_memory->read_byte(r16, clk);\
+        unsigned char byte = p_memory->read_byte(r16);\
         f = byte & CF;\
         byte = (byte >> 1) | (byte << 7);\
         f |= flag_sz53p[byte];\
@@ -450,7 +450,7 @@
     }\
     time(8);
 #define RL_XR(r16){\
-        unsigned char byte = p_memory->read_byte(r16, clk);\
+        unsigned char byte = p_memory->read_byte(r16);\
         unsigned char cf = byte >> 7;\
         byte = (byte << 1) | (f & CF);\
         f = flag_sz53p[byte] | cf;\
@@ -465,7 +465,7 @@
     }\
     time(8);
 #define RR_XR(r16){\
-        unsigned char byte = p_memory->read_byte(r16, clk);\
+        unsigned char byte = p_memory->read_byte(r16);\
         unsigned char cf = byte & CF;\
         byte = (byte >> 1) | (f << 7);\
         f = flag_sz53p[byte] | cf;\
@@ -480,7 +480,7 @@
     time(8);
 
 #define SLA_XR(r16){\
-        unsigned char byte = p_memory->read_byte(r16, clk);\
+        unsigned char byte = p_memory->read_byte(r16);\
         f = flag_sz53p[byte << 1] | (byte >> 7);\
         p_memory->write_byte(r16, byte << 1, clk);\
     }\
@@ -492,7 +492,7 @@
     f |= flag_sz53p[r8];\
     time(8);
 #define SRA_XR(r16){\
-        unsigned char byte = p_memory->read_byte(r16, clk);\
+        unsigned char byte = p_memory->read_byte(r16);\
         f = byte & CF;\
         byte = (byte & 0x80) | (byte >> 1);\
         f |= flag_sz53p[byte];\
@@ -506,7 +506,7 @@
     f |= flag_sz53p[r8];\
     time(8);
 #define SLL_XR(r16){\
-        unsigned char byte = p_memory->read_byte(r16, clk);\
+        unsigned char byte = p_memory->read_byte(r16);\
         f = byte >> 7;\
         byte = (byte << 1) | 0x01;\
         f |= flag_sz53p[byte];\
@@ -520,7 +520,7 @@
     f |= flag_sz53p[r8];\
     time(8);
 #define SRL_XR(r16){\
-        unsigned char byte = p_memory->read_byte(r16, clk);\
+        unsigned char byte = p_memory->read_byte(r16);\
         f = (byte & CF) | flag_sz53p[byte >> 1];\
         p_memory->write_byte(r16, byte >> 1, clk);\
     }\
@@ -530,7 +530,7 @@
     f = flag_sz53p[r8 & (1 << n)] | HF | (r8 & (F3 | F5)) | (f & CF);\
     time(8);
 #define BIT_XR(n, r16){\
-        unsigned char byte = p_memory->read_byte(r16, clk);\
+        unsigned char byte = p_memory->read_byte(r16);\
         f = flag_sz53p[byte & (1 << n)] | HF | (f & CF);\
         f &= ~(F3 | F5);\
         f |= memptrh & (F3 | F5);\
@@ -541,7 +541,7 @@
     r8 &= ~(1 << n);\
     time(8);
 #define RES_XR(n, r16){\
-        unsigned char byte = p_memory->read_byte(r16, clk);\
+        unsigned char byte = p_memory->read_byte(r16);\
         p_memory->write_byte(r16, byte & ~(1 << n), clk);\
     }\
     time(15);
@@ -550,7 +550,7 @@
     r8 |= (1 << n);\
     time(8);
 #define SET_XR(n, r16){\
-        unsigned char byte = p_memory->read_byte(r16, clk);\
+        unsigned char byte = p_memory->read_byte(r16);\
         p_memory->write_byte(r16, byte | (1 << n), clk);\
     }\
     time(15);
@@ -560,36 +560,36 @@
 // Instruction set clock time without DD/FD prefix time.
 // LD (IX+S), N
 #define LD_XS_N(r16)\
-    memptr = (signed char)p_memory->read_byte(pc++, clk);\
+    memptr = (signed char)p_memory->read_byte(pc++);\
     memptr += r16;\
-    p_memory->write_byte(memptr, p_memory->read_byte(pc++, clk), clk);\
+    p_memory->write_byte(memptr, p_memory->read_byte(pc++));\
     time(15);
 // LD B, (IX+S)
 #define LD_R_XS(r8, r16)\
-    memptr = (signed char)p_memory->read_byte(pc++, clk);\
+    memptr = (signed char)p_memory->read_byte(pc++);\
     memptr += r16;\
-    r8 = p_memory->read_byte(memptr, clk);\
+    r8 = p_memory->read_byte(memptr);\
     time(15);
 // LD (IX+S), B
 #define LD_XS_R(r16, r8)\
-    memptr = (signed char)p_memory->read_byte(pc++, clk);\
+    memptr = (signed char)p_memory->read_byte(pc++);\
     memptr += r16;\
     p_memory->write_byte(memptr, r8, clk);\
     time(15);
 
 // INC (IX+S)
 #define INC_XS(r16){\
-    memptr = (signed char)p_memory->read_byte(pc++, clk);\
+    memptr = (signed char)p_memory->read_byte(pc++);\
     memptr += r16;\
-    unsigned char byte = p_memory->read_byte(memptr, clk);\
+    unsigned char byte = p_memory->read_byte(memptr);\
     inc8(byte);\
     p_memory->write_byte(memptr, byte, clk);\
     time(19);\
 }
 #define DEC_XS(r16){\
-    memptr = (signed char)p_memory->read_byte(pc++, clk);\
+    memptr = (signed char)p_memory->read_byte(pc++);\
     memptr += r16;\
-    unsigned char byte = p_memory->read_byte(memptr, clk);\
+    unsigned char byte = p_memory->read_byte(memptr);\
     dec8(byte);\
     p_memory->write_byte(memptr, byte, clk);\
     time(19);\
@@ -599,18 +599,18 @@
 // Instruction set clock time without DD/FD prefix time.
 // RLC (IX + S), B
 #define RLC_XS_R(r16, r8){\
-        memptr = (signed char)p_memory->read_byte(pc - 2, clk);\
+        memptr = (signed char)p_memory->read_byte(pc - 2);\
         memptr += r16;\
-        unsigned char byte = p_memory->read_byte(memptr, clk);\
+        unsigned char byte = p_memory->read_byte(memptr);\
         r8 = (byte << 1) | (byte >> 7);\
     }\
     f = flag_sz53p[r8] | (r8 & CF);\
     p_memory->write_byte(memptr, r8, clk);\
     time(19); // 23
 #define RLC_XS(r16){\
-        memptr = (signed char)p_memory->read_byte(pc - 2, clk);\
+        memptr = (signed char)p_memory->read_byte(pc - 2);\
         memptr += r16;\
-        unsigned char byte = p_memory->read_byte(memptr, clk);\
+        unsigned char byte = p_memory->read_byte(memptr);\
         byte = (byte << 1) | (byte >> 7);\
         f = flag_sz53p[byte] | (byte & CF);\
         p_memory->write_byte(memptr, byte, clk);\
@@ -618,18 +618,18 @@
     time(19);
               
 #define RRC_XS_R(r16, r8){\
-        memptr = (signed char)p_memory->read_byte(pc - 2, clk);\
+        memptr = (signed char)p_memory->read_byte(pc - 2);\
         memptr += r16;\
-        unsigned char byte = p_memory->read_byte(memptr, clk);\
+        unsigned char byte = p_memory->read_byte(memptr);\
         r8 = (byte >> 1) | (byte << 7);\
         f = flag_sz53p[r8] | (byte & CF);\
         p_memory->write_byte(memptr, r8, clk);\
     }\
     time(19);
 #define RRC_XS(r16){\
-        memptr = (signed char)p_memory->read_byte(pc - 2, clk);\
+        memptr = (signed char)p_memory->read_byte(pc - 2);\
         memptr += r16;\
-        unsigned char byte = p_memory->read_byte(memptr, clk);\
+        unsigned char byte = p_memory->read_byte(memptr);\
         f = byte & CF;\
         byte = (byte >> 1) | (byte << 7);\
         f |= flag_sz53p[byte];\
@@ -638,18 +638,18 @@
     time(19);
 
 #define RL_XS_R(r16, r8){\
-        memptr = (signed char)p_memory->read_byte(pc - 2, clk);\
+        memptr = (signed char)p_memory->read_byte(pc - 2);\
         memptr += r16;\
-        unsigned char byte = p_memory->read_byte(memptr, clk);\
+        unsigned char byte = p_memory->read_byte(memptr);\
         r8 = (byte << 1) | (f & CF);\
         f = flag_sz53p[r8] | (byte >> 7);\
         p_memory->write_byte(memptr, r8, clk);\
     }\
     time(19);
 #define RL_XS(r16){\
-        memptr = (signed char)p_memory->read_byte(pc - 2, clk);\
+        memptr = (signed char)p_memory->read_byte(pc - 2);\
         memptr += r16;\
-        unsigned char byte = p_memory->read_byte(memptr, clk);\
+        unsigned char byte = p_memory->read_byte(memptr);\
         unsigned char cf = byte >> 7;\
         byte = (byte << 1) | (f & CF);\
         f = flag_sz53p[byte] | cf;\
@@ -658,18 +658,18 @@
     time(19);
  
 #define RR_XS_R(r16, r8){\
-        memptr = (signed char)p_memory->read_byte(pc - 2, clk);\
+        memptr = (signed char)p_memory->read_byte(pc - 2);\
         memptr += r16;\
-        unsigned char byte = p_memory->read_byte(memptr, clk);\
+        unsigned char byte = p_memory->read_byte(memptr);\
         r8 = (byte >> 1) | (f << 7);\
         f = flag_sz53p[r8] | (byte & CF);\
         p_memory->write_byte(memptr, r8, clk);\
     }\
     time(19);
 #define RR_XS(r16){\
-        memptr = (signed char)p_memory->read_byte(pc - 2, clk);\
+        memptr = (signed char)p_memory->read_byte(pc - 2);\
         memptr += r16;\
-        unsigned char byte = p_memory->read_byte(memptr, clk);\
+        unsigned char byte = p_memory->read_byte(memptr);\
         unsigned char cf = byte & CF;\
         byte = (byte >> 1) | (f << 7);\
         f = flag_sz53p[byte] | cf;\
@@ -679,18 +679,18 @@
 
 
 #define SLA_XS_R(r16, r8){\
-        memptr = (signed char)p_memory->read_byte(pc - 2, clk);\
+        memptr = (signed char)p_memory->read_byte(pc - 2);\
         memptr += r16;\
-        unsigned char byte = p_memory->read_byte(memptr, clk);\
+        unsigned char byte = p_memory->read_byte(memptr);\
         r8 = byte << 1;\
         f = flag_sz53p[r8] | (byte >> 7);\
         p_memory->write_byte(memptr, r8, clk);\
     }\
     time(19);
 #define SLA_XS(r16){\
-        memptr = (signed char)p_memory->read_byte(pc - 2, clk);\
+        memptr = (signed char)p_memory->read_byte(pc - 2);\
         memptr += r16;\
-        unsigned char byte = p_memory->read_byte(memptr, clk);\
+        unsigned char byte = p_memory->read_byte(memptr);\
         f = byte >> 7;\
         byte <<= 1;\
         f |= flag_sz53p[byte];\
@@ -699,9 +699,9 @@
     time(19);
 
 #define SRA_XS_R(r16, r8){\
-        memptr = (signed char)p_memory->read_byte(pc - 2, clk);\
+        memptr = (signed char)p_memory->read_byte(pc - 2);\
         memptr += r16;\
-        unsigned char byte = p_memory->read_byte(memptr, clk);\
+        unsigned char byte = p_memory->read_byte(memptr);\
         r8 = (byte & 0x80) | (byte >> 1);\
         f = flag_sz53p[r8] | (byte & CF);\
         p_memory->write_byte(memptr, r8, clk);\
@@ -710,9 +710,9 @@
 
 
 #define SRA_XS(r16){\
-        memptr = (signed char)p_memory->read_byte(pc - 2, clk);\
+        memptr = (signed char)p_memory->read_byte(pc - 2);\
         memptr += r16;\
-        unsigned char byte = p_memory->read_byte(memptr, clk);\
+        unsigned char byte = p_memory->read_byte(memptr);\
         f = byte & CF;\
         byte = (byte & 0x80) | (byte >> 1);\
         f |= flag_sz53p[byte];\
@@ -721,18 +721,18 @@
     time(19);
 
 #define SLL_XS_R(r16, r8){\
-        memptr = (signed char)p_memory->read_byte(pc - 2, clk);\
+        memptr = (signed char)p_memory->read_byte(pc - 2);\
         memptr += r16;\
-        unsigned char byte = p_memory->read_byte(memptr, clk);\
+        unsigned char byte = p_memory->read_byte(memptr);\
         r8 = (byte << 1) | 0x01;\
         f = (byte >> 7) | flag_sz53p[r8];\
         p_memory->write_byte(memptr, r8, clk);\
     }\
     time(19);
 #define SLL_XS(r16){\
-        memptr = (signed char)p_memory->read_byte(pc - 2, clk);\
+        memptr = (signed char)p_memory->read_byte(pc - 2);\
         memptr += r16;\
-        unsigned char byte = p_memory->read_byte(memptr, clk);\
+        unsigned char byte = p_memory->read_byte(memptr);\
         f = byte >> 7;\
         byte = (byte << 1) | 0x01;\
         f |= flag_sz53p[byte];\
@@ -741,18 +741,18 @@
     time(19);
 
 #define SRL_XS_R(r16, r8){\
-        memptr = (signed char)p_memory->read_byte(pc - 2, clk);\
+        memptr = (signed char)p_memory->read_byte(pc - 2);\
         memptr += r16;\
-        unsigned char byte = p_memory->read_byte(memptr, clk);\
+        unsigned char byte = p_memory->read_byte(memptr);\
         r8 = byte >> 1;\
         f = flag_sz53p[r8] | (byte & CF);\
         p_memory->write_byte(memptr, r8, clk);\
     }\
     time(19);
 #define SRL_XS(r16){\
-        memptr = (signed char)p_memory->read_byte(pc - 2, clk);\
+        memptr = (signed char)p_memory->read_byte(pc - 2);\
         memptr += r16;\
-        unsigned char byte = p_memory->read_byte(memptr, clk);\
+        unsigned char byte = p_memory->read_byte(memptr);\
         f = byte & CF;\
         byte >>= 1;\
         f |= flag_sz53p[byte];\
@@ -761,9 +761,9 @@
     time(19);
 
 #define BIT_XS(n, r16){\
-        memptr = (signed char)p_memory->read_byte(pc - 2, clk);\
+        memptr = (signed char)p_memory->read_byte(pc - 2);\
         memptr += r16;\
-        unsigned char byte = p_memory->read_byte(memptr, clk);\
+        unsigned char byte = p_memory->read_byte(memptr);\
         f = flag_sz53p[byte & (1 << n)] | HF | (f & CF);\
         f &= ~(F3 | F5);\
         f |= memptrh & (F3 | F5);\
@@ -771,34 +771,34 @@
     time(16);
 
 #define RES_XS_R(n, r16, r8)\
-    memptr = (signed char)p_memory->read_byte(pc - 2, clk);\
+    memptr = (signed char)p_memory->read_byte(pc - 2);\
     memptr += r16;\
-    r8 = p_memory->read_byte(memptr, clk);\
+    r8 = p_memory->read_byte(memptr);\
     r8 &= ~(1 << n);\
     p_memory->write_byte(memptr, r8, clk);\
     time(19);
 
 #define RES_XS(n, r16){\
-        memptr = (signed char)p_memory->read_byte(pc - 2, clk);\
+        memptr = (signed char)p_memory->read_byte(pc - 2);\
         memptr += r16;\
-        unsigned char byte = p_memory->read_byte(memptr, clk);\
+        unsigned char byte = p_memory->read_byte(memptr);\
         byte &= ~(1 << n);\
         p_memory->write_byte(memptr, byte, clk);\
     }\
     time(19);
 
 #define SET_XS_R(n, r16, r8)\
-    memptr = (signed char)p_memory->read_byte(pc - 2, clk);\
+    memptr = (signed char)p_memory->read_byte(pc - 2);\
     memptr += r16;\
-    r8 = p_memory->read_byte(memptr, clk);\
+    r8 = p_memory->read_byte(memptr);\
     r8 |= (1 << n);\
     p_memory->write_byte(memptr, r8, clk);\
     time(19);
 
 #define SET_XS(n, r16){\
-        memptr = (signed char)p_memory->read_byte(pc - 2, clk);\
+        memptr = (signed char)p_memory->read_byte(pc - 2);\
         memptr += r16;\
-        unsigned char byte = p_memory->read_byte(memptr, clk);\
+        unsigned char byte = p_memory->read_byte(memptr);\
         byte |= (1 << n);\
         p_memory->write_byte(memptr, byte, clk);\
     }\
@@ -850,7 +850,7 @@
     time(4);
 
 #define RRD {\
-        unsigned char byte = p_memory->read_byte(hl, clk);\
+        unsigned char byte = p_memory->read_byte(hl);\
         p_memory->write_byte(hl, (a << 4) | (byte >> 4), clk);\
         a = (a & 0xF0) | (byte & 0x0F);\
     }\
@@ -859,7 +859,7 @@
     time(14);
 
 #define RLD {\
-        unsigned char byte = p_memory->read_byte(hl, clk);\
+        unsigned char byte = p_memory->read_byte(hl);\
         p_memory->write_byte(hl, (a & 0x0F) | (byte << 4), clk);\
         a = (a & 0xF0) | (byte >> 4);\
     }\
@@ -868,7 +868,7 @@
     time(14);
 
 #define LDI {\
-        unsigned char byte = p_memory->read_byte(hl++, clk);\
+        unsigned char byte = p_memory->read_byte(hl++);\
         p_memory->write_byte(de++, byte, clk);\
         f &= ~(NF | PF | F3 | HF | F5);\
         f |= ((byte + a) & F3) | (((byte + a) << 4) & F5);\
@@ -878,7 +878,7 @@
     time(12);
 
 #define CPI\
-    f = flag_cpb[a * 0x100 + p_memory->read_byte(hl++, clk)] | (f & CF);\
+    f = flag_cpb[a * 0x100 + p_memory->read_byte(hl++)] | (f & CF);\
     if (--bc)\
         f |= PF;\
     memptr++;\
@@ -898,7 +898,7 @@
     time(12);
 
 #define OUTI {\
-        unsigned char byte = p_memory->read_byte(hl++, clk);\
+        unsigned char byte = p_memory->read_byte(hl++);\
         unsigned char tmp = byte + l;\
         b--;\
         p_io->write(bc, byte, clk);\
@@ -912,7 +912,7 @@
     time(12);
 
 #define LDD {\
-        unsigned char byte = p_memory->read_byte(hl--, clk);\
+        unsigned char byte = p_memory->read_byte(hl--);\
         p_memory->write_byte(de--, byte, clk);\
         f &= ~(NF | PF | F3 | HF | F5);\
         f |= ((byte + a) & F3) | (((byte + a) << 4) & F5);\
@@ -923,7 +923,7 @@
 
 
 #define CPD \
-    f = flag_cpb[a * 0x100 + p_memory->read_byte(hl++, clk)] | (f & CF);\
+    f = flag_cpb[a * 0x100 + p_memory->read_byte(hl++)] | (f & CF);\
     if (--bc)\
         f |= PF;\
     memptr--;\
@@ -946,7 +946,7 @@
     b--;\
     memptr = bc - 1;\
     {\
-        unsigned char byte = p_memory->read_byte(hl--, clk);\
+        unsigned char byte = p_memory->read_byte(hl--);\
         unsigned char tmp = byte + l;\
         p_io->write(bc, byte, clk);\
         f = flag_sz53p[b] & ~PF;\
@@ -958,7 +958,7 @@
     time(12);
 
 #define LDIR {\
-        unsigned char byte = p_memory->read_byte(hl++, clk);\
+        unsigned char byte = p_memory->read_byte(hl++);\
         p_memory->write_byte(de++, byte, clk);\
         f &= ~(NF | PF | F3 | HF | F5);\
         f |= ((byte + a) & F3) | (((byte + a) << 4) & F5);\
@@ -973,7 +973,7 @@
     }
 
 #define CPIR \
-    f = flag_cpb[a * 0x100 + p_memory->read_byte(hl++, clk)] | (f & CF);\
+    f = flag_cpb[a * 0x100 + p_memory->read_byte(hl++)] | (f & CF);\
     if (--bc){\
         f |= PF;\
         if (!(f & ZF)){\
@@ -1006,7 +1006,7 @@
 #define OUTIR {\
         b--;\
         memptr = bc + 1;\
-        unsigned char byte = p_memory->read_byte(hl++, clk);\
+        unsigned char byte = p_memory->read_byte(hl++);\
         unsigned char tmp = byte + l;\
         p_io->write(bc, byte, clk);\
         f = flag_sz53p[b] & ~PF;\
@@ -1023,7 +1023,7 @@
     }
 
 #define LDDR {\
-        unsigned char byte = p_memory->read_byte(hl--, clk);\
+        unsigned char byte = p_memory->read_byte(hl--);\
         p_memory->write_byte(de--, byte, clk);\
         f &= ~(NF | PF | F3 | HF | F5);\
         f |= ((byte + a) & F3) | (((byte + a) << 4) & F5);\
@@ -1039,7 +1039,7 @@
 
 #define CPDR \
     memptr--;\
-    f = flag_cpb[a * 0x100 + p_memory->read_byte(hl++, clk)] | (f & CF);\
+    f = flag_cpb[a * 0x100 + p_memory->read_byte(hl++)] | (f & CF);\
     if (--bc){\
         f |= PF;\
         if (!(f & ZF)){\
@@ -1071,7 +1071,7 @@
 #define OUTDR {\
         b--;\
         memptr = bc - 1;\
-        unsigned char byte = p_memory->read_byte(hl--, clk);\
+        unsigned char byte = p_memory->read_byte(hl--);\
         unsigned char tmp = byte + l;\
         p_io->write(bc, byte, clk);\
         f = flag_sz53p[b] & ~PF;\

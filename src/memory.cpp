@@ -47,7 +47,7 @@ bool Memory::io_wr(unsigned short port, unsigned char byte, int clk){
     if (!(port & 0x8002)){ // 7FFD decoded if A2 and A15 is zero.
         if (p7FFD & P7FFD_LOCK)
             return true;
-        if (byte & P7FFD_ROM_48){
+        if (byte & P7FFD_ROM48){
             p_page_rd[0] = p_rom[ROM_48];
             p_page_ex[0] = p_trap[ROM_48];
         }else{

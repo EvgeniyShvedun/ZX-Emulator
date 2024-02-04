@@ -97,15 +97,15 @@ void Z80::interrupt(ULA *p_memory){
         return;
     iff1 = 0x00;
     irl++;
-    if (p_memory->read_byte(pc, clk) == 0x76) // HALT
+    if (p_memory->read_byte(pc) == 0x76) // HALT
         pc++;
     if (im < 2){
         memptr = 0x0038;
         time(13);
     }else{
         unsigned short vector = ir | 0xFF;
-        memptrl = p_memory->read_byte(vector++, clk);
-        memptrh = p_memory->read_byte(vector, clk);
+        memptrl = p_memory->read_byte(vector++);
+        memptrh = p_memory->read_byte(vector);
         time(19);
     }
     p_memory->write_byte(--sp, pch, clk);
@@ -141,7 +141,7 @@ void Z80::frame(ULA *p_memory, IO *p_io, int frame_clk){
         }
         #endif
         irl++;
-        switch (p_memory->read_byte_ex(pc++, clk)){
+        switch (p_memory->read_byte_ex(pc++)){
             case 0x00: // NOP
                 NOP;
                 break;
@@ -200,7 +200,7 @@ void Z80::frame(ULA *p_memory, IO *p_io, int frame_clk){
                 break;
             case 0x10: // DJNZ N
                 if (--b){
-                    pc += (signed char)p_memory->read_byte(pc, clk) + 1;
+                    pc += (signed char)p_memory->read_byte(pc) + 1;
 
                     memptr = pc;
                     time(13);
@@ -779,7 +779,7 @@ void Z80::frame(ULA *p_memory, IO *p_io, int frame_clk){
                 break;
             case 0xCB: // CB PREFIX
                 irl++;
-                switch(p_memory->read_byte(pc++, clk)){
+                switch(p_memory->read_byte_ex(pc++)){
                     case 0x00: // RLC B
                         RLC(b);
                         break;
@@ -1613,7 +1613,7 @@ void Z80::frame(ULA *p_memory, IO *p_io, int frame_clk){
             case 0xDD: // PREFIX DD (IX)
                 irl++;
                 time(4);
-                switch(p_memory->read_byte(pc++, clk)){
+                switch(p_memory->read_byte_ex(pc++)){
                     case 0x00: // NOP
                         NOP;
                         break;
@@ -1672,7 +1672,7 @@ void Z80::frame(ULA *p_memory, IO *p_io, int frame_clk){
                         break;
                     case 0x10: // DJNZ N
                         if (--b){
-                            pc += (signed char)p_memory->read_byte(pc, clk) + 1;
+                            pc += (signed char)p_memory->read_byte(pc) + 1;
                             memptr = pc;
                             time(13);
                         }else{
@@ -2245,7 +2245,7 @@ void Z80::frame(ULA *p_memory, IO *p_io, int frame_clk){
                         break;
                     case 0xCB: // --------------- DDCB PREFIX -------------- time set without DD prefix
                         pc++;
-                        switch(p_memory->read_byte(pc++, clk)){
+                        switch(p_memory->read_byte_ex(pc++)){
                             case 0x00: // RLC (IX + s), B
                                 RLC_XS_R(ix, b);
                                 break;
@@ -3125,7 +3125,7 @@ void Z80::frame(ULA *p_memory, IO *p_io, int frame_clk){
             case 0xED: // --------------- ED prefix ---------------
                 irl++;
                 time(4);
-                switch(p_memory->read_byte(pc++, clk)){
+                switch(p_memory->read_byte_ex(pc++)){
                     case 0x40: // IN B, (C)
                         IN_R_RR(b, bc);
                         break;
@@ -3403,7 +3403,7 @@ void Z80::frame(ULA *p_memory, IO *p_io, int frame_clk){
             case 0xFD: // PREFIY FD (IY)
                 irl++;
                 time(4);
-                switch(p_memory->read_byte(pc++, clk)){
+                switch(p_memory->read_byte_ex(pc++)){
                     case 0x00: // NOP
                         NOP;
                         break;
@@ -3462,7 +3462,7 @@ void Z80::frame(ULA *p_memory, IO *p_io, int frame_clk){
                         break;
                     case 0x10: // DJNZ N
                         if (--b){
-                            pc += (signed char)p_memory->read_byte(pc, clk) + 1;
+                            pc += (signed char)p_memory->read_byte(pc) + 1;
                             memptr = pc;
                             time(13);
                         }else{
@@ -4035,7 +4035,7 @@ void Z80::frame(ULA *p_memory, IO *p_io, int frame_clk){
                         break;
                     case 0xCB: // --------------- FDCB PREFIY -------------- time set without DD prefiy
                         pc++;
-                        switch(p_memory->read_byte(pc++, clk)){
+                        switch(p_memory->read_byte_ex(pc++)){
                             case 0x00: // RLC (IY + s), B
                                 RLC_XS_R(iy, b);
                                 break;

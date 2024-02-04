@@ -1,6 +1,5 @@
 #include <iostream>
 #include <cstddef>
-//#define SDL_WINDOW_HANDLED
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
 #include <GL/glew.h>
@@ -18,11 +17,14 @@
 #include "joystick.h"
 
 //#define FRAME_TIME
-//#define FPS
-//#define TIME_AVG
 //#define FRAME_LIMIT 10000
 
 using namespace std;
+
+#define START_MSG "ZX-Spectrum Emulator v1.1 by Evgeniy Shvedun 2006-2024.\n"
+#define EXIT_MSG "---\n"\
+                 "Facebook: https://www.facebook.com/profile.php?id=61555407730196\n"\
+                 "Github: https://github.com/EvgeniyShvedun/ZX-Emulator\n"
 
 bool loop_continue = true;
 bool window_active = true;
@@ -35,7 +37,6 @@ WD1793 *p_wd1793 = NULL;
 Tape *p_tape = NULL;
 KMouse *p_mouse = NULL;
 KJoystick *p_joystick = NULL;
-GLshort *p_ui_buffer = NULL;
 
 int window_width = SCREEN_WIDTH;
 int window_height = SCREEN_HEIGHT;
@@ -43,21 +44,14 @@ bool full_speed = false;
 SDL_Window *p_win = NULL;
 SDL_GLContext p_context = NULL;
 SDL_AudioDeviceID audio_device_id = 0;
-GLuint gProgramId = 0;
-GLuint gVertexShaderId = 0;
-GLuint gFragmentShaderId = 0;
-GLuint gVAOId = 0;
-GLuint gVBOId = 0;
-GLuint gPBOId = 0;
-GLuint textureId = 0;
+GLuint program = 0;
+GLuint vertex_shader = 0;
+GLuint fragment_shader = 0;
+GLuint vao = 0;
+GLuint vbo = 0;
+GLuint pbo = 0;
+GLuint texture = 0;
 GLfloat projection_matrix[16];
-
-void info(){
-    printf("ZX-Spectrum Emulator v1.1 by Evgeniy Shvedun 2006-2024.\n");
-    printf("_______________________________________________________________________\n");
-    printf("Facebook: https://www.facebook.com/profile.php?id=61555407730196\n");
-    printf("Github: https://github.com/EvgeniyShvedun/ZX-Emulator\n\n");
-}
 
 const GLchar *gVertexSrc[] = {
 	"#version 330\n"\
@@ -90,35 +84,31 @@ void free_all(){
     DELETE(p_tape);
     DELETE(p_joystick);
     DELETE(p_mouse);
-    DELETE_ARRAY(p_ui_buffer);
 
     // GL
     glUseProgram(0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
-    if (gVertexShaderId)
-        glDeleteShader(gVertexShaderId);
-    gVertexShaderId = 0;
-    if (gFragmentShaderId)
-        glDeleteShader(gFragmentShaderId);
-    gFragmentShaderId = 0;
-    if (gProgramId)
-        glDeleteProgram(gProgramId);
-    gProgramId = 0;
-    if (textureId)
-        glDeleteTextures(1, &textureId);
-    textureId = 0;
-    if (textureId)
-        glDeleteTextures(1, &textureId);
-    if (gVAOId)
-        glDeleteVertexArrays(1, &gVAOId);
-    gVAOId = 0;
-    if (gVBOId)
-        glDeleteBuffers(1, &gVBOId);
-    gVBOId = 0;
-	if (gPBOId)
-		glDeleteBuffers(1, &gPBOId);
-	gPBOId = 0;
-
+    if (vertex_shader)
+        glDeleteShader(vertex_shader);
+    vertex_shader = 0;
+    if (fragment_shader)
+        glDeleteShader(fragment_shader);
+    fragment_shader = 0;
+    if (program)
+        glDeleteProgram(program);
+    program = 0;
+    if (texture)
+        glDeleteTextures(1, &texture);
+    texture = 0;
+    if (vao)
+        glDeleteVertexArrays(1, &vao);
+    vao = 0;
+    if (vbo)
+        glDeleteBuffers(1, &vbo);
+    vbo = 0;
+	if (pbo)
+		glDeleteBuffers(1, &pbo);
+	pbo = 0;
     SDL_GL_DeleteContext(p_context);
     p_context = NULL;
     SDL_DestroyWindow(p_win);
@@ -133,11 +123,12 @@ void free_all(){
 int fatal_error(const char *p_msg){
     cout << p_msg << ".\n";
     free_all();
+    printf(EXIT_MSG);
     return -1;
 }
 
 int main(int argc, char **argv){
-    info();
+    printf(START_MSG);
     p_cfg = new Config(CONFIG_FILE);
     int scale = p_cfg->get("scale", 2, 1, 5);
     window_width = SCREEN_WIDTH * scale;
@@ -159,82 +150,6 @@ int main(int argc, char **argv){
     SDL_Surface* icon = IMG_Load("data/icon.png");
     SDL_SetWindowIcon(p_win, icon);
 
-    glViewport(0, 0, (GLsizei)window_width, (GLsizei)window_height);
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-    glOrtho(0, window_width, window_height, 0, 0, 1);
-    glMatrixMode(GL_MODELVIEW);
-    glLoadIdentity();
-
-    // Vertex shader.
-    GLint gSuccess = GL_FALSE;
-    gVertexShaderId = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(gVertexShaderId, 1, gVertexSrc, NULL);
-    glCompileShader(gVertexShaderId);
-    glGetShaderiv(gVertexShaderId, GL_COMPILE_STATUS, &gSuccess);
-    if (gSuccess != GL_TRUE)
-        return fatal_error("GL: Compile vertex shader");
-    // Fragment shader.
-    gFragmentShaderId = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(gFragmentShaderId, 1, gFragmentSrc, NULL);
-    glCompileShader(gFragmentShaderId);
-    glGetShaderiv(gFragmentShaderId, GL_COMPILE_STATUS, &gSuccess);
-    if (gSuccess != GL_TRUE){
-        return fatal_error("GL: Compile fragment shader");
-	}
-    // Link.
-    gProgramId = glCreateProgram();
-    glAttachShader(gProgramId, gVertexShaderId);
-    glAttachShader(gProgramId, gFragmentShaderId);
-    glLinkProgram(gProgramId);
-    glGetProgramiv(gProgramId, GL_LINK_STATUS, &gSuccess);
-    if (gSuccess != GL_TRUE)
-        return fatal_error("GL: Link shaders");
-    glDeleteShader(gVertexShaderId);
-    gVertexShaderId = 0;
-    glDeleteShader(gFragmentShaderId);
-    gFragmentShaderId = 0;
-
-    GLfloat vertex_data[4*4] = {
-        (GLfloat)window_width,  0.0f,                   1.0f,                   0.0f,
-        0.0f,                   0.0f,                   0.0f,                   0.0f,
-        0.0f,                   (GLfloat)window_height, 0.0f,                   1.0f,
-        (GLfloat)window_width,  (GLfloat)window_height, 1.0f,                   1.0f
-    };
-
-    glGenVertexArrays(1, &gVAOId);
-    glBindVertexArray(gVAOId);
-    glGenBuffers(1, &gVBOId);
-    glBindBuffer(GL_ARRAY_BUFFER, gVBOId);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertex_data), vertex_data, GL_STATIC_DRAW);
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(GLfloat) * 4, NULL);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(GLfloat) * 4, (void*)(2*sizeof(GLfloat)));
-    glEnableVertexAttribArray(1);
-
-    glGenTextures(1, &textureId);
-    glBindTexture(GL_TEXTURE_2D, textureId);
-    if (p_cfg->get_case_index("scale_filter", 0, regex(R"((nearest)|(linear))", regex_constants::icase)) == 0){
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    }else{
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    }
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA4, SCREEN_WIDTH, SCREEN_HEIGHT, 0, GL_RGBA, GL_UNSIGNED_SHORT_4_4_4_4, 0);
-
-	glGenBuffers(1, &gPBOId);
-	glBindBuffer(GL_PIXEL_UNPACK_BUFFER, gPBOId);
-    glBufferData(GL_PIXEL_UNPACK_BUFFER, SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(GLushort), 0, GL_STREAM_DRAW);
-
-    glUseProgram(gProgramId);
-    GLint projectionLocation = glGetUniformLocation(gProgramId, "projectionMatrix");
-    glGetFloatv(GL_PROJECTION_MATRIX, projection_matrix);
-    glUniformMatrix4fv(projectionLocation, 1, GL_FALSE, projection_matrix);
-
-	glDisable(GL_DEPTH_TEST);
 
     p_board = new Board(HW::SPECTRUM_128);
     p_keyboard = new Keyboard();
@@ -304,6 +219,80 @@ int main(int argc, char **argv){
         }
     }
 
+    glViewport(0, 0, (GLsizei)window_width, (GLsizei)window_height);
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    glOrtho(0, window_width, window_height, 0, 0, 1);
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+
+    // Vertex shader.
+    GLint gSuccess = GL_FALSE;
+    vertex_shader = glCreateShader(GL_VERTEX_SHADER);
+    glShaderSource(vertex_shader, 1, gVertexSrc, NULL);
+    glCompileShader(vertex_shader);
+    glGetShaderiv(vertex_shader, GL_COMPILE_STATUS, &gSuccess);
+    if (gSuccess != GL_TRUE)
+        return fatal_error("GL: Compile vertex shader");
+    // Fragment shader.
+    fragment_shader = glCreateShader(GL_FRAGMENT_SHADER);
+    glShaderSource(fragment_shader, 1, gFragmentSrc, NULL);
+    glCompileShader(fragment_shader);
+    glGetShaderiv(fragment_shader, GL_COMPILE_STATUS, &gSuccess);
+    if (gSuccess != GL_TRUE){
+        return fatal_error("GL: Compile fragment shader");
+	}
+    // Link.
+    program = glCreateProgram();
+    glAttachShader(program, vertex_shader);
+    glAttachShader(program, fragment_shader);
+    glLinkProgram(program);
+    glGetProgramiv(program, GL_LINK_STATUS, &gSuccess);
+    if (gSuccess != GL_TRUE)
+        return fatal_error("GL: Link shaders");
+    glDeleteShader(vertex_shader);
+    vertex_shader = 0;
+    glDeleteShader(fragment_shader);
+    fragment_shader = 0;
+
+    GLfloat vertex_data[4*4] = {
+        (GLfloat)window_width,  0.0f,                   1.0f,                   0.0f,
+        0.0f,                   0.0f,                   0.0f,                   0.0f,
+        0.0f,                   (GLfloat)window_height, 0.0f,                   1.0f,
+        (GLfloat)window_width,  (GLfloat)window_height, 1.0f,                   1.0f
+    };
+
+    glGenVertexArrays(1, &vao);
+    glBindVertexArray(vao);
+    glGenBuffers(1, &vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertex_data), vertex_data, GL_STATIC_DRAW);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(GLfloat) * 4, NULL);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(GLfloat) * 4, (void*)(2*sizeof(GLfloat)));
+    glEnableVertexAttribArray(1);
+
+    glGenTextures(1, &texture);
+    glBindTexture(GL_TEXTURE_2D, texture);
+    if (p_cfg->get_case_index("scale_filter", 0, regex(R"((nearest)|(linear))", regex_constants::icase)) == 0){
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    }else{
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB4, SCREEN_WIDTH, SCREEN_HEIGHT, 0, GL_RGBA, GL_UNSIGNED_SHORT_4_4_4_4, 0);
+
+	glGenBuffers(1, &pbo);
+
+    glUseProgram(program);
+    GLint projectionLocation = glGetUniformLocation(program, "projectionMatrix");
+    glGetFloatv(GL_PROJECTION_MATRIX, projection_matrix);
+    glUniformMatrix4fv(projectionLocation, 1, GL_FALSE, projection_matrix);
+
+	glDisable(GL_DEPTH_TEST);
 
 	// Audio
     SDL_AudioSpec wanted, have;
@@ -592,11 +581,61 @@ int main(int argc, char **argv){
             SDL_Delay(1);
             continue;
         }
-        p_board->frame();
-        glBindBuffer(GL_PIXEL_UNPACK_BUFFER, gPBOId);
+        /*
+        pbo_idx = (pbo_idx + 1) % 2;
+        // bind the texture and PBO
         glBindTexture(GL_TEXTURE_2D, textureId);
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, GL_RGBA, GL_UNSIGNED_SHORT_4_4_4_4, NULL);
-        glBufferData(GL_PIXEL_UNPACK_BUFFER, SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(GLushort), p_board->get_frame_buffer(), GL_STREAM_DRAW);
+        glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pbo[pbo_idx]);
+        // copy pixels from PBO to texture object
+        // Use offset instead of ponter.
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, GL_RGBA, GL_UNSIGNED_SHORT_5_5_5_1, NULL);
+        // bind PBO to update texture source
+        glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pbo[(pbo_idx + 1) % 2]);
+
+        // Note that glMapBuffer() causes sync issue.
+        // If GPU is working with this buffer, glMapBuffer() will wait(stall)
+        // until GPU to finish its job. To avoid waiting (idle), you can call
+        // first glBufferData() with NULL pointer before glMapBuffer().
+        // If you do that, the previous data in PBO will be discarded and
+        // glMapBuffer() returns a new allocated pointer immediately
+        // even if GPU is still working with the previous data.
+        glBufferData(GL_PIXEL_UNPACK_BUFFER, SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(GLushort), 0, GL_STREAM_DRAW);
+
+        // map the buffer object into client's memory
+        GLushort *buffer = (GLushort*)glMapBuffer(GL_PIXEL_UNPACK_BUFFER, GL_WRITE_ONLY);
+        if(buffer){
+            // update data directly on the mapped buffer
+            p_board->set_frame_buffer(buffer);
+            p_board->frame();
+            glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER); // release the mapped buffer
+        }else{
+            printf("Can't map buffer\n");
+        }
+
+        // it is good idea to release PBOs with ID 0 after use.
+        // Once bound with 0, all pixel operations are back to normal ways.
+        glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+        */
+
+
+
+        glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pbo);
+        glBufferData(GL_PIXEL_UNPACK_BUFFER, SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(GLushort), NULL, GL_STREAM_DRAW);
+        p_board->set_frame_buffer(glMapBuffer(GL_PIXEL_UNPACK_BUFFER, GL_WRITE_ONLY));
+        p_board->frame();
+        // after reading is complete back on the main thread
+        glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pbo);
+        glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, SCREEN_WIDTH, SCREEN_HEIGHT, 0, GL_RGBA, GL_UNSIGNED_SHORT_4_4_4_4, NULL);
+
+        /*
+        p_board->set_frame_buffer(frame_buffer);
+        p_board->frame();
+        glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pbo[0]);
+        glBindTexture(GL_TEXTURE_2D, textureId);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, GL_RGBA, GL_UNSIGNED_SHORT_5_5_5_1, NULL);
+        glBufferData(GL_PIXEL_UNPACK_BUFFER, SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(GLushort), frame_buffer, GL_STREAM_DRAW);
+        */
         glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
         SDL_GL_SwapWindow(p_win);
 
@@ -620,5 +659,6 @@ int main(int argc, char **argv){
 	printf("Frame time avg: %ld, frames: %d\n", time_all / frame_cnt / 100, frame_cnt);
 #endif
     free_all();
+    printf(EXIT_MSG);
     return 0;
 }

@@ -17,7 +17,7 @@ class Board : public IO {
         void reset();
         void load_rom(int id, const char *p_path){ ula.load_rom(id, p_path); };
         void load_z80(const char *p_path){ set_hw(snapshot.load_z80(p_path, &cpu, &ula, this)); };
-        unsigned short* get_frame_buffer() { return ula.get_frame_buffer() ; };
+        void set_frame_buffer(void *ptr) { ula.set_frame_buffer((GLushort*)ptr); };
         bool trdos_active() { return ula.trdos_active(); };
         void set_rom(int rom_id){ ula.set_rom(rom_id); };
         int frame_clk;

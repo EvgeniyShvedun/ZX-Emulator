@@ -1,3 +1,12 @@
+#include <iostream>
+#include <cstddef>
+#include <SDL2/SDL.h>
+#include <SDL2/SDL_image.h>
+#include <GL/glew.h>
+#include <GL/gl.h>
+#include <stdio.h>
+#include <stdarg.h>
+
 #include <cstddef>
 #include <stdio.h>
 #include <string.h>

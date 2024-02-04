@@ -1,65 +1,43 @@
-#define COLOR_DARK              200
-#define COLOR_BRIGHT            255
+// Color brightness mode level.
+#define LOW_BRIGHTNESS      0.85
+#define SCANLINE_CLK        224
+#define SCREENLINE_CLK      SCREEN_WIDTH/2
+// Visible screen
+#define SCREEN_START_CLK   ((SCANLINE_CLK * 20) + 10/2)
 
-#define SCREEN_LINE_CLK         224
-#define SCREEN_START_CLK        SCREEN_LINE_CLK * 56 + ((SCREEN_WIDTH - 256) / 2) / 2 + 26
+enum Type { Border, Paper };
 
-//#define SLOW_MEM_TEST
+struct Display { 
+    Type type;
+    int clk;
+    int pos;
+    int end;
+    int pixel;
+    int attrs;
+};
 
 class ULA : public Memory {
     public: 
-        enum Region { BORDER, PAPER };
-        struct Display { 
-	        Region region;
-	        int clk;
-            int end;
-            unsigned short *p_frame;
-	        int pixel;
-	        int attr;
-        };
         ULA();
-#ifdef SLOW_MEM_TEST
-        inline unsigned char read_byte_ex(unsigned short ptr, int clk){
-            unsigned char *p_base = p_page_ex[ptr >> 0x0E];
-            if (&p_base[ptr & 0x3FFF] == p_screen_page and display[idx].region == Region::PAPER and clk > display[idx].clk)
-                clk += clk - display[idx].clk % 6;
-            return p_base[ptr];
-        };
-        inline unsigned char read_byte(unsigned short ptr, int clk){
-            unsigned char *p_base = p_page_rd[ptr >> 0x0E];
-            if (&p_base[ptr & 0x3FFF] == p_screen_page and display[idx].region == Region::PAPER and clk > display[idx].clk)
-                clk += clk - display[idx].clk % 6;
-            return p_base[ptr];
-        };
-#else
-#endif
-        inline void write_byte(unsigned short ptr, unsigned char byte, int clk){
-            unsigned char *p_base = p_page_wr[ptr >> 0x0E];
-            //if (&p_base[ptr & 0x3FFF] == p_screen_page and display[idx].region == Region::PAPER and clk > display[idx].clk){
-                update(clk);
-#ifdef SLOW_MEM_TEST
-                clk += clk - display[idx].clk % 4;
-#endif
-            //}
-            //if (&p_base[ptr & ~0x3FFF] == p_screen_page)
-            p_base[ptr] = byte;
-        };
         void update(int clk);
-        void frame(int frame_clk);
+        void frame(int clk);
         void reset();
         bool io_wr(unsigned short port, unsigned char byte, int clk);
         bool io_rd(unsigned short port, unsigned char *p_byte, int clk);
-        unsigned short* get_frame_buffer(){ return frame_buffer; };
+        inline void set_frame_buffer(GLushort *ptr){ p_buffer = ptr; };
+        inline void write_byte(unsigned short ptr, unsigned char byte, int clk=0){
+            update(clk);
+            p_page_wr[ptr >> 0x0E][ptr] = byte;
+        }
     private:
-        void make_table();
-        unsigned short frame_buffer[SCREEN_WIDTH * SCREEN_HEIGHT];
-        unsigned short pixel_table[0x10000 * 8];
-        Display display[SCREEN_HEIGHT * 4];
-        unsigned short palette[0x10];
-        unsigned char *p_screen_page;
-        unsigned char pFE;
-        int idx;
-        int update_clk;
-        char flash_mask;
-        int frame_cnt;
+        Display display[SCREEN_HEIGHT*41];
+        GLushort pixel_table[0x10000*8];
+        GLushort *p_buffer = NULL;
+        GLushort palette[0x10];
+        unsigned char *p_page = NULL;
+        int update_clk = 0;
+        int frame_count = 0;
+        unsigned char flash_mask = 0x7F;
+        int idx = 0;
+        unsigned char pFE = 0x00;
 };

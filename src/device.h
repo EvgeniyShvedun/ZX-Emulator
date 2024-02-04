@@ -4,13 +4,11 @@ class Device {
     public:
         virtual ~Device(){};
 
-        virtual bool io_rd(unsigned short port, unsigned char *p_byte, int clk){ return false; };
+        virtual bool io_rd(unsigned short addr, unsigned char *byte, int clk){ return false; };
         virtual bool io_wr(unsigned short port, unsigned char byte, int clk){ return false; };
 
         virtual void reset(){};
         virtual void frame(int clk){};
-
-        virtual unsigned int* status_pic() { return NULL; };
 };
 
 class IO {
