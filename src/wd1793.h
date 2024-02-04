@@ -98,11 +98,4 @@ class WD1793 : public Device {
         Drive drive[4];
         Drive *p_drive;
         Board *p_board;
-#include "wd1793_status_pic.h"
-        unsigned int *p_status_pic[4] = {
-            NULL,
-            status_pic_motor_on,
-            status_pic_read_data, 
-            status_pic_write_data
-        };
 };

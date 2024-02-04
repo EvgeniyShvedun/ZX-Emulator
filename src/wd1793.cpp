@@ -354,18 +354,3 @@ bool WD1793::open_trd(int drive_idx, const char *p_file_path, bool write_protect
     DELETE_ARRAY(drive[drive_idx].p_data);
     return false;
 }
-
-unsigned int* WD1793::status_pic(){
-    FDC_STATUS status = p_drive->motor_on_clk < MOTOR_ON_CLK ? FDC_STATUS::MOTOR_ON : FDC_STATUS::UNKNOWN;
-    if (reg_status & ST_BUSY){
-        switch(reg_command >> 5){
-            case 0x04:
-                status = FDC_STATUS::READ_DATA;
-                break;
-            case 0x05:
-                status = FDC_STATUS::WRITE_DATA;
-                break;
-        }
-    }
-    return p_status_pic[status];
-}

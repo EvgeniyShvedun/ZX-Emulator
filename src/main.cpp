@@ -308,17 +308,12 @@ int main(int argc, char **argv){
         return fatal_error("SDL: Open audio device");
     SDL_PauseAudioDevice(audio_device_id, 0);
 
-    SDL_Event event;
 #ifdef FRAME_TIME
-    Uint64 time_start;
-    Uint64 time_all = 0;
+    Uint32 time_start = SDL_GetTicks();
 	int frame_cnt = 1;
 #endif
-
+    SDL_Event event;
     while (loop_continue){
-#ifdef FRAME_TIME
-    	time_start = SDL_GetPerformanceCounter();
-#endif
         while(SDL_PollEvent(&event)){
             switch(event.type){
                 case SDL_WINDOWEVENT:
@@ -617,8 +612,6 @@ int main(int argc, char **argv){
         glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
         */
 
-
-
         glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pbo);
         glBufferData(GL_PIXEL_UNPACK_BUFFER, SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(GLushort), NULL, GL_STREAM_DRAW);
         p_board->set_frame_buffer(glMapBuffer(GL_PIXEL_UNPACK_BUFFER, GL_WRITE_ONLY));
@@ -640,13 +633,9 @@ int main(int argc, char **argv){
         SDL_GL_SwapWindow(p_win);
 
 #ifdef FRAME_TIME
-		time_all += SDL_GetPerformanceCounter() - time_start;
-#ifdef FRAME_LIMIT
 		if (++frame_cnt > FRAME_LIMIT)
 			break;
-#endif
-#endif
-#ifndef FRAME_TIME
+#else
         if (!full_speed){
             unsigned int size = p_board->frame_clk * (p_sound->sample_rate / (float)Z80_FREQ) * 4;
             while (SDL_GetQueuedAudioSize(audio_device_id) > size)
@@ -656,7 +645,7 @@ int main(int argc, char **argv){
 #endif
     }
 #ifdef FRAME_TIME
-	printf("Frame time avg: %ld, frames: %d\n", time_all / frame_cnt / 100, frame_cnt);
+	printf("Time: %d for frames: %d\n", (SDL_GetTicks() - time_start), frame_cnt);
 #endif
     free_all();
     printf(EXIT_MSG);
