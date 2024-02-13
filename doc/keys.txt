@@ -1,14 +1,16 @@
-Cassete:
+Binded keys:
 
-F1 - Start play
-F2 - Stop play
+F2 - Open file dialog
+
+Cassete:
+F9  - Start play
+F10 - Stop play
+F10 - Rewind to start
 
 Reset:
-
 F5 - ROM 48
 F6 - ROM 128
 F7 - TRDOS 128 (if exist)
 
 Other:
-
-F12 - Maximal speed switc
+F12 - Maximal speed switch
