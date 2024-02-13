@@ -1,5 +1,4 @@
 #include "base.h"
-#include "joystick.h"
 
 KJoystick::KJoystick(){
     p1F = 0xC0;

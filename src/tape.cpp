@@ -1,5 +1,4 @@
 #include "base.h"
-#include "tape.h"
 
 Tape::Tape(){
     p_data = NULL;
@@ -43,6 +42,8 @@ void Tape::play(){
 }
 
 void Tape::rewind(int time_shift){
+    idx = 0;
+    play();
 }
 
 void Tape::stop(){

@@ -1,5 +1,4 @@
 #include "base.h"
-#include "mouse.h"
 
 KMouse::KMouse(){
     x_coord = 0;

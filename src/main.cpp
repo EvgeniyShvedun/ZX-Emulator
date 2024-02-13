@@ -1,33 +1,28 @@
-#include <iostream>
-#include <cstddef>
-#include <SDL2/SDL.h>
-#include <SDL2/SDL_image.h>
+#include "imgui.h"
+#include "imgui_impl_sdl2.h"
+#include "imgui_impl_opengl3.h"
+#include "ImGuiFileDialog.h"
+#include "ImGuiFileDialogConfig.h"
+#include <stdio.h>
+#include <SDL.h>
 #include <GL/glew.h>
 #include <GL/gl.h>
-#include <stdio.h>
-#include <stdarg.h>
-
 #include "base.h"
 #include "config.h"
-#include "keyboard.h"
-#include "sound.h"
-#include "wd1793.h"
-#include "tape.h"
-#include "mouse.h"
-#include "joystick.h"
-
-//#define FRAME_TIME
-//#define FRAME_LIMIT 10000
 
 using namespace std;
 
+#define TITLE "Sinclair Research 2024"
 #define START_MSG "ZX-Spectrum Emulator v1.1 by Evgeniy Shvedun 2006-2024.\n"
 #define EXIT_MSG "---\n"\
                  "Facebook: https://www.facebook.com/profile.php?id=61555407730196\n"\
                  "Github: https://github.com/EvgeniyShvedun/ZX-Emulator\n"
 
-bool loop_continue = true;
-bool window_active = true;
+//#define FRAME_TIME
+//#define FRAME_LIMIT 10000
+
+int window_width = SCREEN_WIDTH;
+int window_height = SCREEN_HEIGHT;
 
 Config *p_cfg = NULL;
 Board *p_board = NULL;
@@ -38,12 +33,11 @@ Tape *p_tape = NULL;
 KMouse *p_mouse = NULL;
 KJoystick *p_joystick = NULL;
 
-int window_width = SCREEN_WIDTH;
-int window_height = SCREEN_HEIGHT;
-bool full_speed = false;
-SDL_Window *p_win = NULL;
-SDL_GLContext p_context = NULL;
 SDL_AudioDeviceID audio_device_id = 0;
+
+
+SDL_Window *window = NULL;
+SDL_GLContext gl_context = NULL;
 GLuint program = 0;
 GLuint vertex_shader = 0;
 GLuint fragment_shader = 0;
@@ -52,9 +46,8 @@ GLuint vbo = 0;
 GLuint pbo = 0;
 GLuint texture = 0;
 GLfloat projection_matrix[16];
-
-const GLchar *gVertexSrc[] = {
-	"#version 330\n"\
+const GLchar *vertex_src[] = {
+    "#version 330\n"\
     "layout (location=0) in vec2 in_Position2D;\n"\
     "layout (location=1) in vec2 in_TextureCoord;\n"\
     "out vec2 ScreenCoord;\n"\
@@ -64,8 +57,8 @@ const GLchar *gVertexSrc[] = {
         "ScreenCoord = in_TextureCoord;\n"\
     "}"
 };
-
-const GLchar *gFragmentSrc[] = {
+     
+const GLchar *fragment_src[] = {
     "#version 330\n"\
     "in vec2 ScreenCoord;\n"\
     "uniform sampler2D ScreenTexture;\n"\
@@ -74,8 +67,13 @@ const GLchar *gFragmentSrc[] = {
     "}"
 };
 
-void free_all(){
-    loop_continue = false;
+GLushort *p_screen = NULL;
+
+void release_all(){
+    if (audio_device_id)
+        SDL_PauseAudioDevice(audio_device_id, 0);
+    audio_device_id = 0;
+
     DELETE(p_cfg);
     DELETE(p_board);
     DELETE(p_keyboard);
@@ -85,7 +83,6 @@ void free_all(){
     DELETE(p_joystick);
     DELETE(p_mouse);
 
-    // GL
     glUseProgram(0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     if (vertex_shader)
@@ -106,49 +103,157 @@ void free_all(){
     if (vbo)
         glDeleteBuffers(1, &vbo);
     vbo = 0;
-	if (pbo)
-		glDeleteBuffers(1, &pbo);
-	pbo = 0;
-    SDL_GL_DeleteContext(p_context);
-    p_context = NULL;
-    SDL_DestroyWindow(p_win);
-    p_win = NULL;
-    if (audio_device_id)
-        SDL_PauseAudioDevice(audio_device_id, 0);
-    audio_device_id = 0;
-    SDL_CloseAudio();
+    if (pbo)
+        glDeleteBuffers(1, &pbo);
+    pbo = 0;
+    SDL_GL_DeleteContext(gl_context);
+    SDL_DestroyWindow(window);
     SDL_Quit();
 }
 
-int fatal_error(const char *p_msg){
-    cout << p_msg << ".\n";
-    free_all();
-    printf(EXIT_MSG);
+int fatal_error(const char *msg){
+    printf("ERROR: %s\n", msg);
+    release_all();
     return -1;
 }
 
+void load_file(const char *ptr){
+    int len = strlen(ptr);
+    if (len > 4){
+        if ((!strcmp(ptr + len - 4, ".z80") or !strcmp(ptr + len - 4, ".Z80"))){
+            p_board->load_z80(ptr);
+        }else{
+            if (!strcmp(ptr + len - 4, ".tap") or !strcmp(ptr + len - 4, ".TAP")){
+                p_tape->load_tap(ptr);
+            }
+            if (!strcmp(ptr + len - 4, ".trd") or !strcmp(ptr + len - 4, ".TRD")){
+                p_wd1793->open_trd(0, ptr);
+            }
+        }
+    }
+}
+
 int main(int argc, char **argv){
+    bool loop = true;
+    bool active = true;
+    bool full_screen = false;
+    SDL_Event event;
+
     printf(START_MSG);
     p_cfg = new Config(CONFIG_FILE);
     int scale = p_cfg->get("scale", 2, 1, 5);
     window_width = SCREEN_WIDTH * scale;
     window_height = SCREEN_HEIGHT * scale;
 
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_GAMECONTROLLER | SDL_INIT_AUDIO | SDL_INIT_TIMER | SDL_INIT_JOYSTICK) != 0)
+        return fatal_error("SDL init");
+    const char* glsl_version = "#version 130";
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, 0);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_TIMER | SDL_INIT_JOYSTICK) != 0)
-        return fatal_error("SDL: Can't initialize");
-    p_win = SDL_CreateWindow(WINDOW_TITLE, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, window_width, window_height, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
-    if (!p_win)
-        return fatal_error("SDL: Create window");
-    p_context = SDL_GL_CreateContext(p_win);
-    if (!p_context)
-        return fatal_error("SDL: Create GL context");
+    SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
+    if (!(window = SDL_CreateWindow(TITLE, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, window_width, window_height, window_flags)))
+        return fatal_error("Create window");
+    gl_context = SDL_GL_CreateContext(window);
+    if (!gl_context)
+        return fatal_error("Create OpenGL context");
+    SDL_GL_MakeCurrent(window, gl_context);
     if (glewInit() != GLEW_OK)
-        return fatal_error("GLEW: Initialization");
-    SDL_GL_SetSwapInterval(0);
+        return fatal_error("glew init");
+    if (p_cfg->get_case_index("vsync", 0, regex(R"((yes)|(no))", regex_constants::icase)) == 0)
+        SDL_GL_SetSwapInterval(1); // Enable vsync
+    else
+        SDL_GL_SetSwapInterval(0);
 
-    SDL_Surface* icon = IMG_Load("data/icon.png");
-    SDL_SetWindowIcon(p_win, icon);
+
+    glViewport(0, 0, (GLsizei)window_width, (GLsizei)window_height);
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    glOrtho(0, window_width, window_height, 0, 0, 1);
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+
+
+    GLint gl_success = GL_FALSE;
+    vertex_shader = glCreateShader(GL_VERTEX_SHADER);
+    glShaderSource(vertex_shader, 1, vertex_src, NULL);
+    glCompileShader(vertex_shader);
+    glGetShaderiv(vertex_shader, GL_COMPILE_STATUS, &gl_success);
+    if (gl_success != GL_TRUE)
+        return fatal_error("GL: Compile vertex shader");
+    fragment_shader = glCreateShader(GL_FRAGMENT_SHADER);
+    glShaderSource(fragment_shader, 1, fragment_src, NULL);
+    glCompileShader(fragment_shader);
+    glGetShaderiv(fragment_shader, GL_COMPILE_STATUS, &gl_success);
+    if (gl_success != GL_TRUE)
+        return fatal_error("GL: Compile fragment shader");
+    program = glCreateProgram();
+    glAttachShader(program, vertex_shader);
+    glAttachShader(program, fragment_shader);
+    glLinkProgram(program);
+    glGetProgramiv(program, GL_LINK_STATUS, &gl_success);
+    if (gl_success != GL_TRUE)
+        return fatal_error("GL: Link shaders");
+    glDeleteShader(vertex_shader);
+    vertex_shader = 0;
+    glDeleteShader(fragment_shader);
+    fragment_shader = 0;
+
+
+
+
+GLfloat vertex_data[4*4] = {
+    (GLfloat)window_width,  0.0f,                   1.0f,                   0.0f,
+    0.0f,                   0.0f,                   0.0f,                   0.0f,
+    0.0f,                   (GLfloat)window_height, 0.0f,                   1.0f,
+    (GLfloat)window_width,  (GLfloat)window_height, 1.0f,                   1.0f
+};
+    
+    glGenVertexArrays(1, &vao);
+    glBindVertexArray(vao);
+    glGenBuffers(1, &vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertex_data), vertex_data, GL_STATIC_DRAW);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(GLfloat) * 4, NULL);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(GLfloat) * 4, (void*)(2*sizeof(GLfloat)));
+    glEnableVertexAttribArray(1);
+
+    glGenTextures(1, &texture);
+    glBindTexture(GL_TEXTURE_2D, texture);
+    if (p_cfg->get_case_index("scale_filter", 0, regex(R"((nearest)|(linear))", regex_constants::icase)) == 0){
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    }else{
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB4, SCREEN_WIDTH, SCREEN_HEIGHT, 0, GL_RGBA, GL_UNSIGNED_SHORT_4_4_4_4, 0);
+    glGenBuffers(1, &pbo);
+
+
+    glUseProgram(program);
+    GLint projectionLocation = glGetUniformLocation(program, "projectionMatrix");
+    glGetFloatv(GL_PROJECTION_MATRIX, projection_matrix);
+    glUniformMatrix4fv(projectionLocation, 1, GL_FALSE, projection_matrix);
+
+    // Setup Dear ImGui context
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO(); (void)io;
+    io.IniFilename = NULL;
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+    // Setup Dear ImGui style
+    ImGui::StyleColorsDark();
+    //ImGui::StyleColorsLight();
+    // Setup Platform/Renderer backends
+    ImGui_ImplSDL2_InitForOpenGL(window, gl_context);
+    ImGui_ImplOpenGL3_Init(glsl_version);
 
 
     p_board = new Board(HW::SPECTRUM_128);
@@ -203,98 +308,9 @@ int main(int argc, char **argv){
     if (p_cfg->exist("open_tap") && !p_tape->load_tap(p_cfg->get("open_tap").c_str()))
         cerr << "Loading tape file error: " << p_cfg->get("open_tap").c_str() << "'\n";
 
-    for (int i = 0; i < argc; i++){
-        int len = strlen(argv[i]);
-        if (len > 4){
-            if ((!strcmp(argv[i] + len - 4, ".z80") or !strcmp(argv[i] + len - 4, ".Z80"))){
-                p_board->load_z80(argv[i]);
-            }else{
-                if (!strcmp(argv[i] + len - 4, ".tap") or !strcmp(argv[i] + len - 4, ".TAP")){
-                    p_tape->load_tap(argv[i]);
-                }
-                if (!strcmp(argv[i] + len - 4, ".trd") or !strcmp(argv[i] + len - 4, ".TRD")){
-                    p_wd1793->open_trd(0, argv[i]);
-                }
-            }
-        }
-    }
-
-    glViewport(0, 0, (GLsizei)window_width, (GLsizei)window_height);
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-    glOrtho(0, window_width, window_height, 0, 0, 1);
-    glMatrixMode(GL_MODELVIEW);
-    glLoadIdentity();
-
-    // Vertex shader.
-    GLint gSuccess = GL_FALSE;
-    vertex_shader = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(vertex_shader, 1, gVertexSrc, NULL);
-    glCompileShader(vertex_shader);
-    glGetShaderiv(vertex_shader, GL_COMPILE_STATUS, &gSuccess);
-    if (gSuccess != GL_TRUE)
-        return fatal_error("GL: Compile vertex shader");
-    // Fragment shader.
-    fragment_shader = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(fragment_shader, 1, gFragmentSrc, NULL);
-    glCompileShader(fragment_shader);
-    glGetShaderiv(fragment_shader, GL_COMPILE_STATUS, &gSuccess);
-    if (gSuccess != GL_TRUE){
-        return fatal_error("GL: Compile fragment shader");
-	}
-    // Link.
-    program = glCreateProgram();
-    glAttachShader(program, vertex_shader);
-    glAttachShader(program, fragment_shader);
-    glLinkProgram(program);
-    glGetProgramiv(program, GL_LINK_STATUS, &gSuccess);
-    if (gSuccess != GL_TRUE)
-        return fatal_error("GL: Link shaders");
-    glDeleteShader(vertex_shader);
-    vertex_shader = 0;
-    glDeleteShader(fragment_shader);
-    fragment_shader = 0;
-
-    GLfloat vertex_data[4*4] = {
-        (GLfloat)window_width,  0.0f,                   1.0f,                   0.0f,
-        0.0f,                   0.0f,                   0.0f,                   0.0f,
-        0.0f,                   (GLfloat)window_height, 0.0f,                   1.0f,
-        (GLfloat)window_width,  (GLfloat)window_height, 1.0f,                   1.0f
-    };
-
-    glGenVertexArrays(1, &vao);
-    glBindVertexArray(vao);
-    glGenBuffers(1, &vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertex_data), vertex_data, GL_STATIC_DRAW);
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(GLfloat) * 4, NULL);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(GLfloat) * 4, (void*)(2*sizeof(GLfloat)));
-    glEnableVertexAttribArray(1);
-
-    glGenTextures(1, &texture);
-    glBindTexture(GL_TEXTURE_2D, texture);
-    if (p_cfg->get_case_index("scale_filter", 0, regex(R"((nearest)|(linear))", regex_constants::icase)) == 0){
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    }else{
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    }
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB4, SCREEN_WIDTH, SCREEN_HEIGHT, 0, GL_RGBA, GL_UNSIGNED_SHORT_4_4_4_4, 0);
-
-	glGenBuffers(1, &pbo);
-
-    glUseProgram(program);
-    GLint projectionLocation = glGetUniformLocation(program, "projectionMatrix");
-    glGetFloatv(GL_PROJECTION_MATRIX, projection_matrix);
-    glUniformMatrix4fv(projectionLocation, 1, GL_FALSE, projection_matrix);
-
-	glDisable(GL_DEPTH_TEST);
-
-	// Audio
+    for (int i = 0; i < argc; i++)
+        load_file(argv[i]);
+    // Audio
     SDL_AudioSpec wanted, have;
     SDL_zero(wanted);
     SDL_zero(have);
@@ -310,44 +326,67 @@ int main(int argc, char **argv){
 
 #ifdef FRAME_TIME
     Uint32 time_start = SDL_GetTicks();
-	int frame_cnt = 1;
+	int frame_cnt = 0;
 #endif
-    SDL_Event event;
-    while (loop_continue){
-        while(SDL_PollEvent(&event)){
+    bool full_speed = false;
+    bool show_ui = false;
+    IGFD::FileDialogConfig config = {.path = ".", .flags = ImGuiFileDialogFlags_Modal};
+    while (loop){
+        while (SDL_PollEvent(&event)){
+            if (show_ui)
+                ImGui_ImplSDL2_ProcessEvent(&event);
             switch(event.type){
+                case SDL_QUIT:
+                    loop = false;
+                    break;
                 case SDL_WINDOWEVENT:
-                    switch (event.window.event){
+                    switch(event.window.event){
                         case SDL_WINDOWEVENT_SHOWN:
-                            window_active = true;
-                            SDL_PauseAudioDevice(audio_device_id, 0);
+                            active = true;
                             break;
                         case SDL_WINDOWEVENT_HIDDEN:
-                            window_active = false;
-                            SDL_PauseAudioDevice(audio_device_id, 1);
+                            active = false;
+                            break;
+                        //case SDL_WINDOWEVENT_RESIZED:
+                        //    viewport_setup(event.window.data1, event.window.data2);
+                        //    break;
+                        case SDL_WINDOWEVENT_CLOSE:
+                            loop = false;
                             break;
                     }
-                    break;
-                case SDL_QUIT:
-                    loop_continue = false;
                     break;
                 case SDL_KEYDOWN:
                     if (event.key.repeat)
                         break;
                     switch(event.key.keysym.sym){
-                        case SDLK_F1:
-                            p_tape->play();
+                        case SDLK_RETURN:
+                            if (event.key.keysym.mod & KMOD_CTRL){
+                                if (full_screen)
+                                    SDL_SetWindowFullscreen(window, 0);
+                                else
+                                    SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN_DESKTOP);
+                                full_screen ^= true;
+                            }
+                            break;
+                        case SDLK_ESCAPE:
+                            if (show_ui){
+                                show_ui = false;
+                                break;
+                            }
+                            loop = false;
                             break;
                         case SDLK_F2:
+                            ImGuiFileDialog::Instance()->OpenDialog("ChooseFileDlgKey", "Choose File", ".z80;.sna;.tap;.trd {.z80,.sna,.tap,.trd}", config);
+                            show_ui = true;
+                            break;
+                        case SDLK_F9:
+                            p_tape->play();
+                            break;
+                        case SDLK_F10:
                             p_tape->stop();
                             break;
-                        case SDLK_F3:
-                            p_tape->rewind(-15);
-                            break;
-                        case SDLK_F4:
-                            p_tape->rewind(15);
-                            break;
                         case SDLK_F11:
+                            p_tape->rewind(-15000);
                             break;
                         case SDLK_F5:
                             p_board->set_rom(ROM_48);
@@ -371,9 +410,11 @@ int main(int argc, char **argv){
                         SDL_SetModState(KMOD_NONE);
                 case SDL_KEYUP:
                     switch(event.key.keysym.sym){
+                        /*
                         case SDLK_ESCAPE:
-                            loop_continue = false;
+                            loop = false;
                             break;
+                        */
                         case SDLK_UP: // SHIFT + 7
                             p_keyboard->set_btn_state(0xFEFE, 0x01, event.type == SDL_KEYDOWN);
                             p_keyboard->set_btn_state(0xEFFE, 0x08, event.type == SDL_KEYDOWN);
@@ -572,69 +613,44 @@ int main(int argc, char **argv){
                     break;
             }
         }
-        if (!window_active){
+        if (!active){
+            printf("SA@#@@\n");
             SDL_Delay(1);
             continue;
         }
-        /*
-        pbo_idx = (pbo_idx + 1) % 2;
-        // bind the texture and PBO
-        glBindTexture(GL_TEXTURE_2D, textureId);
-        glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pbo[pbo_idx]);
-        // copy pixels from PBO to texture object
-        // Use offset instead of ponter.
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, GL_RGBA, GL_UNSIGNED_SHORT_5_5_5_1, NULL);
-        // bind PBO to update texture source
-        glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pbo[(pbo_idx + 1) % 2]);
-
-        // Note that glMapBuffer() causes sync issue.
-        // If GPU is working with this buffer, glMapBuffer() will wait(stall)
-        // until GPU to finish its job. To avoid waiting (idle), you can call
-        // first glBufferData() with NULL pointer before glMapBuffer().
-        // If you do that, the previous data in PBO will be discarded and
-        // glMapBuffer() returns a new allocated pointer immediately
-        // even if GPU is still working with the previous data.
-        glBufferData(GL_PIXEL_UNPACK_BUFFER, SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(GLushort), 0, GL_STREAM_DRAW);
-
-        // map the buffer object into client's memory
-        GLushort *buffer = (GLushort*)glMapBuffer(GL_PIXEL_UNPACK_BUFFER, GL_WRITE_ONLY);
-        if(buffer){
-            // update data directly on the mapped buffer
-            p_board->set_frame_buffer(buffer);
-            p_board->frame();
-            glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER); // release the mapped buffer
-        }else{
-            printf("Can't map buffer\n");
-        }
-
-        // it is good idea to release PBOs with ID 0 after use.
-        // Once bound with 0, all pixel operations are back to normal ways.
-        glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
-        */
-
         glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pbo);
         glBufferData(GL_PIXEL_UNPACK_BUFFER, SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(GLushort), NULL, GL_STREAM_DRAW);
         p_board->set_frame_buffer(glMapBuffer(GL_PIXEL_UNPACK_BUFFER, GL_WRITE_ONLY));
         p_board->frame();
         // after reading is complete back on the main thread
-        glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pbo);
         glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, SCREEN_WIDTH, SCREEN_HEIGHT, 0, GL_RGBA, GL_UNSIGNED_SHORT_4_4_4_4, NULL);
-
-        /*
-        p_board->set_frame_buffer(frame_buffer);
-        p_board->frame();
-        glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pbo[0]);
-        glBindTexture(GL_TEXTURE_2D, textureId);
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, GL_RGBA, GL_UNSIGNED_SHORT_5_5_5_1, NULL);
-        glBufferData(GL_PIXEL_UNPACK_BUFFER, SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(GLushort), frame_buffer, GL_STREAM_DRAW);
-        */
         glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
-        SDL_GL_SwapWindow(p_win);
+
+        if (show_ui){
+            ImGui_ImplOpenGL3_NewFrame();
+            ImGui_ImplSDL2_NewFrame();
+            ImGui::NewFrame();
+            ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x*0.15, io.DisplaySize.y*0.25), ImGuiCond_Once);
+            ImGui::SetNextWindowSize(ImVec2(io.DisplaySize.x*0.7, io.DisplaySize.y*0.5), ImGuiCond_Once);
+            ImGui::SetNextWindowBgAlpha(0.85f);
+            if (ImGuiFileDialog::Instance()->Display("ChooseFileDlgKey", ImGuiWindowFlags_None, ImVec2(io.DisplaySize.x*0.25, io.DisplaySize.y*0.25))){
+                if (ImGuiFileDialog::Instance()->IsOk()){
+                    std::string filePathName = ImGuiFileDialog::Instance()->GetFilePathName();
+                    std::string filePath = ImGuiFileDialog::Instance()->GetCurrentPath();
+                    load_file(filePathName.c_str());
+                }
+                ImGuiFileDialog::Instance()->Close();
+                show_ui = false;
+            }
+            ImGui::Render();
+            ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+        }
+        SDL_GL_SwapWindow(window);
 
 #ifdef FRAME_TIME
 		if (++frame_cnt > FRAME_LIMIT)
-			break;
+            break;
 #else
         if (!full_speed){
             unsigned int size = p_board->frame_clk * (p_sound->sample_rate / (float)Z80_FREQ) * 4;
@@ -647,7 +663,7 @@ int main(int argc, char **argv){
 #ifdef FRAME_TIME
 	printf("Time: %d for frames: %d\n", (SDL_GetTicks() - time_start), frame_cnt);
 #endif
-    free_all();
     printf(EXIT_MSG);
+    release_all();
     return 0;
 }

@@ -1,5 +1,4 @@
 #include "base.h"
-#include "keyboard.h"
 
 bool Keyboard::io_rd(unsigned short port, unsigned char *p_byte, int clk){
     if (!(port & 0x01)){

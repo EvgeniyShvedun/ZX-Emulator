@@ -166,11 +166,11 @@ HW Snapshot::load_z80(const char *p_path, Z80 *p_cpu, Memory *p_memory, IO *p_io
                 p_pages[3] = NULL;
                 page_offset = 0;
                 rle_decode(p_pages, &page_offset, &p_data[idx], file_size - idx);
-                memory_dump(p_memory->page(5), 0x4000, 0x4000, 0x10);
+                //memory_dump(p_memory->page(5), 0x4000, 0x4000, 0x10);
                 printf("\n");
-                memory_dump(p_memory->page(2), 0x8000, 0x4000, 0x10);
+                //memory_dump(p_memory->page(2), 0x8000, 0x4000, 0x10);
                 printf("\n");
-                memory_dump(p_memory->page(0), 0xC000, 0x4000, 0x10);
+                //memory_dump(p_memory->page(0), 0xC000, 0x4000, 0x10);
                 printf("\n");
             }else{
                 memcpy(p_memory->page(5), &p_data[idx], 0x4000);

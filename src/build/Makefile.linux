@@ -1,24 +1,27 @@
-#
 # Build for Linux
 # Require: -lSDL2 -lSDL2_image -lGLEW -lGLU -lGL
 #
 
-CXX		:= c++
+CXX 		:= c++
 SDLCFG		:= sdl2-config
-CXXFLAGS	:= -O -fomit-frame-pointer -pipe -Wall $(shell $(SDLCFG) --cflags)
+INCLUDE     := -I./build/imgui -I./build/imgui/backends -I./build/ImGuiFileDialog $(shell $(SDLCFG) --cflags)
+CXXFLAGS	:= -O -fomit-frame-pointer -pipe -Wall $(INCLUDE)
 LDFLAGS		:= -lGLEW -lGLU -lGL -lSDL2_image $(shell $(SDLCFG) --libs)
 SRCDIR		:= .
 OBJDIR		:= ./build/obj/linux
 TARGET		:= ../emulator
-SRC		= $(wildcard $(SRCDIR)/*.cpp)
-OBJ		= $(patsubst $(SRCDIR)/%.cpp,$(OBJDIR)/%.o,$(SRC))
+SRC		    = $(wildcard $(SRCDIR)/*.cpp) build/imgui/imgui.cpp build/imgui/imgui_tables.cpp build/imgui/imgui_widgets.cpp \
+            build/imgui/backends/imgui_impl_sdl2.cpp build/imgui/backends/imgui_impl_opengl3.cpp \
+            build/imgui/imgui_draw.cpp \
+            build/ImGuiFileDialog/ImGuiFileDialog.cpp
+OBJ		    = $(patsubst $(SRCDIR)/%.cpp,$(OBJDIR)/%.o,$(SRC))
 
 $(TARGET): $(OBJ)
-	$(CXX) $^ ${LDFLAGS} -o $@
+	$(CXX) $^ $(LDFLAGS) $(INCLUDE) -o $@
 
 $(OBJDIR)/%.o: $(SRCDIR)/%.cpp
 	@mkdir -p $(@D)
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+	$(CXX) $(CXXFLAGS) $(INCLUDE) -c $< -o $@
 
 all: $(OBJ)
 
