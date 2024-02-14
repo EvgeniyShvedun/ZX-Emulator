@@ -23,6 +23,7 @@ using namespace std;
 
 int window_width = SCREEN_WIDTH;
 int window_height = SCREEN_HEIGHT;
+bool window_resized = false;
 
 Config *p_cfg = NULL;
 Board *p_board = NULL;
@@ -35,7 +36,6 @@ KJoystick *p_joystick = NULL;
 
 SDL_AudioDeviceID audio_device_id = 0;
 
-
 SDL_Window *window = NULL;
 SDL_GLContext gl_context = NULL;
 GLuint program = 0;
@@ -45,7 +45,9 @@ GLuint vao = 0;
 GLuint vbo = 0;
 GLuint pbo = 0;
 GLuint texture = 0;
+GLfloat vertex_data[4*4];
 GLfloat projection_matrix[16];
+
 const GLchar *vertex_src[] = {
     "#version 330\n"\
     "layout (location=0) in vec2 in_Position2D;\n"\
@@ -66,6 +68,47 @@ const GLchar *fragment_src[] = {
         "gl_FragColor = texture(ScreenTexture, ScreenCoord);\n"\
     "}"
 };
+
+void viewport_setup(int width, int height){
+    if (width < SCREEN_WIDTH)
+        width = SCREEN_WIDTH;
+    if (height < SCREEN_HEIGHT)
+        height = SCREEN_HEIGHT;
+
+    window_width = width;
+    window_height = height;
+
+    glViewport(0, 0, (GLsizei)width, (GLsizei)height);
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    glOrtho(0, width, height, 0, 0, 1);
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+
+    GLfloat *p_data = vertex_data;
+
+    *p_data++ = (GLfloat)width;
+    *p_data++ = 0.0f;
+    *p_data++ = 1.0f;
+    *p_data++ = 0.0f;
+
+    *p_data++ = 0.0f;
+    *p_data++ = 0.0f;
+    *p_data++ = 0.0f;
+    *p_data++ = 0.0f;
+
+    *p_data++ = 0.0f;
+    *p_data++ = (GLfloat)height;
+    *p_data++ = 0.0f;
+    *p_data++ = 1.0f;
+
+    *p_data++ = (GLfloat)width;
+    *p_data++ = (GLfloat)height;
+    *p_data++ = 1.0f;
+    *p_data++ = 1.0f;
+    SDL_SetWindowSize(window, width, height);
+    window_resized = true;
+}
 
 GLushort *p_screen = NULL;
 
@@ -145,8 +188,16 @@ int main(int argc, char **argv){
     window_width = SCREEN_WIDTH * scale;
     window_height = SCREEN_HEIGHT * scale;
 
-    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_GAMECONTROLLER | SDL_INIT_AUDIO | SDL_INIT_TIMER | SDL_INIT_JOYSTICK) != 0)
+    //if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_GAMECONTROLLER | SDL_INIT_AUDIO | SDL_INIT_TIMER | SDL_INIT_JOYSTICK) != 0)
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_AUDIO | SDL_INIT_JOYSTICK))
         return fatal_error("SDL init");
+    if (SDL_NumJoysticks()){
+        SDL_JoystickOpen(0);
+        SDL_JoystickEventState(SDL_ENABLE);
+        //if ( SDL_GameControllerAddMappingsFromFile("data/gamepad_mappings.db")== -1)
+        //    printf("SDL ERROR: %s\n", SDL_GetError());
+    }
+
     const char* glsl_version = "#version 130";
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, 0);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
@@ -167,15 +218,9 @@ int main(int argc, char **argv){
     else
         SDL_GL_SetSwapInterval(0);
 
-
-    glViewport(0, 0, (GLsizei)window_width, (GLsizei)window_height);
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-    glOrtho(0, window_width, window_height, 0, 0, 1);
-    glMatrixMode(GL_MODELVIEW);
-    glLoadIdentity();
-
-
+    SDL_SetWindowMinimumSize(window, SCREEN_WIDTH, SCREEN_HEIGHT);
+    viewport_setup(window_width, window_height);
+    
     GLint gl_success = GL_FALSE;
     vertex_shader = glCreateShader(GL_VERTEX_SHADER);
     glShaderSource(vertex_shader, 1, vertex_src, NULL);
@@ -200,17 +245,11 @@ int main(int argc, char **argv){
     vertex_shader = 0;
     glDeleteShader(fragment_shader);
     fragment_shader = 0;
+    glUseProgram(program);
+    GLint projectionLocation = glGetUniformLocation(program, "projectionMatrix");
+    glGetFloatv(GL_PROJECTION_MATRIX, projection_matrix);
+    glUniformMatrix4fv(projectionLocation, 1, GL_FALSE, projection_matrix);
 
-
-
-
-GLfloat vertex_data[4*4] = {
-    (GLfloat)window_width,  0.0f,                   1.0f,                   0.0f,
-    0.0f,                   0.0f,                   0.0f,                   0.0f,
-    0.0f,                   (GLfloat)window_height, 0.0f,                   1.0f,
-    (GLfloat)window_width,  (GLfloat)window_height, 1.0f,                   1.0f
-};
-    
     glGenVertexArrays(1, &vao);
     glBindVertexArray(vao);
     glGenBuffers(1, &vbo);
@@ -235,12 +274,6 @@ GLfloat vertex_data[4*4] = {
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB4, SCREEN_WIDTH, SCREEN_HEIGHT, 0, GL_RGBA, GL_UNSIGNED_SHORT_4_4_4_4, 0);
     glGenBuffers(1, &pbo);
 
-
-    glUseProgram(program);
-    GLint projectionLocation = glGetUniformLocation(program, "projectionMatrix");
-    glGetFloatv(GL_PROJECTION_MATRIX, projection_matrix);
-    glUniformMatrix4fv(projectionLocation, 1, GL_FALSE, projection_matrix);
-
     // Setup Dear ImGui context
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
@@ -258,8 +291,6 @@ GLfloat vertex_data[4*4] = {
 
     p_board = new Board(HW::SPECTRUM_128);
     p_keyboard = new Keyboard();
-
-    
 	p_sound = new Sound(
         p_cfg->get("sample_rate", AUDIO_RATE, 22050, 192100),
         (Sound::MODE)p_cfg->get_case_index("ay_mixer_mode", Sound::MODE::ACB, regex(R"((mono)|(abc)|(acb))", regex_constants::icase)),
@@ -274,12 +305,12 @@ GLfloat vertex_data[4*4] = {
     p_mouse = new KMouse();
     p_joystick = new KJoystick();
 
-    p_joystick->config(p_cfg->get("joy_left", 15, -1000, 1000), JOY_LEFT);
-    p_joystick->config(p_cfg->get("joy_right", 13, -1000, 1000), JOY_RIGHT);
-    p_joystick->config(p_cfg->get("joy_down", 14, -1000, 1000), JOY_DOWN);
-    p_joystick->config(p_cfg->get("joy_up", 12, -1000, 1000), JOY_UP);
-    p_joystick->config(p_cfg->get("joy_a", 3, -1000, 1000), JOY_A);
-    p_joystick->config(p_cfg->get("joy_b", 1, -1000, 1000), JOY_B);
+    p_joystick->map(JOY_LEFT, p_cfg->get("joy_left", 15, 0, 1000));
+    p_joystick->map(JOY_RIGHT, p_cfg->get("joy_right", 13, 0, 1000));
+    p_joystick->map(JOY_DOWN, p_cfg->get("joy_down", 14, 0, 1000));
+    p_joystick->map(JOY_UP, p_cfg->get("joy_up", 12, 0, 1000));
+    p_joystick->map(JOY_A, p_cfg->get("joy_a", 3, 0, 1000));
+    p_joystick->map(JOY_B, p_cfg->get("joy_b", 1, 0, 1000));
 
 
     if (p_cfg->exist("disk_a") && !p_wd1793->open_trd(0, p_cfg->get("disk_a").c_str()))
@@ -295,12 +326,12 @@ GLfloat vertex_data[4*4] = {
     p_board->load_rom(ROM_128, p_cfg->get("rom_128", "data/rom/128.rom").c_str());
     p_board->load_rom(ROM_48, p_cfg->get("rom_48", "data/rom/48.rom").c_str());
 
-    p_board->add_device(p_tape);
     p_board->add_device(p_sound);
     p_board->add_device(p_wd1793);
+    p_board->add_device(p_mouse);
+    p_board->add_device(p_tape);
     p_board->add_device(p_keyboard);
     p_board->add_device(p_joystick);
-    p_board->add_device(p_mouse);
 
     p_board->set_rom(ROM_128);
 
@@ -333,12 +364,13 @@ GLfloat vertex_data[4*4] = {
     IGFD::FileDialogConfig config = {.path = ".", .flags = ImGuiFileDialogFlags_Modal};
     while (loop){
         while (SDL_PollEvent(&event)){
+            if (event.type == SDL_QUIT){
+                loop = false;
+                break;
+            }
             if (show_ui)
                 ImGui_ImplSDL2_ProcessEvent(&event);
             switch(event.type){
-                case SDL_QUIT:
-                    loop = false;
-                    break;
                 case SDL_WINDOWEVENT:
                     switch(event.window.event){
                         case SDL_WINDOWEVENT_SHOWN:
@@ -347,9 +379,11 @@ GLfloat vertex_data[4*4] = {
                         case SDL_WINDOWEVENT_HIDDEN:
                             active = false;
                             break;
-                        //case SDL_WINDOWEVENT_RESIZED:
-                        //    viewport_setup(event.window.data1, event.window.data2);
-                        //    break;
+                        case SDL_WINDOWEVENT_RESIZED:
+                            break;
+                        case SDL_WINDOWEVENT_SIZE_CHANGED:
+                            viewport_setup(event.window.data1, event.window.data2);
+                            break;
                         case SDL_WINDOWEVENT_CLOSE:
                             loop = false;
                             break;
@@ -366,6 +400,8 @@ GLfloat vertex_data[4*4] = {
                                 else
                                     SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN_DESKTOP);
                                 full_screen ^= true;
+                                SDL_GetWindowSize(window, &window_width, &window_height);
+                                viewport_setup(window_width, window_height);
                             }
                             break;
                         case SDLK_ESCAPE:
@@ -405,16 +441,13 @@ GLfloat vertex_data[4*4] = {
                         case SDLK_F12:
                             full_speed ^= true;
                             break;
+                        default:
+                            if (event.key.keysym.mod & (KMOD_NUM | KMOD_CAPS))
+                                SDL_SetModState(KMOD_NONE);
+                            break;
                     }
-                    if (event.key.keysym.mod & (KMOD_NUM | KMOD_CAPS))
-                        SDL_SetModState(KMOD_NONE);
                 case SDL_KEYUP:
                     switch(event.key.keysym.sym){
-                        /*
-                        case SDLK_ESCAPE:
-                            loop = false;
-                            break;
-                        */
                         case SDLK_UP: // SHIFT + 7
                             p_keyboard->set_btn_state(0xFEFE, 0x01, event.type == SDL_KEYDOWN);
                             p_keyboard->set_btn_state(0xEFFE, 0x08, event.type == SDL_KEYDOWN);
@@ -593,11 +626,50 @@ GLfloat vertex_data[4*4] = {
                             break;
                     }
                     break;
+                case SDL_JOYHATMOTION:
+                    switch (event.jhat.value){
+                        case SDL_HAT_LEFT:
+                            p_joystick->set_state(JOY_LEFT, true);
+                            p_joystick->set_state(JOY_RIGHT | JOY_UP | JOY_DOWN, false);
+                            break;
+                        case SDL_HAT_LEFTUP:
+                            p_joystick->set_state(JOY_LEFT | JOY_UP, true);
+                            p_joystick->set_state(JOY_RIGHT | JOY_DOWN, false);
+                            break;
+                        case SDL_HAT_LEFTDOWN:
+                            p_joystick->set_state(JOY_LEFT | JOY_DOWN, true);
+                            p_joystick->set_state(JOY_RIGHT | JOY_UP, false);
+                            break;
+                        case SDL_HAT_RIGHT:
+                            p_joystick->set_state(JOY_RIGHT, true);
+                            p_joystick->set_state(JOY_LEFT | JOY_UP | JOY_DOWN, false);
+                            break;
+                        case SDL_HAT_RIGHTUP:
+                            p_joystick->set_state(JOY_RIGHT | JOY_UP, true);
+                            p_joystick->set_state(JOY_LEFT | JOY_DOWN, false);
+                            break;
+                        case SDL_HAT_RIGHTDOWN:
+                            p_joystick->set_state(JOY_RIGHT | JOY_DOWN, true);
+                            p_joystick->set_state(JOY_LEFT | JOY_UP, false);
+                            break;
+                        case SDL_HAT_UP:
+                            p_joystick->set_state(JOY_UP, true);
+                            p_joystick->set_state(JOY_LEFT | JOY_RIGHT | JOY_DOWN, false);
+                            break;
+                        case SDL_HAT_DOWN:
+                            p_joystick->set_state(JOY_DOWN, true);
+                            p_joystick->set_state(JOY_LEFT | JOY_RIGHT | JOY_UP, false);
+                            break;
+                        case SDL_HAT_CENTERED:
+                            p_joystick->set_state(JOY_LEFT | JOY_RIGHT | JOY_UP | JOY_DOWN, false);
+                            break;
+                    }
+                    break;
                 case SDL_JOYBUTTONDOWN:
-                    p_joystick->button(event.jbutton.button, true);
+                    p_joystick->gamepad_event(event.jbutton.button, true);
                     break;
                 case SDL_JOYBUTTONUP:
-                    p_joystick->button(event.jbutton.button, false);
+                    p_joystick->gamepad_event(event.jbutton.button, false);
                     break;
                 case SDL_MOUSEMOTION:
                     p_mouse->motion(event.motion.xrel, event.motion.yrel);
@@ -614,15 +686,13 @@ GLfloat vertex_data[4*4] = {
             }
         }
         if (!active){
-            printf("SA@#@@\n");
-            SDL_Delay(1);
+            SDL_Delay(100);
             continue;
         }
         glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pbo);
         glBufferData(GL_PIXEL_UNPACK_BUFFER, SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(GLushort), NULL, GL_STREAM_DRAW);
         p_board->set_frame_buffer(glMapBuffer(GL_PIXEL_UNPACK_BUFFER, GL_WRITE_ONLY));
         p_board->frame();
-        // after reading is complete back on the main thread
         glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, SCREEN_WIDTH, SCREEN_HEIGHT, 0, GL_RGBA, GL_UNSIGNED_SHORT_4_4_4_4, NULL);
         glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
@@ -631,10 +701,10 @@ GLfloat vertex_data[4*4] = {
             ImGui_ImplOpenGL3_NewFrame();
             ImGui_ImplSDL2_NewFrame();
             ImGui::NewFrame();
-            ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x*0.15, io.DisplaySize.y*0.25), ImGuiCond_Once);
-            ImGui::SetNextWindowSize(ImVec2(io.DisplaySize.x*0.7, io.DisplaySize.y*0.5), ImGuiCond_Once);
+            ImGui::SetNextWindowPos(ImVec2(window_width*0.15, window_height*0.25), window_resized ? ImGuiCond_Always : ImGuiCond_Once);
+            ImGui::SetNextWindowSize(ImVec2(window_width*0.7, window_height*0.5), window_resized ? ImGuiCond_Always : ImGuiCond_Once);
             ImGui::SetNextWindowBgAlpha(0.85f);
-            if (ImGuiFileDialog::Instance()->Display("ChooseFileDlgKey", ImGuiWindowFlags_None, ImVec2(io.DisplaySize.x*0.25, io.DisplaySize.y*0.25))){
+            if (ImGuiFileDialog::Instance()->Display("ChooseFileDlgKey", ImGuiWindowFlags_None, ImVec2(window_width*0.25, window_height*0.25))){
                 if (ImGuiFileDialog::Instance()->IsOk()){
                     std::string filePathName = ImGuiFileDialog::Instance()->GetFilePathName();
                     std::string filePath = ImGuiFileDialog::Instance()->GetCurrentPath();
@@ -646,6 +716,7 @@ GLfloat vertex_data[4*4] = {
             ImGui::Render();
             ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
         }
+        window_resized = false;
         SDL_GL_SwapWindow(window);
 
 #ifdef FRAME_TIME
@@ -655,7 +726,7 @@ GLfloat vertex_data[4*4] = {
         if (!full_speed){
             unsigned int size = p_board->frame_clk * (p_sound->sample_rate / (float)Z80_FREQ) * 4;
             while (SDL_GetQueuedAudioSize(audio_device_id) > size)
-                SDL_Delay(1);
+                SDL_Delay(10);
             SDL_QueueAudio(audio_device_id, p_sound->p_sound, size);
         }
 #endif

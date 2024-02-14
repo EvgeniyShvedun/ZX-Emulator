@@ -1093,7 +1093,6 @@ class Z80 {
         void reset();
         void frame(ULA *p_memory, IO *p_io, int frame_clk);
         void interrupt(ULA *p_memory);
-
         void NMI();
 
         Reg88(b, c)
@@ -1111,15 +1110,14 @@ class Z80 {
         Reg16(ir)
         Reg16(ix)
         Reg16(iy)
-        Reg16(memptr)               // Undocumented.
+        Reg16(memptr)               // Internal
 
-        int clk;                    // Instructon clock state.
+        int clk;
         unsigned char im;           // Interrupt mode.
-        unsigned char iff1;         // Interrupts is enabled.
-        unsigned char iff2;         // Save's iff1 when NMI active.
-        unsigned char r8bit;        // Eight bit of the R register.
+        unsigned char iff1;         // Int is enabled.
+        unsigned char iff2;         // Save's iff1 while NMI.
+        unsigned char r8bit;        // 8 bbt of the R.
     protected:
-
         unsigned char flag_inc[0x100];
         unsigned char flag_dec[0x100];
         unsigned char flag_parity[0x100];
@@ -1129,6 +1127,6 @@ class Z80 {
         unsigned char flag_cp[0x10000];
         unsigned char flag_cpb[0x10000];
 #ifdef DEBUG
-        bool trace = false;
+        bool trace = true;
 #endif
 };

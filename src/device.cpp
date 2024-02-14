@@ -31,7 +31,10 @@ void IO::reset(){
 }
 
 void IO::add_device(Device *p_device){
-    if (device_idx > DEVICE_MAX)
+    if (device_idx > DEVICE_MAX -1)
         throw;
-    p_devices[device_idx++] = p_device;
+    if (device_idx)
+        p_devices[device_idx] = p_devices[0];
+    p_devices[0] = p_device;
+    device_idx++;
 }

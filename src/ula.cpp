@@ -133,10 +133,11 @@ bool ULA::io_wr(unsigned short addr, unsigned char byte, int clk){
 }
 
 bool ULA::io_rd(unsigned short addr, unsigned char *p_byte, int clk){
+    /*
     if (addr & 0x01){
         update(clk);
         if (display[idx].type == Type::Paper and clk >= display[idx].clk and clk < display[idx].end)
             *p_byte &= p_page[display[idx].attrs + (clk - display[idx].clk) / 4];
-    }
+    }*/
     return false;
 }

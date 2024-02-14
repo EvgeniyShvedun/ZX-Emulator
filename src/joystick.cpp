@@ -1,32 +1,31 @@
 #include "base.h"
 
-KJoystick::KJoystick(){
-    p1F = 0xC0;
+void KJoystick::gamepad_event(int pad_btn, bool state){
+    for (int i = 0; i <= 5; i++){
+        if (button_map[i] == pad_btn){
+            set_state(0x01 << i, state);
+            break;
+        }
+    }
+}
+void KJoystick::set_state(unsigned char btn_mask, bool state){
+    if (state)
+        p1F |= btn_mask;
+    else
+        p1F &= ~btn_mask;
 }
 
-void KJoystick::button(int phy_idx, bool state){
-    for (int i = 0; i < 6; i++){
-        if (button_map[i] == phy_idx){
-            if (state)
-                p1F |= (0x01 << i);
-            else
-                p1F &= ~(0x01 << i);
+void KJoystick::map(char btn_mask, int pad_btn){
+    for (int i = 0; i <= 5; i++){
+        if (btn_mask & (0x01 << i)){
+            button_map[i] = pad_btn;
             break;
         }
     }
 }
 
-void KJoystick::config(int phy_idx, char button){
-    for (int i = 0; i < 6; i++){
-        if (button & (0x01 << i)){
-            button_map[i] = phy_idx;
-            break;
-        }
-    }
-}
-
-bool KJoystick::io_rd(unsigned short port, unsigned char *p_val, int clk){
-    if ((port & 0xFF) == 0x1F){
+bool KJoystick::io_rd(unsigned short addr, unsigned char *p_val, int clk){
+    if (!(addr & 0x20)){
         *p_val &= p1F;
         return true;
     }
