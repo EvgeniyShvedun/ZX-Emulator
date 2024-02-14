@@ -4,6 +4,7 @@
 Sound::Sound(int sample_rate, MODE mode, float ay_volume, float speaker_volume, float tape_volume) : sample_rate(sample_rate), mode(mode) {
 	p_sound = new unsigned short[sample_rate * 2]();
     cpu_factor = sample_rate / (float)Z80_FREQ;
+    printf("one: %d, two: %d\n", cpu_factor, sample_rate / (double)Z80_FREQ);
     increment = AY_RATE / (float)sample_rate;
     setup_lpf(22050);
     set_stereo_levels(MONO);

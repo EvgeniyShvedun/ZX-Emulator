@@ -12,7 +12,7 @@
 class Board : public IO {
     public:
         Board(HW hw);
-        void set_hw(HW hw){ this->hw = hw; frame_clk = hw_frame_clk[hw]; };
+        void set_hw(HW hw){ this->hw = hw; frame_clk = hw_frame_clk[hw]; printf("Mode: %d, Frame: %d\n", hw, frame_clk);};
         void frame();
         void reset();
         void load_rom(int id, const char *p_path){ ula.load_rom(id, p_path); };

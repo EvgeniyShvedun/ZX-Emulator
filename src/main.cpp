@@ -5,6 +5,7 @@
 #include "ImGuiFileDialogConfig.h"
 #include <stdio.h>
 #include <SDL.h>
+#include <SDL_image.h>
 #include <GL/glew.h>
 #include <GL/gl.h>
 #include "base.h"
@@ -218,6 +219,7 @@ int main(int argc, char **argv){
     else
         SDL_GL_SetSwapInterval(0);
 
+    SDL_SetWindowIcon(window, IMG_Load("data/icon.png"));
     SDL_SetWindowMinimumSize(window, SCREEN_WIDTH, SCREEN_HEIGHT);
     viewport_setup(window_width, window_height);
     
@@ -326,10 +328,10 @@ int main(int argc, char **argv){
     p_board->load_rom(ROM_128, p_cfg->get("rom_128", "data/rom/128.rom").c_str());
     p_board->load_rom(ROM_48, p_cfg->get("rom_48", "data/rom/48.rom").c_str());
 
+    p_board->add_device(p_tape);
     p_board->add_device(p_sound);
     p_board->add_device(p_wd1793);
     p_board->add_device(p_mouse);
-    p_board->add_device(p_tape);
     p_board->add_device(p_keyboard);
     p_board->add_device(p_joystick);
 
@@ -348,11 +350,13 @@ int main(int argc, char **argv){
     wanted.freq = p_sound->sample_rate;
     wanted.format = AUDIO_S16;
     wanted.channels = 2;
-    wanted.samples = p_board->frame_clk * (p_sound->sample_rate / (float)Z80_FREQ);
+    wanted.samples = p_board->frame_clk * (p_sound->sample_rate / (float)Z80_FREQ) * 2;  //p_board->frame_clk * (p_sound->sample_rate / (float)Z80_FREQ);
     wanted.callback = NULL;
     audio_device_id = SDL_OpenAudioDevice(NULL, 0, &wanted, &have, 0);
     if (!audio_device_id)
         return fatal_error("SDL: Open audio device");
+    if (wanted.freq != have.freq || wanted.channels != have.channels || wanted.samples != have.samples)
+        return fatal_error("SDL Audio buffer init");
     SDL_PauseAudioDevice(audio_device_id, 0);
 
 #ifdef FRAME_TIME
@@ -717,7 +721,6 @@ int main(int argc, char **argv){
             ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
         }
         window_resized = false;
-        SDL_GL_SwapWindow(window);
 
 #ifdef FRAME_TIME
 		if (++frame_cnt > FRAME_LIMIT)
@@ -726,10 +729,11 @@ int main(int argc, char **argv){
         if (!full_speed){
             unsigned int size = p_board->frame_clk * (p_sound->sample_rate / (float)Z80_FREQ) * 4;
             while (SDL_GetQueuedAudioSize(audio_device_id) > size)
-                SDL_Delay(10);
+                SDL_Delay(1);
             SDL_QueueAudio(audio_device_id, p_sound->p_sound, size);
         }
 #endif
+        SDL_GL_SwapWindow(window);
     }
 #ifdef FRAME_TIME
 	printf("Time: %d for frames: %d\n", (SDL_GetTicks() - time_start), frame_cnt);

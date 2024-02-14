@@ -3,7 +3,7 @@
 #define SCANLINE_CLK        224
 #define SCREENLINE_CLK      SCREEN_WIDTH/2
 // Visible screen
-#define SCREEN_START_CLK   ((SCANLINE_CLK * 20) + 10/2)
+#define SCREEN_START_CLK   ((SCANLINE_CLK * 34) + 20/2)
 
 enum Type { Border, Paper };
 
