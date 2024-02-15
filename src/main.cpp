@@ -24,7 +24,6 @@ using namespace std;
 
 int window_width = SCREEN_WIDTH;
 int window_height = SCREEN_HEIGHT;
-bool window_resized = false;
 
 Config *p_cfg = NULL;
 Board *p_board = NULL;
@@ -108,7 +107,6 @@ void viewport_setup(int width, int height){
     *p_data++ = 1.0f;
     *p_data++ = 1.0f;
     SDL_SetWindowSize(window, width, height);
-    window_resized = true;
 }
 
 GLushort *p_screen = NULL;
@@ -171,7 +169,7 @@ void load_file(const char *ptr){
                 p_tape->load_tap(ptr);
             }
             if (!strcmp(ptr + len - 4, ".trd") or !strcmp(ptr + len - 4, ".TRD")){
-                p_wd1793->open_trd(0, ptr);
+                p_wd1793->load_trd(0, ptr);
             }
         }
     }
@@ -189,8 +187,7 @@ int main(int argc, char **argv){
     window_width = SCREEN_WIDTH * scale;
     window_height = SCREEN_HEIGHT * scale;
 
-    //if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_GAMECONTROLLER | SDL_INIT_AUDIO | SDL_INIT_TIMER | SDL_INIT_JOYSTICK) != 0)
-    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_AUDIO | SDL_INIT_JOYSTICK))
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMECONTROLLER | SDL_INIT_TIMER) != 0)
         return fatal_error("SDL init");
     if (SDL_NumJoysticks()){
         SDL_JoystickOpen(0);
@@ -214,10 +211,14 @@ int main(int argc, char **argv){
     SDL_GL_MakeCurrent(window, gl_context);
     if (glewInit() != GLEW_OK)
         return fatal_error("glew init");
+    #ifndef FRAME_TIME
     if (p_cfg->get_case_index("vsync", 0, regex(R"((yes)|(no))", regex_constants::icase)) == 0)
         SDL_GL_SetSwapInterval(1); // Enable vsync
     else
         SDL_GL_SetSwapInterval(0);
+    #else
+        SDL_GL_SetSwapInterval(0);
+    #endif
 
     SDL_SetWindowIcon(window, IMG_Load("data/icon.png"));
     SDL_SetWindowMinimumSize(window, SCREEN_WIDTH, SCREEN_HEIGHT);
@@ -290,6 +291,15 @@ int main(int argc, char **argv){
     ImGui_ImplSDL2_InitForOpenGL(window, gl_context);
     ImGui_ImplOpenGL3_Init(glsl_version);
 
+    ImGuiStyle& style = ImGui::GetStyle();
+    style.Colors[ImGuiCol_ModalWindowDimBg] = ImVec4(0.0f, 0.0f, 0.0f, 0.25f);
+    style.WindowPadding                     = ImVec2(10, 10);
+    style.WindowRounding                    = 3.5f;
+    //style.FrameRounding                   = 3.0f;
+    //style.ItemSpacing                     = ImVec2(12, 8);
+    //style.ItemInnerSpacing                = ImVec2(8, 6);
+    //style.FramePadding                    = ImVec2(10, 10);
+    //style.IndentSpacing                   = 25.0f;
 
     p_board = new Board(HW::SPECTRUM_128);
     p_keyboard = new Keyboard();
@@ -314,15 +324,18 @@ int main(int argc, char **argv){
     p_joystick->map(JOY_A, p_cfg->get("joy_a", 3, 0, 1000));
     p_joystick->map(JOY_B, p_cfg->get("joy_b", 1, 0, 1000));
 
-
-    if (p_cfg->exist("disk_a") && !p_wd1793->open_trd(0, p_cfg->get("disk_a").c_str()))
-        cerr << "Filed to load disk B: '" << p_cfg->get("disk_b").c_str() << "'\n";
-    if (p_cfg->exist("disk_b") && !p_wd1793->open_trd(1, p_cfg->get("disk_b").c_str()))
-        cerr << "Filed to load disk B: '" << p_cfg->get("disk_b").c_str() << "'\n";
-    if (p_cfg->exist("disk_c") && !p_wd1793->open_trd(2, p_cfg->get("disk_c").c_str()))
-        cerr << "Filed to load disk C: '" << p_cfg->get("disk_c").c_str() << "'\n";
-    if (p_cfg->exist("disk_d") && !p_wd1793->open_trd(3, p_cfg->get("disk_d").c_str()))
-        cerr << "Filed to load disk D: '" << p_cfg->get("disk_d").c_str() << "'\n";
+    try {
+        if (p_cfg->exist("disk_a"))
+             p_wd1793->load_trd(0, p_cfg->get("disk_a").c_str());
+        if (p_cfg->exist("disk_b"))
+             p_wd1793->load_trd(1, p_cfg->get("disk_b").c_str());
+        if (p_cfg->exist("disk_c"))
+             p_wd1793->load_trd(2, p_cfg->get("disk_c").c_str());
+        if (p_cfg->exist("disk_d"))
+            p_wd1793->load_trd(3, p_cfg->get("disk_d").c_str());
+    }catch(runtime_error & ex){
+        cerr << ex.what() << endl;
+    }
 
     p_board->load_rom(ROM_TRDOS, p_cfg->get("rom_trdos", "data/rom/trdos.rom").c_str());
     p_board->load_rom(ROM_128, p_cfg->get("rom_128", "data/rom/128.rom").c_str());
@@ -330,9 +343,9 @@ int main(int argc, char **argv){
 
     p_board->add_device(p_tape);
     p_board->add_device(p_sound);
-    p_board->add_device(p_wd1793);
     p_board->add_device(p_mouse);
     p_board->add_device(p_keyboard);
+    p_board->add_device(p_wd1793);
     p_board->add_device(p_joystick);
 
     p_board->set_rom(ROM_128);
@@ -343,6 +356,7 @@ int main(int argc, char **argv){
 
     for (int i = 0; i < argc; i++)
         load_file(argv[i]);
+
     // Audio
     SDL_AudioSpec wanted, have;
     SDL_zero(wanted);
@@ -416,7 +430,6 @@ int main(int argc, char **argv){
                             loop = false;
                             break;
                         case SDLK_F2:
-                            ImGuiFileDialog::Instance()->OpenDialog("ChooseFileDlgKey", "Choose File", ".z80;.sna;.tap;.trd {.z80,.sna,.tap,.trd}", config);
                             show_ui = true;
                             break;
                         case SDLK_F9:
@@ -444,6 +457,11 @@ int main(int argc, char **argv){
                             break;
                         case SDLK_F12:
                             full_speed ^= true;
+                            if (full_speed)
+                                SDL_GL_SetSwapInterval(0);
+                            else
+                                if (p_cfg->get_case_index("vsync", 0, regex(R"((yes)|(no))", regex_constants::icase)) == 0)
+                                    SDL_GL_SetSwapInterval(1);
                             break;
                         default:
                             if (event.key.keysym.mod & (KMOD_NUM | KMOD_CAPS))
@@ -700,15 +718,15 @@ int main(int argc, char **argv){
         glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, SCREEN_WIDTH, SCREEN_HEIGHT, 0, GL_RGBA, GL_UNSIGNED_SHORT_4_4_4_4, NULL);
         glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
-
         if (show_ui){
             ImGui_ImplOpenGL3_NewFrame();
             ImGui_ImplSDL2_NewFrame();
             ImGui::NewFrame();
-            ImGui::SetNextWindowPos(ImVec2(window_width*0.15, window_height*0.25), window_resized ? ImGuiCond_Always : ImGuiCond_Once);
-            ImGui::SetNextWindowSize(ImVec2(window_width*0.7, window_height*0.5), window_resized ? ImGuiCond_Always : ImGuiCond_Once);
-            ImGui::SetNextWindowBgAlpha(0.85f);
-            if (ImGuiFileDialog::Instance()->Display("ChooseFileDlgKey", ImGuiWindowFlags_None, ImVec2(window_width*0.25, window_height*0.25))){
+            ImGui::SetNextWindowPos(ImVec2(window_width*0.15, window_height*0.25), ImGuiCond_Always);
+            ImGui::SetNextWindowSize(ImVec2(window_width*0.7, window_height*0.5), ImGuiCond_Always);
+            ImGui::SetNextWindowBgAlpha(0.95f);
+            ImGuiFileDialog::Instance()->OpenDialog("ChooseFileDlgKey", "Choose File", ".z80;.sna;.tap;.trd {.z80,.sna,.tap,.trd}", config);
+            if (ImGuiFileDialog::Instance()->Display("ChooseFileDlgKey", ImGuiWindowFlags_NoDecoration)){
                 if (ImGuiFileDialog::Instance()->IsOk()){
                     std::string filePathName = ImGuiFileDialog::Instance()->GetFilePathName();
                     std::string filePath = ImGuiFileDialog::Instance()->GetCurrentPath();
@@ -720,8 +738,6 @@ int main(int argc, char **argv){
             ImGui::Render();
             ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
         }
-        window_resized = false;
-
 #ifdef FRAME_TIME
 		if (++frame_cnt > FRAME_LIMIT)
             break;

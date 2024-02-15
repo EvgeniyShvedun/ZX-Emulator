@@ -1,5 +1,4 @@
-#define TRD_DISK_SIZE          655360
-
+#define TRD_IMG_SIZE           655360
 #define INDEX_LABEL_CLK        7000
 #define DISK_TURN_CLK          700000
 #define LAST_TRACK             79
@@ -35,23 +34,15 @@
 #define ST_DRQ                 0b00000010 // Controller wait data i/o.
 #define ST_DATA_ERR            0b00000100 // Data i/o timeout.
 #define ST_RNF                 0b00010000 // Record not found.
-                                          //
-
-enum FDC_STATUS {
-    UNKNOWN, MOTOR_ON, READ_DATA, WRITE_DATA
-};
 
 struct Drive {
-    unsigned char *p_data;
     int index_label_clk;
     int motor_on_clk;
-    int head_position;
     char step_dir;
-    int head_select;
-    bool head_loaded;
-    bool write_protect;
+    int track;
+    char *p_data;
+    bool writable;
 };
-
 
 /*
  uint16_t update_crc(uint16_t crc, uint8_t value)
@@ -74,28 +65,30 @@ Example usage: calculate the CRC for a whole buffer:
 
 
 class WD1793 : public Device {
-        const int step_time[4] = { 6, 12, 20, 30 };
     public:
         WD1793(Board *p_board);
         ~WD1793();
-        bool open_trd(int drive, const char *p_file_path, bool write_protect = true);
+        void load_trd(int drive_idx, const char *p_path, bool writable = false);
+        void load_scl(int drive_idx, const char *p_path);
         void update(int clk);
-        void reset();
+
+        bool io_wr(unsigned short addr, unsigned char byte, int clk);
+        bool io_rd(unsigned short addr, unsigned char *p_byte, int clk);
         void frame(int clk);
-        bool io_wr(unsigned short port, unsigned char byte, int clk);
-        bool io_rd(unsigned short port, unsigned char *p_byte, int clk);
-        unsigned int* status_pic();
+        void reset();
     protected:
-        unsigned char reg_command;
-        unsigned char reg_track;
-        unsigned char reg_sector;
-        unsigned char reg_data;
-        unsigned char reg_status;
+        int step_time[4] = {6 * Z80_FREQ / 1000, 12 * Z80_FREQ / 1000, 20 * Z80_FREQ / 1000, 30 * Z80_FREQ / 1000};
+        char reg_command;
+        char reg_track;
+        char reg_sector;
+        char reg_data;
+        char reg_status;
+        char reg_select;
 
         int last_clk;
         int command_clk;
         int data_idx;
+
         Drive drive[4];
-        Drive *p_drive;
         Board *p_board;
 };

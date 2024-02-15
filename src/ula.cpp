@@ -75,25 +75,23 @@ void ULA::update(int clk){
         switch (display[idx].type){
             case Type::Border:
                 p_screen = &p_buffer[display[idx].pos + (update_clk - display[idx].clk) * 2];
-                for (; update_clk < display[idx].end; update_clk++){
+                for (; update_clk < limit; update_clk++){
                     *p_screen++ = palette[pFE & 0x07];
                     *p_screen++ = palette[pFE & 0x07];
                 }
-                if (update_clk >= display[idx].end)
-                    update_clk = display[++idx].clk;
                 break;
             case Type::Paper:
-		        offset = (update_clk - display[idx].clk) / 4;
+                offset = (update_clk - display[idx].clk) / 4;
                 double* p_screen = (double*)&p_buffer[display[idx].pos];
                 for (; update_clk < limit; update_clk += 4){
                     p_screen[offset*2] = ((double*)&pixel_table[(((p_page[display[idx].attrs + offset] & flash_mask) << 8) | p_page[display[idx].pixel + offset]) << 3])[0];
-                    p_screen[offset*2+1] = ((double*)&pixel_table[(((p_page[display[idx].attrs + offset] & flash_mask) << 8) | p_page[display[idx].pixel + offset]) << 3])[1];
+                    p_screen[offset*2+1] = ((double*)&pixel_table[(((p_page[display[idx].attrs + offset] & flash_mask) << 8) | p_page[display[idx].pixel + offset]) << 3])[1]; 
                     offset++;
                 }
-                if (update_clk >= display[idx].end)
-                    update_clk = display[++idx].clk;
                 break;
         }
+        if (update_clk >= display[idx].end)
+            update_clk = display[++idx].clk;
     }
 }
 
@@ -133,11 +131,10 @@ bool ULA::io_wr(unsigned short addr, unsigned char byte, int clk){
 }
 
 bool ULA::io_rd(unsigned short addr, unsigned char *p_byte, int clk){
-    /*
     if (addr & 0x01){
         update(clk);
         if (display[idx].type == Type::Paper and clk >= display[idx].clk and clk < display[idx].end)
             *p_byte &= p_page[display[idx].attrs + (clk - display[idx].clk) / 4];
-    }*/
+    }
     return false;
 }
