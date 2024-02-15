@@ -10,6 +10,7 @@
 #include <GL/gl.h>
 #include "base.h"
 #include "config.h"
+#include <math.h>
 
 using namespace std;
 
@@ -292,13 +293,18 @@ int main(int argc, char **argv){
     ImGui_ImplOpenGL3_Init(glsl_version);
 
     ImGuiStyle& style = ImGui::GetStyle();
-    style.Colors[ImGuiCol_ModalWindowDimBg] = ImVec4(0.0f, 0.0f, 0.0f, 0.25f);
+    style.Colors[ImGuiCol_ModalWindowDimBg] = ImVec4(0.0f, 0.0f, 0.0f, 0.0f);
     style.WindowPadding                     = ImVec2(10, 10);
-    style.WindowRounding                    = 3.5f;
+    style.WindowRounding                    = 4.5;
+    //style.Colors[ImGuiCol_WindowBg]         = ImVec4(0.0f, 0.0f, 1.0f, 1.0f);
+    //style.Colors[ImGuiCol_FrameBg]          = ImVec4(1.0f, 0.0f, 1.0f, 1.0f);
+    //style.Colors[ImGuiCol_FrameBgActive]    = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
+    style.Colors[ImGuiCol_ChildBg].w        = 0.37f;
+    style.Colors[ImGuiCol_Border]           = ImVec4(0.00f, 0.00f, 0.00f, 1.0f);
     //style.FrameRounding                   = 3.0f;
     //style.ItemSpacing                     = ImVec2(12, 8);
     //style.ItemInnerSpacing                = ImVec2(8, 6);
-    //style.FramePadding                    = ImVec2(10, 10);
+    //style.FramePadding                    = ImVec2(3, 3);
     //style.IndentSpacing                   = 25.0f;
 
     p_board = new Board(HW::SPECTRUM_128);
@@ -364,7 +370,7 @@ int main(int argc, char **argv){
     wanted.freq = p_sound->sample_rate;
     wanted.format = AUDIO_S16;
     wanted.channels = 2;
-    wanted.samples = p_board->frame_clk * (p_sound->sample_rate / (float)Z80_FREQ) * 2;  //p_board->frame_clk * (p_sound->sample_rate / (float)Z80_FREQ);
+    wanted.samples = p_board->frame_clk * (p_sound->sample_rate / (float)Z80_FREQ);
     wanted.callback = NULL;
     audio_device_id = SDL_OpenAudioDevice(NULL, 0, &wanted, &have, 0);
     if (!audio_device_id)
@@ -431,6 +437,7 @@ int main(int argc, char **argv){
                             break;
                         case SDLK_F2:
                             show_ui = true;
+                            ImGuiFileDialog::Instance()->OpenDialog("ChooseFileDlgKey", "Choose File", ".z80;.sna;.tap;.trd {.z80,.sna,.tap,.trd}", config);
                             break;
                         case SDLK_F9:
                             p_tape->play();
@@ -724,8 +731,7 @@ int main(int argc, char **argv){
             ImGui::NewFrame();
             ImGui::SetNextWindowPos(ImVec2(window_width*0.15, window_height*0.25), ImGuiCond_Always);
             ImGui::SetNextWindowSize(ImVec2(window_width*0.7, window_height*0.5), ImGuiCond_Always);
-            ImGui::SetNextWindowBgAlpha(0.95f);
-            ImGuiFileDialog::Instance()->OpenDialog("ChooseFileDlgKey", "Choose File", ".z80;.sna;.tap;.trd {.z80,.sna,.tap,.trd}", config);
+            //ImGui::SetNextWindowBgAlpha(0.97f);
             if (ImGuiFileDialog::Instance()->Display("ChooseFileDlgKey", ImGuiWindowFlags_NoDecoration)){
                 if (ImGuiFileDialog::Instance()->IsOk()){
                     std::string filePathName = ImGuiFileDialog::Instance()->GetFilePathName();
