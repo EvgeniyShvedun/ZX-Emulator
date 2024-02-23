@@ -1,8 +1,8 @@
 #include "imgui.h"
 #include "imgui_impl_sdl2.h"
 #include "imgui_impl_opengl3.h"
-#include "ImGuiFileDialog.h"
-#include "ImGuiFileDialogConfig.h"
+#include "build/ImGuiFileDialog/ImGuiFileDialog.h"
+#include "build/ImGuiFileDialog/ImGuiFileDialogConfig.h"
 #include <stdio.h>
 #include <SDL.h>
 #include <SDL_image.h>
@@ -11,6 +11,8 @@
 #include "base.h"
 #include "config.h"
 #include <math.h>
+
+#include "disasm.h"
 
 using namespace std;
 
@@ -22,6 +24,15 @@ using namespace std;
 
 //#define FRAME_TIME
 //#define FRAME_LIMIT 10000
+
+#define UI_STYLE_EDIT       -2
+#define UI_EXIT             -1
+#define UI_NONE             0
+#define UI_KBLAYOUT         1
+#define UI_OPEN_SNAPSHOT    2
+#define UI_SETTINGS         5
+#define UI_DEBUGGER         6
+
 
 int window_width = SCREEN_WIDTH;
 int window_height = SCREEN_HEIGHT;
@@ -176,6 +187,35 @@ void load_file(const char *ptr){
     }
 }
 
+GLushort load_texture(const char *p_path){
+    GLuint tex;
+    SDL_Surface *p_image = IMG_Load(p_path);
+    SDL_Surface *p_surface = SDL_ConvertSurfaceFormat(p_image, SDL_PIXELFORMAT_RGBA4444, 0);
+    SDL_FreeSurface(p_image);
+    glGenTextures(1, &tex);
+	glBindTexture(GL_TEXTURE_2D, tex);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexImage2D(GL_TEXTURE_2D, // target
+		0, // level, 0 = base, no minimap,
+		GL_RGBA4, // internalformat
+		p_surface->w, // width
+		p_surface->h, // height
+		0, // border, always 0 in OpenGL ES
+		GL_RGBA, // format
+		GL_UNSIGNED_SHORT_4_4_4_4,
+		p_surface->pixels);
+	SDL_FreeSurface(p_surface);
+    return  tex;
+}
+
+void text_centred(const char *p_text){
+    ImGui::SetCursorPosX((ImGui::GetWindowSize().x - ImGui::CalcTextSize(p_text).x) * 0.5);
+    ImGui::Text(p_text);
+}
+
 int main(int argc, char **argv){
     bool loop = true;
     bool active = true;
@@ -210,6 +250,7 @@ int main(int argc, char **argv){
     if (!gl_context)
         return fatal_error("Create OpenGL context");
     SDL_GL_MakeCurrent(window, gl_context);
+    glewExperimental = true;
     if (glewInit() != GLEW_OK)
         return fatal_error("glew init");
     #ifndef FRAME_TIME
@@ -275,7 +316,7 @@ int main(int argc, char **argv){
     }
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB4, SCREEN_WIDTH, SCREEN_HEIGHT, 0, GL_RGBA, GL_UNSIGNED_SHORT_4_4_4_4, 0);
+    glBindTexture(GL_TEXTURE_2D, 0);
     glGenBuffers(1, &pbo);
 
     // Setup Dear ImGui context
@@ -284,7 +325,7 @@ int main(int argc, char **argv){
     ImGuiIO& io = ImGui::GetIO(); (void)io;
     io.IniFilename = NULL;
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+    //io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
     // Setup Dear ImGui style
     ImGui::StyleColorsDark();
     //ImGui::StyleColorsLight();
@@ -296,6 +337,8 @@ int main(int argc, char **argv){
     style.Colors[ImGuiCol_ModalWindowDimBg] = ImVec4(0.0f, 0.0f, 0.0f, 0.0f);
     style.WindowPadding                     = ImVec2(10, 10);
     style.WindowRounding                    = 4.5;
+    style.FrameRounding                     = 2.0;
+    style.GrabRounding                      = 7.0;
     //style.Colors[ImGuiCol_WindowBg]         = ImVec4(0.0f, 0.0f, 1.0f, 1.0f);
     //style.Colors[ImGuiCol_FrameBg]          = ImVec4(1.0f, 0.0f, 1.0f, 1.0f);
     //style.Colors[ImGuiCol_FrameBgActive]    = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
@@ -384,16 +427,17 @@ int main(int argc, char **argv){
 	int frame_cnt = 0;
 #endif
     bool full_speed = false;
-    bool show_ui = false;
+    int ui = UI_NONE;
+    ImVec2 btn_size = {80, 20};
+    ImVec2 btn_small = {60, 20};
     IGFD::FileDialogConfig config = {.path = ".", .flags = ImGuiFileDialogFlags_Modal};
+    GLuint kbd_layout = load_texture("data/keyboard_layout.png");
+    bool style_editor = false;
+
     while (loop){
         while (SDL_PollEvent(&event)){
-            if (event.type == SDL_QUIT){
-                loop = false;
-                break;
-            }
-            if (show_ui)
-                ImGui_ImplSDL2_ProcessEvent(&event);
+            if (event.type == SDL_QUIT)
+                ui = UI_EXIT;
             switch(event.type){
                 case SDL_WINDOWEVENT:
                     switch(event.window.event){
@@ -414,6 +458,18 @@ int main(int argc, char **argv){
                     }
                     break;
                 case SDL_KEYDOWN:
+                     if (event.key.keysym.sym == SDLK_ESCAPE){
+                        if (ui == UI_NONE)
+                            ui = UI_EXIT;
+                        else
+                            ui = UI_NONE;
+                        break;
+                    }
+                    if (event.key.keysym.sym == SDLK_F8){
+                        style_editor ^= true;
+                    }
+                    if (ui)
+                        break;
                     if (event.key.repeat)
                         break;
                     switch(event.key.keysym.sym){
@@ -428,26 +484,21 @@ int main(int argc, char **argv){
                                 viewport_setup(window_width, window_height);
                             }
                             break;
-                        case SDLK_ESCAPE:
-                            if (show_ui){
-                                show_ui = false;
-                                break;
-                            }
-                            loop = false;
+                        case SDLK_F1:
+                            ui = UI_KBLAYOUT;
                             break;
                         case SDLK_F2:
-                            show_ui = true;
                             ImGuiFileDialog::Instance()->OpenDialog("ChooseFileDlgKey", "Choose File", ".z80;.sna;.tap;.trd {.z80,.sna,.tap,.trd}", config);
+                            ui = UI_OPEN_SNAPSHOT;
                             break;
-                        case SDLK_F9:
-                            p_tape->play();
+                        /*
+                        case SDLK_F3:
+                            ui = UI_SETTINGS;
                             break;
-                        case SDLK_F10:
-                            p_tape->stop();
+                        case SDLK_F4:
+                            ui = UI_DEBUGGER;
                             break;
-                        case SDLK_F11:
-                            p_tape->rewind(-15000);
-                            break;
+                        */
                         case SDLK_F5:
                             p_board->set_rom(ROM_48);
                             p_board->reset();
@@ -461,6 +512,15 @@ int main(int argc, char **argv){
                             p_board->reset();
                             break;
                         case SDLK_F8:
+                            break;
+                        case SDLK_F9:
+                            p_tape->play();
+                            break;
+                        case SDLK_F10:
+                            p_tape->stop();
+                            break;
+                        case SDLK_F11:
+                            p_tape->rewind(-15000);
                             break;
                         case SDLK_F12:
                             full_speed ^= true;
@@ -476,6 +536,8 @@ int main(int argc, char **argv){
                             break;
                     }
                 case SDL_KEYUP:
+                    if (ui)
+                        break;
                     switch(event.key.keysym.sym){
                         case SDLK_UP: // SHIFT + 7
                             p_keyboard->set_btn_state(0xFEFE, 0x01, event.type == SDL_KEYDOWN);
@@ -713,33 +775,200 @@ int main(int argc, char **argv){
                     p_mouse->wheel(event.wheel.y);
                     break;
             }
+            ImGui_ImplSDL2_ProcessEvent(&event);
         }
         if (!active){
             SDL_Delay(100);
             continue;
         }
+        glBindTexture(GL_TEXTURE_2D, texture);
         glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pbo);
         glBufferData(GL_PIXEL_UNPACK_BUFFER, SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(GLushort), NULL, GL_STREAM_DRAW);
         p_board->set_frame_buffer(glMapBuffer(GL_PIXEL_UNPACK_BUFFER, GL_WRITE_ONLY));
-        p_board->frame();
+        if (ui != UI_DEBUGGER)
+            p_board->frame();
         glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, SCREEN_WIDTH, SCREEN_HEIGHT, 0, GL_RGBA, GL_UNSIGNED_SHORT_4_4_4_4, NULL);
         glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
-        if (show_ui){
+        glBindTexture(GL_TEXTURE_2D, 0);
+
+        if (ui){
             ImGui_ImplOpenGL3_NewFrame();
             ImGui_ImplSDL2_NewFrame();
             ImGui::NewFrame();
-            ImGui::SetNextWindowPos(ImVec2(window_width*0.15, window_height*0.25), ImGuiCond_Always);
-            ImGui::SetNextWindowSize(ImVec2(window_width*0.7, window_height*0.5), ImGuiCond_Always);
-            //ImGui::SetNextWindowBgAlpha(0.97f);
-            if (ImGuiFileDialog::Instance()->Display("ChooseFileDlgKey", ImGuiWindowFlags_NoDecoration)){
-                if (ImGuiFileDialog::Instance()->IsOk()){
-                    std::string filePathName = ImGuiFileDialog::Instance()->GetFilePathName();
-                    std::string filePath = ImGuiFileDialog::Instance()->GetCurrentPath();
-                    load_file(filePathName.c_str());
+            //if (style_editor)
+            //    ImGui::ShowStyleEditor();
+            switch(ui){
+                case UI_EXIT:
+                    ImGui::SetNextWindowPos(ImVec2(window_width*0.5, window_height*0.5), ImGuiCond_Always, ImVec2(0.5, 0.5));
+                    if (ImGui::Begin("Exit", NULL, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoDecoration)){
+                        ImGui::SetWindowFocus();
+                        text_centred("Do you exit?");
+                        ImGui::Spacing();
+                        if (ImGui::Button("Yes", btn_size))
+                            loop = false;
+                        ImGui::SetItemDefaultFocus();
+                        ImGui::SameLine();
+                        if (ImGui::Button("No", btn_size))
+                            ui = UI_NONE;
+                        ImGui::End();
+                    }
+                    break;
+                case UI_KBLAYOUT:
+                    ImGui::SetNextWindowSize(ImVec2(window_width*0.95, window_height * 0.5), ImGuiCond_Always);
+                    ImGui::SetNextWindowPos(ImVec2(window_width*0.5, window_height*0.5), ImGuiCond_Always, ImVec2(0.5, 0.5));
+                    if (ImGui::Begin("#kbd", NULL, ImGuiWindowFlags_NoDecoration)){
+                        ImGui::Image((ImTextureID)kbd_layout, ImGui::GetWindowSize());
+                        ImGui::End();
+                    }
+                    break;
+                case UI_OPEN_SNAPSHOT:
+                    ImGui::SetNextWindowPos(ImVec2(window_width*0.15, window_height*0.25), ImGuiCond_Always);
+                    ImGui::SetNextWindowSize(ImVec2(window_width*0.7, window_height*0.5), ImGuiCond_Always);
+                    if (ImGuiFileDialog::Instance()->Display("ChooseFileDlgKey", ImGuiWindowFlags_NoDecoration)){
+                        if (ImGuiFileDialog::Instance()->IsOk()){
+                            std::string filePathName = ImGuiFileDialog::Instance()->GetFilePathName();
+                            std::string filePath = ImGuiFileDialog::Instance()->GetCurrentPath();
+                            load_file(filePathName.c_str());
+                        }
+                        ImGuiFileDialog::Instance()->Close();
+                        ui = UI_NONE;
+                    }
+                    break;
+                /*
+                case UI_SETTINGS:
+                    static int model_id = 1;
+                    static int scale = 3;
+                    static int video_filter = 0;
+                    static bool v_sync = false;
+                    static char disk_a[256]="floppy/disk_a.trd";
+                    static char disk_b[256]="floppy/disk_b.trd";
+                    static char disk_c[256]="floppy/disk_c.trd";
+                    static char disk_d[256]="floppy/disk_d.trd";
+                    //ImGui::SetNextWindowPos(ImVec2(window_width*0.15, window_height*0.25), ImGuiCond_Always);
+                    //ImGui::SetNextWindowSize(ImVec2(window_width*0.7, window_height*0.5), ImGuiCond_Always);
+                    ImGui::SetNextWindowSize(ImVec2(400, 0), ImGuiCond_Always);
+                    ImGui::SetNextWindowPos(ImVec2(window_width*0.5, window_height*0.5), ImGuiCond_Always, ImVec2(0.5, 0.5));
+                    //if (ImGui::Begin("Main", NULL, ImGuiWindowFlags_NoDecoration)){// | ImGuiWindowFlags_NavFlattened)){
+                    if (ImGui::Begin("Main", NULL, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoDecoration)){
+                        ImGui::BeginChild("##frame", ImVec2(400, 300));
+                        if (ImGui::BeginTabBar("tabs")){
+                            if (ImGui::BeginTabItem("General")){
+                                ImGui::Combo("##model", &model_id, "Pentagon-128\0Sinclair-128\0Sinclair-48\0\0");
+                                ImGui::EndTabItem();
+                            }
+                            if (ImGui::BeginTabItem("Video")){
+                                ImGui::SliderInt("##scale", &scale, 0, 5);
+                                ImGui::RadioButton("Nearest", &video_filter, 0);
+                                ImGui::RadioButton("Linear", &video_filter, 1);
+                                ImGui::Checkbox("v_sync", &v_sync);
+                                ImGui::EndTabItem();
+                            }
+                            if (ImGui::BeginTabItem("Audio")){
+                                ImGui::EndTabItem();
+                            }
+                            if (ImGui::BeginTabItem("Disk")){
+                                ImGui::SetKeyboardFocusHere();
+                                ImGui::InputText("##disk_a", disk_a, 256, ImGuiInputTextFlags_ReadOnly);
+                                ImGui::SameLine();
+                                if (ImGui::Button("A:", btn_small)){
+                                }
+                                ImGui::InputText("##disk_b", disk_b, 256, ImGuiInputTextFlags_ReadOnly);
+                                ImGui::SameLine();
+                                if (ImGui::Button("B:", btn_small)){
+                                }
+                                ImGui::InputText("##disk_c", disk_c, 256, ImGuiInputTextFlags_ReadOnly);
+                                ImGui::SameLine();
+                                if (ImGui::Button("C:", btn_small)){
+                                }
+                                ImGui::InputText("##disk_d", disk_d, 256, ImGuiInputTextFlags_ReadOnly);
+                                ImGui::SameLine();
+                                if (ImGui::Button("D:", btn_small)){
+                                }
+                                ImGui::EndTabItem();
+                            }
+                            if (ImGui::BeginTabItem("Input")){
+                                ImGui::EndTabItem();
+                            }
+                            ImGui::EndTabBar();
+                        }
+                        ImGui::EndChild();
+                        ImGui::Spacing();
+                        ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (80 * 2 + ImGui::GetStyle().ItemSpacing.x * 2));
+                        if (ImGui::Button("OK", ImVec2(80, 20)))
+                            ui = UI_NONE;
+                        ImGui::SameLine();
+                        if (ImGui::Button("Cancel", ImVec2(80, 20)))
+                            ui = UI_NONE;
+                        ImGui::End();
                 }
-                ImGuiFileDialog::Instance()->Close();
-                show_ui = false;
+                    break;
+                case UI_DEBUGGER:
+                    unsigned short pointer = p_board->cpu.pc, next;
+                    char line[128];
+                    char reg_value[8];
+                    const char *flags[] = {"S", "Z", "5", "H", "3", "P", "N", "C"};
+                    #define DISASM_LINES 24
+                    //static char* desasm_lines[DISASM_LINES];
+                    ImGui::SetNextWindowSize(ImVec2(500, 0), ImGuiCond_Always);
+                    ImGui::SetNextWindowPos(ImVec2(window_width*0.5, window_height*0.5), ImGuiCond_Always, ImVec2(0.5, 0.5));
+                    if (ImGui::Begin("Debugger")){
+                        ImGui::BeginTable("##disasm_columns", 2);
+                        ImGui::TableSetupColumn("Disassembler", ImGuiTableColumnFlags_WidthStretch);
+                        ImGui::TableSetupColumn("Registers", ImGuiTableColumnFlags_WidthFixed);
+                        //ImGui::TableSetupColumn("Disassembler", ImGuiTableColumnFlags_WidthStretch);
+                        //ImGui::TableSetupColumn("Registers", ImGuiTableColumnFlags_WidthFixed, 0.120f);
+                        ImGui::TableNextRow();
+                        ImGui::TableHeadersRow();
+                        ImGui::TableNextRow();
+                        ImGui::TableNextColumn();
+                        for (int i = 0; i < DISASM_LINES; i++){
+                            next = Disasm::line(line, pointer, &p_board->cpu, &p_board->ula, true);
+                            ImGui::Selectable(line, pointer == p_board->cpu.pc, ImGuiSelectableFlags_Disabled);
+                            pointer = next;
+                        }
+                        ImGui::TableNextColumn();
+                        for (int i = 0; i < 8; i++){
+                            if (i)
+                                ImGui::SameLine(0.0f, 0.0f);
+                            if (p_board->cpu.af & (0x80 >> i))
+                                ImGui::Text(flags[i]);
+                            else
+                                ImGui::TextColored(ImVec4(0.5, 0.5, 0.5, 1.0), flags[i]);
+                        }
+                        sprintf(reg_value, "%04x", p_board->cpu.af);
+                        ImGui::Text("AF");
+                        ImGui::SameLine();
+                        ImGui::InputText("##af", reg_value, sizeof(reg_value)-1, ImGuiInputTextFlags_CharsHexadecimal | ImGuiInputTextFlags_AutoSelectAll);
+                        ImGui::Text("BC=");
+                        ImGui::SameLine();
+                        sprintf(reg_value, "%04x", p_board->cpu.bc);
+                        ImGui::InputText("##bc", reg_value, sizeof(reg_value)-1, ImGuiInputTextFlags_CharsHexadecimal | ImGuiInputTextFlags_AutoSelectAll);
+                        ImGui::Text("HL=");
+                        ImGui::SameLine();
+                        sprintf(reg_value, "%04x", p_board->cpu.hl);
+                        ImGui::InputText("##hl", reg_value, sizeof(reg_value)-1, ImGuiInputTextFlags_CharsHexadecimal | ImGuiInputTextFlags_AutoSelectAll);
+                        ImGui::Text("DE=");
+                        ImGui::SameLine();
+                        sprintf(reg_value, "%04x", p_board->cpu.de);
+                        ImGui::InputText("##de", reg_value, sizeof(reg_value)-1, ImGuiInputTextFlags_CharsHexadecimal | ImGuiInputTextFlags_AutoSelectAll);
+                        ImGui::Text("PC=");
+                        ImGui::SameLine();
+                        sprintf(reg_value, "%04x", p_board->cpu.pc);
+                        ImGui::InputText("##pc", reg_value, sizeof(reg_value)-1, ImGuiInputTextFlags_CharsHexadecimal | ImGuiInputTextFlags_AutoSelectAll);
+                        ImGui::Text("CLK=");
+                        ImGui::SameLine();
+                        sprintf(reg_value, "%d", p_board->cpu.clk);
+                        ImGui::InputText("##clk", reg_value, sizeof(reg_value)-1, ImGuiInputTextFlags_ReadOnly);
+                        ImGui::EndTable();
+                        ImGui::End();
+                    }
+                    if (ImGui::IsKeyPressed(ImGuiKey_F7))
+                        p_board->cpu.step_into(&p_board->ula, p_board, p_board->frame_clk);
+                    if (ImGui::IsKeyPressed(ImGuiKey_F8))
+                        p_board->cpu.step_into(&p_board->ula, p_board, p_board->frame_clk);
+                    break;
+                    */
             }
             ImGui::Render();
             ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());

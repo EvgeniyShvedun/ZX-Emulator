@@ -1093,6 +1093,8 @@ class Z80 {
         void reset();
         void frame(ULA *p_memory, IO *p_io, int frame_clk);
         void interrupt(ULA *p_memory);
+        void step_over(ULA *p_memory, IO *p_io, int frame_clk);
+        void step_into(ULA *p_memory, IO *p_io, int frame_clk);
         void NMI();
 
         Reg88(b, c)

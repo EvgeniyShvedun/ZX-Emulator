@@ -34,6 +34,5 @@
 #include "z80.h"
 #include "snapshot.h"
 #include "board.h"
-#include "disasm.h"
 #include "wd1793.h"
 #include "sound.h"

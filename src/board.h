@@ -21,10 +21,10 @@ class Board : public IO {
         bool trdos_active() { return ula.trdos_active(); };
         void set_rom(int rom_id){ ula.set_rom(rom_id); };
         int frame_clk;
+        Z80 cpu;
+        ULA ula;
     private:
         //void draw_device_status();
-        ULA ula;
-        Z80 cpu;
         Snapshot snapshot;
         HW hw;
         int hw_frame_clk[3] = { 70908, 69888,  71680 };

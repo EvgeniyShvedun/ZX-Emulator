@@ -116,30 +116,19 @@ void Z80::interrupt(ULA *p_memory){
 void Z80::NMI(){
 }
 
+void Z80::step_over(ULA *p_memory, IO *p_io, int frame_clk){
+}
+
+void Z80::step_into(ULA *p_memory, IO *p_io, int frame_clk){
+    frame(p_memory, p_io, clk);
+    if (clk > frame_clk){
+        interrupt(p_memory);
+        clk -= frame_clk;
+    }
+}
+
 void Z80::frame(ULA *p_memory, IO *p_io, int frame_clk){
-    while (clk < frame_clk){
-        #ifdef DEBUG
-        {
-            Disasm disasm;
-            //if (p_memory->read_byte(0xFF01))
-            //if (pc == 0x72b8)
-            //if (pc == 0x71Ea)
-            trace = true;
-            if (trace){
-            /*
-            unsigned short mem = 0x6359;
-            unsigned short mem_1 = 0xFF07;
-            printf("PC: %04x byte: %02x %02x %02x %02x, AF: %04x, BC: %04x, HL: %04x, DE: %04x, IX: %04x, IY: %04x clk: %d, %04x: %02x, %04x: %02x\n", pc,
-                    p_memory->read_byte(pc),
-                    p_memory->read_byte(pc + 1),
-                    p_memory->read_byte(pc + 2),
-                    p_memory->read_byte(pc + 3),
-                    af, bc, hl, de, ix, iy, clk, mem, p_memory->read_byte(mem), mem_1, p_memory->read_byte(mem_1));
-            */
-            disasm.dis(pc, this, p_memory);
-            }
-        }
-        #endif
+    while (clk <= frame_clk){
         irl++;
         switch (p_memory->read_byte_ex(pc++)){
             case 0x00: // NOP
@@ -4875,6 +4864,4 @@ void Z80::frame(ULA *p_memory, IO *p_io, int frame_clk){
                 break;
         }
     }
-    interrupt(p_memory);
-    clk -= frame_clk;
 }

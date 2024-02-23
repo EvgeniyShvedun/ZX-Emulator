@@ -7,6 +7,8 @@ Board::Board(HW hw){
 
 void Board::frame(){
     cpu.frame(&ula, this, frame_clk);
+    cpu.interrupt(&ula);
+    cpu.clk -= frame_clk;
     IO::frame(frame_clk);
 }
 

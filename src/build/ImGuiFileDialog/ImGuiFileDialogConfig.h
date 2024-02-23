@@ -89,12 +89,12 @@
 //#define OverWriteDialogCancelButtonString "Cancel"
 
 //Validation buttons
-//#define okButtonString " OK"
-//#define okButtonWidth 0.0f
-//#define cancelButtonString " Cancel"
-//#define cancelButtonWidth 0.0f
+#define okButtonString "OK"
+#define okButtonWidth 80.f
+#define cancelButtonString "Cancel"
+#define cancelButtonWidth 80.0f
 //alignement [0:1], 0.0 is left, 0.5 middle, 1.0 right, and other ratios
-//#define okCancelButtonAlignement 0.0f
+#define okCancelButtonAlignement 1.0f
 //#define invertOkAndCancelButtons 0
 
 // DateTimeFormat
