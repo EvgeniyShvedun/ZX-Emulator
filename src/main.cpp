@@ -152,16 +152,8 @@ int main(int argc, char **argv){
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
     SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
-    switch (p_cfg->get_case_index("full_screen", 0, regex(R"((no)|(yes)|(desktop))", regex_constants::icase))){
-        case 0x00:
-            break;
-        case 0x01:
-            window_flags = (SDL_WindowFlags) (window_flags | SDL_WINDOW_FULLSCREEN);
-            break;
-        case 0x02:
-            window_flags = (SDL_WindowFlags) (window_flags | SDL_WINDOW_FULLSCREEN_DESKTOP);
-            break;
-    }
+    full_screen = p_cfg->get_case_index("full_screen", 0, regex(R"((no)|(yes))", regex_constants::icase)) == 0 ? false : true;
+    window_flags = (SDL_WindowFlags) (window_flags | (p_cfg->get_case_index("full_screen_mode", 0, regex(R"((yes)|(no))", regex_constants::icase)) == 0 ? SDL_WINDOW_FULLSCREEN : SDL_WINDOW_FULLSCREEN_DESKTOP));
     if (!(window = SDL_CreateWindow(TITLE, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, window_width, window_height, window_flags)))
         return fatal_error("Create window");
     gl_context = SDL_GL_CreateContext(window);
@@ -235,13 +227,13 @@ int main(int argc, char **argv){
     p_board = new Board(HW::SPECTRUM_128);
     p_keyboard = new Keyboard();
 	p_sound = new Sound(
-        p_cfg->get("sample_rate", AUDIO_RATE, 22050, 192100),
-        (Sound::MODE)p_cfg->get_case_index("ay_mixer_mode", Sound::MODE::ACB, regex(R"((mono)|(abc)|(acb))", regex_constants::icase)),
-        p_cfg->get("ay_main_volume", 0.8, 0.0, 1.0),
+        p_cfg->get("audio_rate", AUDIO_RATE, 22050, 192100),
+        (Sound::MODE)p_cfg->get_case_index("ay_stereo_mode", Sound::MODE::ACB, regex(R"((mono)|(abc)|(acb))", regex_constants::icase)),
+        p_cfg->get("ay_volume", 0.8, 0.0, 1.0),
         p_cfg->get("speaker_volume", 0.5, 0.0, 1.0),
         p_cfg->get("tape_volume", 0.3, 0.0, 1.0)
     );
-    p_sound->setup_lpf(p_cfg->get("lpf_cut_rate", 22050, 11025, 44100));
+    p_sound->setup_lpf(p_cfg->get("lpf_rate", 22050, 11025, 44100));
 
     p_wd1793 = new WD1793(p_board);
     p_joystick = new KJoystick(p_board);
@@ -363,18 +355,12 @@ int main(int argc, char **argv){
                             if (event.key.keysym.mod & KMOD_CTRL){
                                 if (full_screen)
                                     SDL_SetWindowFullscreen(window, 0);
-                                else
-                                    switch (p_cfg->get_case_index("full_screen", 0, regex(R"((no)|(yes)|(desktop))", regex_constants::icase))){
-                                        case 0x00:
-                                            SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN_DESKTOP);
-                                            break;
-                                        case 0x01:
-                                            SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN);
-                                            break;
-                                        case 0x02:
-                                            SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN_DESKTOP);
-                                            break;
-                                    }
+                                else{
+                                    if (p_cfg->get_case_index("full_screen_mode", 0, regex(R"((yes)|(no))", regex_constants::icase)) == 0)
+                                        SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN);
+                                    else
+                                        SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN_DESKTOP);
+                                }
                                 full_screen ^= true;
                             }
                             break;
