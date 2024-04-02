@@ -364,7 +364,17 @@ int main(int argc, char **argv){
                                 if (full_screen)
                                     SDL_SetWindowFullscreen(window, 0);
                                 else
-                                    SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN_DESKTOP);
+                                    switch (p_cfg->get_case_index("full_screen", 0, regex(R"((no)|(yes)|(desktop))", regex_constants::icase))){
+                                        case 0x00:
+                                            SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN_DESKTOP);
+                                            break;
+                                        case 0x01:
+                                            SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN);
+                                            break;
+                                        case 0x02:
+                                            SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN_DESKTOP);
+                                            break;
+                                    }
                                 full_screen ^= true;
                             }
                             break;
