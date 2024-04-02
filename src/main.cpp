@@ -153,7 +153,8 @@ int main(int argc, char **argv){
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
     SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
     full_screen = p_cfg->get_case_index("full_screen", 0, regex(R"((no)|(yes))", regex_constants::icase)) == 0 ? false : true;
-    window_flags = (SDL_WindowFlags) (window_flags | (p_cfg->get_case_index("full_screen_mode", 0, regex(R"((native)|(desktop))", regex_constants::icase)) == 0 ? SDL_WINDOW_FULLSCREEN : SDL_WINDOW_FULLSCREEN_DESKTOP));
+    if (full_screen)
+        window_flags = (SDL_WindowFlags) (window_flags | (p_cfg->get_case_index("full_screen_mode", 0, regex(R"((native)|(desktop))", regex_constants::icase)) == 0 ? SDL_WINDOW_FULLSCREEN : SDL_WINDOW_FULLSCREEN_DESKTOP));
     if (!(window = SDL_CreateWindow(TITLE, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, window_width, window_height, window_flags)))
         return fatal_error("Create window");
     gl_context = SDL_GL_CreateContext(window);
