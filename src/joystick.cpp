@@ -1,5 +1,8 @@
 #include "base.h"
 
+KJoystick::KJoystick(Board *p_board) : p_board(p_board){
+}
+
 void KJoystick::gamepad_event(int pad_btn, bool state){
     for (int i = 0; i <= 5; i++){
         if (button_map[i] == pad_btn){
@@ -25,7 +28,7 @@ void KJoystick::map(char btn_mask, int pad_btn){
 }
 
 bool KJoystick::io_rd(unsigned short addr, unsigned char *p_val, int clk){
-    if (!(addr & 0x20)){
+    if (!p_board->trdos_active() && !(addr & 0x20)){
         *p_val &= p1F;
         return true;
     }

@@ -8,11 +8,13 @@
 
 class KJoystick : public Device {
     public:
+        KJoystick(Board *p_board);
         void gamepad_event(int pad_btn, bool state);
         void set_state(unsigned char btn_mask, bool state);
         void map(char btn_mask, int pad_btn);
         bool io_rd(unsigned short addr, unsigned char *p_val, int clk);
     private:
-        unsigned char p1F = 0x00;
+        Board *p_board;
+        unsigned char p1F = 0xC0;
         int button_map[6];
 };

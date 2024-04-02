@@ -23,7 +23,7 @@ using namespace std;
                  "Github: https://github.com/EvgeniyShvedun/ZX-Emulator\n"
 
 //#define FRAME_TIME
-//#define FRAME_LIMIT 10000
+#define FRAME_LIMIT 10000
 
 #define UI_STYLE_EDIT       -2
 #define UI_EXIT             -1
@@ -50,36 +50,8 @@ SDL_AudioDeviceID audio_device_id = 0;
 
 SDL_Window *window = NULL;
 SDL_GLContext gl_context = NULL;
-GLuint program = 0;
-GLuint vertex_shader = 0;
-GLuint fragment_shader = 0;
-GLuint vao = 0;
-GLuint vbo = 0;
 GLuint pbo = 0;
-GLuint texture = 0;
-GLfloat vertex_data[4*4];
-GLfloat projection_matrix[16];
-
-const GLchar *vertex_src[] = {
-    "#version 330\n"\
-    "layout (location=0) in vec2 in_Position2D;\n"\
-    "layout (location=1) in vec2 in_TextureCoord;\n"\
-    "out vec2 ScreenCoord;\n"\
-    "uniform mat4 projectionMatrix;\n"\
-    "void main() {\n"\
-        "gl_Position = projectionMatrix * vec4(in_Position2D.x, in_Position2D.y, 0, 1);\n"\
-        "ScreenCoord = in_TextureCoord;\n"\
-    "}"
-};
-     
-const GLchar *fragment_src[] = {
-    "#version 330\n"\
-    "in vec2 ScreenCoord;\n"\
-    "uniform sampler2D ScreenTexture;\n"\
-    "void main() {\n"\
-        "gl_FragColor = texture(ScreenTexture, ScreenCoord);\n"\
-    "}"
-};
+GLuint screen_texture = 0;
 
 void viewport_setup(int width, int height){
     if (width < SCREEN_WIDTH)
@@ -97,28 +69,6 @@ void viewport_setup(int width, int height){
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
 
-    GLfloat *p_data = vertex_data;
-
-    *p_data++ = (GLfloat)width;
-    *p_data++ = 0.0f;
-    *p_data++ = 1.0f;
-    *p_data++ = 0.0f;
-
-    *p_data++ = 0.0f;
-    *p_data++ = 0.0f;
-    *p_data++ = 0.0f;
-    *p_data++ = 0.0f;
-
-    *p_data++ = 0.0f;
-    *p_data++ = (GLfloat)height;
-    *p_data++ = 0.0f;
-    *p_data++ = 1.0f;
-
-    *p_data++ = (GLfloat)width;
-    *p_data++ = (GLfloat)height;
-    *p_data++ = 1.0f;
-    *p_data++ = 1.0f;
-    SDL_SetWindowSize(window, width, height);
 }
 
 GLushort *p_screen = NULL;
@@ -137,26 +87,9 @@ void release_all(){
     DELETE(p_joystick);
     DELETE(p_mouse);
 
-    glUseProgram(0);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    if (vertex_shader)
-        glDeleteShader(vertex_shader);
-    vertex_shader = 0;
-    if (fragment_shader)
-        glDeleteShader(fragment_shader);
-    fragment_shader = 0;
-    if (program)
-        glDeleteProgram(program);
-    program = 0;
-    if (texture)
-        glDeleteTextures(1, &texture);
-    texture = 0;
-    if (vao)
-        glDeleteVertexArrays(1, &vao);
-    vao = 0;
-    if (vbo)
-        glDeleteBuffers(1, &vbo);
-    vbo = 0;
+    if (screen_texture)
+        glDeleteTextures(1, &screen_texture);
+    screen_texture = 0;
     if (pbo)
         glDeleteBuffers(1, &pbo);
     pbo = 0;
@@ -244,6 +177,16 @@ int main(int argc, char **argv){
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
     SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
+    switch (p_cfg->get_case_index("full_screen", 0, regex(R"((no)|(yes)|(desktop))", regex_constants::icase))){
+        case 0x00:
+            break;
+        case 0x01:
+            window_flags = (SDL_WindowFlags) (window_flags | SDL_WINDOW_FULLSCREEN);
+            break;
+        case 0x02:
+            window_flags = (SDL_WindowFlags) (window_flags | SDL_WINDOW_FULLSCREEN_DESKTOP);
+            break;
+    }
     if (!(window = SDL_CreateWindow(TITLE, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, window_width, window_height, window_flags)))
         return fatal_error("Create window");
     gl_context = SDL_GL_CreateContext(window);
@@ -264,49 +207,13 @@ int main(int argc, char **argv){
 
     SDL_SetWindowIcon(window, IMG_Load("data/icon.png"));
     SDL_SetWindowMinimumSize(window, SCREEN_WIDTH, SCREEN_HEIGHT);
-    viewport_setup(window_width, window_height);
-    
-    GLint gl_success = GL_FALSE;
-    vertex_shader = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(vertex_shader, 1, vertex_src, NULL);
-    glCompileShader(vertex_shader);
-    glGetShaderiv(vertex_shader, GL_COMPILE_STATUS, &gl_success);
-    if (gl_success != GL_TRUE)
-        return fatal_error("GL: Compile vertex shader");
-    fragment_shader = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(fragment_shader, 1, fragment_src, NULL);
-    glCompileShader(fragment_shader);
-    glGetShaderiv(fragment_shader, GL_COMPILE_STATUS, &gl_success);
-    if (gl_success != GL_TRUE)
-        return fatal_error("GL: Compile fragment shader");
-    program = glCreateProgram();
-    glAttachShader(program, vertex_shader);
-    glAttachShader(program, fragment_shader);
-    glLinkProgram(program);
-    glGetProgramiv(program, GL_LINK_STATUS, &gl_success);
-    if (gl_success != GL_TRUE)
-        return fatal_error("GL: Link shaders");
-    glDeleteShader(vertex_shader);
-    vertex_shader = 0;
-    glDeleteShader(fragment_shader);
-    fragment_shader = 0;
-    glUseProgram(program);
-    GLint projectionLocation = glGetUniformLocation(program, "projectionMatrix");
-    glGetFloatv(GL_PROJECTION_MATRIX, projection_matrix);
-    glUniformMatrix4fv(projectionLocation, 1, GL_FALSE, projection_matrix);
 
-    glGenVertexArrays(1, &vao);
-    glBindVertexArray(vao);
-    glGenBuffers(1, &vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertex_data), vertex_data, GL_STATIC_DRAW);
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(GLfloat) * 4, NULL);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(GLfloat) * 4, (void*)(2*sizeof(GLfloat)));
-    glEnableVertexAttribArray(1);
-
-    glGenTextures(1, &texture);
-    glBindTexture(GL_TEXTURE_2D, texture);
+    // GL state setup
+    glEnable(GL_TEXTURE_2D);
+    glGenTextures(1, &screen_texture);
+    glBindTexture(GL_TEXTURE_2D, screen_texture);
+    glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA4, SCREEN_WIDTH, SCREEN_HEIGHT);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA4, SCREEN_WIDTH, SCREEN_HEIGHT, 0, GL_RGBA, GL_UNSIGNED_SHORT_4_4_4_4, NULL);
     if (p_cfg->get_case_index("scale_filter", 0, regex(R"((nearest)|(linear))", regex_constants::icase)) == 0){
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -362,9 +269,9 @@ int main(int argc, char **argv){
     p_sound->setup_lpf(p_cfg->get("lpf_cut_rate", 22050, 11025, 44100));
 
     p_wd1793 = new WD1793(p_board);
+    p_joystick = new KJoystick(p_board);
     p_tape = new Tape();
     p_mouse = new KMouse();
-    p_joystick = new KJoystick();
 
     p_joystick->map(JOY_LEFT, p_cfg->get("joy_left", 15, 0, 1000));
     p_joystick->map(JOY_RIGHT, p_cfg->get("joy_right", 13, 0, 1000));
@@ -430,7 +337,7 @@ int main(int argc, char **argv){
     int ui = UI_NONE;
     ImVec2 btn_size = {80, 20};
     ImVec2 btn_small = {60, 20};
-    IGFD::FileDialogConfig config = {.path = ".", .flags = ImGuiFileDialogFlags_Modal};
+    IGFD::FileDialogConfig config = {.path = ".", .countSelectionMax = 1, .flags = ImGuiFileDialogFlags_Modal};
     GLuint kbd_layout = load_texture("data/keyboard_layout.png");
     bool style_editor = false;
 
@@ -447,10 +354,14 @@ int main(int argc, char **argv){
                         case SDL_WINDOWEVENT_HIDDEN:
                             active = false;
                             break;
-                        case SDL_WINDOWEVENT_RESIZED:
-                            break;
-                        case SDL_WINDOWEVENT_SIZE_CHANGED:
-                            viewport_setup(event.window.data1, event.window.data2);
+                        case SDL_WINDOWEVENT_EXPOSED:
+                            SDL_GetWindowSize(window, &window_width, &window_height);
+                            glViewport(0, 0, (GLsizei)window_width, (GLsizei)window_height);
+                            glMatrixMode(GL_PROJECTION);
+                            glLoadIdentity();
+                            glOrtho(0.0, window_width, window_height, 0.0, -1.0, 1.0);
+                            glMatrixMode(GL_MODELVIEW);
+                            glLoadIdentity();
                             break;
                         case SDL_WINDOWEVENT_CLOSE:
                             loop = false;
@@ -480,8 +391,6 @@ int main(int argc, char **argv){
                                 else
                                     SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN_DESKTOP);
                                 full_screen ^= true;
-                                SDL_GetWindowSize(window, &window_width, &window_height);
-                                viewport_setup(window_width, window_height);
                             }
                             break;
                         case SDLK_F1:
@@ -781,16 +690,25 @@ int main(int argc, char **argv){
             SDL_Delay(100);
             continue;
         }
-        glBindTexture(GL_TEXTURE_2D, texture);
+        // PBO data is transferred, rendering a full-screen textured quad.
+        glBindTexture(GL_TEXTURE_2D, screen_texture);
+        glBegin(GL_QUADS);
+            glTexCoord2f(0.0f, 1.0f); glVertex2f(0.0f,                  window_height);
+            glTexCoord2f(1.0f, 1.0f); glVertex2f(window_width,          window_height);
+            glTexCoord2f(1.0f, 0.0f); glVertex2f(window_width,          0.0f);
+            glTexCoord2f(0.0f, 0.0f); glVertex2f(0.0f,                  0.0f);
+        glEnd();
+        // Update the PBO and setup async byte-transfer to the screen texture.
         glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pbo);
-        glBufferData(GL_PIXEL_UNPACK_BUFFER, SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(GLushort), NULL, GL_STREAM_DRAW);
+        glBufferData(GL_PIXEL_UNPACK_BUFFER, SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(GLushort), NULL, GL_DYNAMIC_DRAW);
         p_board->set_frame_buffer(glMapBuffer(GL_PIXEL_UNPACK_BUFFER, GL_WRITE_ONLY));
         if (ui != UI_DEBUGGER)
             p_board->frame();
         glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, SCREEN_WIDTH, SCREEN_HEIGHT, 0, GL_RGBA, GL_UNSIGNED_SHORT_4_4_4_4, NULL);
-        glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+        // Start update texture.
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, GL_RGBA, GL_UNSIGNED_SHORT_4_4_4_4, NULL);
         glBindTexture(GL_TEXTURE_2D, 0);
+        glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 
         if (ui){
             ImGui_ImplOpenGL3_NewFrame();
