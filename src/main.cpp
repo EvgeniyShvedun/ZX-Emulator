@@ -332,7 +332,8 @@ int main(int argc, char **argv){
                             glLoadIdentity();
                             break;
                         case SDL_WINDOWEVENT_CLOSE:
-                            loop = false;
+                            //loop = false;
+                            ui = UI_EXIT;
                             break;
                     }
                     break;
