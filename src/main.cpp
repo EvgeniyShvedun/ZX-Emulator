@@ -52,25 +52,6 @@ SDL_Window *window = NULL;
 SDL_GLContext gl_context = NULL;
 GLuint pbo = 0;
 GLuint screen_texture = 0;
-
-void viewport_setup(int width, int height){
-    if (width < SCREEN_WIDTH)
-        width = SCREEN_WIDTH;
-    if (height < SCREEN_HEIGHT)
-        height = SCREEN_HEIGHT;
-
-    window_width = width;
-    window_height = height;
-
-    glViewport(0, 0, (GLsizei)width, (GLsizei)height);
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-    glOrtho(0, width, height, 0, 0, 1);
-    glMatrixMode(GL_MODELVIEW);
-    glLoadIdentity();
-
-}
-
 GLushort *p_screen = NULL;
 
 void release_all(){
