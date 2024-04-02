@@ -124,11 +124,6 @@ GLushort load_texture(const char *p_path){
     return  tex;
 }
 
-void text_centred(const char *p_text){
-    ImGui::SetCursorPosX((ImGui::GetWindowSize().x - ImGui::CalcTextSize(p_text).x) * 0.5);
-    ImGui::Text(p_text);
-}
-
 int main(int argc, char **argv){
     bool loop = true;
     bool active = true;
@@ -698,10 +693,12 @@ int main(int argc, char **argv){
             //    ImGui::ShowStyleEditor();
             switch(ui){
                 case UI_EXIT:
+                    static const char *confirm_txt = "Do you exit?";
                     ImGui::SetNextWindowPos(ImVec2(window_width*0.5, window_height*0.5), ImGuiCond_Always, ImVec2(0.5, 0.5));
                     if (ImGui::Begin("Exit", NULL, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoDecoration)){
                         ImGui::SetWindowFocus();
-                        text_centred("Do you exit?");
+                        ImGui::SetCursorPosX((ImGui::GetWindowSize().x - ImGui::CalcTextSize(confirm_txt).x) * 0.5);
+                        ImGui::Text(confirm_txt);
                         ImGui::Spacing();
                         if (ImGui::Button("Yes", btn_size))
                             loop = false;
