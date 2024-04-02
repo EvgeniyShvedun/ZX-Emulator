@@ -4,8 +4,8 @@
 
 CXX 		:= c++
 SDLCFG		:= sdl2-config
-INCLUDE     := -I./build/imgui -I./build/imgui/backends -I./build/ImGuiFileDialog $(shell $(SDLCFG) --cflags)
-CXXFLAGS	:= -O -march=native -mtune=native -fomit-frame-pointer -pipe -Wall $(INCLUDE)
+INCLUDE		:= -I./build/imgui -I./build/imgui/backends -I./build/ImGuiFileDialog $(shell $(SDLCFG) --cflags)
+CXXFLAGS	:= -O -fomit-frame-pointer -pipe -Wall $(INCLUDE)
 LDFLAGS		:= -lGLEW -lGLU -lGL -lSDL2_image $(shell $(SDLCFG) --libs)
 SRCDIR		:= .
 OBJDIR		:= ./build/obj/linux

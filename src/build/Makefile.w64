@@ -3,15 +3,15 @@
 # Require: -lSDL2 -lSDL2_image -lGLEW -lGLU -lGL
 #
 
-CXX         := x86_64-w64-mingw32-c++
+CXX		:= x86_64-w64-mingw32-c++
 SDLCFG		:= /usr/x86_64-w64-mingw32/bin/sdl2-config
-INCLUDE     := -I/usr/local/x86_64-w64-mingw32/include -I./build/imgui -I./build/imgui/backends -I./build/ImGuiFileDialog $(shell $(SDLCFG) --cflags)
+INCLUDE		:= -I/usr/local/x86_64-w64-mingw32/include -I./build/imgui -I./build/imgui/backends -I./build/ImGuiFileDialog $(shell $(SDLCFG) --cflags)
 CXXFLAGS	:= -O -fomit-frame-pointer -pipe -Wall -DGLEW_STATIC $(INCLUDE)
 LDFLAGS		:= -static ./build/glew/x64/glew32s.lib -lopengl32 -lSDL2_image $(shell $(SDLCFG) --static-libs)
 SRCDIR		:= .
 OBJDIR		:= ./build/obj/w64
 TARGET		:= ../emulator.exe
-SRC		    = $(wildcard $(SRCDIR)/*.cpp) build/imgui/imgui.cpp build/imgui/imgui_tables.cpp build/imgui/imgui_widgets.cpp \
+SRC		= $(wildcard $(SRCDIR)/*.cpp) build/imgui/imgui.cpp build/imgui/imgui_tables.cpp build/imgui/imgui_widgets.cpp \
             build/imgui/backends/imgui_impl_sdl2.cpp build/imgui/backends/imgui_impl_opengl3.cpp \
             build/imgui/imgui_draw.cpp \
             build/ImGuiFileDialog/ImGuiFileDialog.cpp
