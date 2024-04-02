@@ -16,7 +16,7 @@
 
 using namespace std;
 
-#define TITLE "Sinclair Research 2024"
+#define TITLE "2024 Sinclair Research"
 #define START_MSG "ZX-Spectrum Emulator v1.1 by Evgeniy Shvedun 2006-2024.\n"
 #define EXIT_MSG "---\n"\
                  "Facebook: https://www.facebook.com/profile.php?id=61555407730196\n"\
@@ -311,9 +311,12 @@ int main(int argc, char **argv){
 
     while (loop){
         while (SDL_PollEvent(&event)){
-            if (event.type == SDL_QUIT)
-                ui = UI_EXIT;
+            if (ui)
+                ImGui_ImplSDL2_ProcessEvent(&event);
             switch(event.type){
+                case SDL_QUIT:
+                    ui = UI_EXIT;
+                    break;
                 case SDL_WINDOWEVENT:
                     switch(event.window.event){
                         case SDL_WINDOWEVENT_SHOWN:
@@ -657,7 +660,6 @@ int main(int argc, char **argv){
                     p_mouse->wheel(event.wheel.y);
                     break;
             }
-            ImGui_ImplSDL2_ProcessEvent(&event);
         }
         if (!active){
             SDL_Delay(100);
