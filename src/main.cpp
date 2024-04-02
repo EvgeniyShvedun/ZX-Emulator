@@ -52,7 +52,6 @@ SDL_Window *window = NULL;
 SDL_GLContext gl_context = NULL;
 GLuint pbo = 0;
 GLuint screen_texture = 0;
-GLushort *p_screen = NULL;
 
 void release_all(){
     if (audio_device_id)
