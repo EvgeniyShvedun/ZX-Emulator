@@ -266,12 +266,13 @@ int main(int argc, char **argv){
         load_file(argv[i]);
 
     // Audio
+    unsigned int frame_samples = p_board->frame_clk * (p_sound->sample_rate / (float)Z80_FREQ);
     SDL_AudioSpec audio_spec;
     SDL_zero(audio_spec);
     audio_spec.freq = p_sound->sample_rate;
     audio_spec.format = AUDIO_S16;
     audio_spec.channels = 2;
-    audio_spec.samples = p_board->frame_clk * (p_sound->sample_rate / (float)Z80_FREQ);
+    audio_spec.samples = frame_samples * 3;
     audio_spec.callback = NULL;
     audio_device_id = SDL_OpenAudioDevice(NULL, 0, &audio_spec, NULL, 0);
     if (!audio_device_id)
@@ -329,7 +330,9 @@ int main(int argc, char **argv){
                     }
                     if (event.key.keysym.sym == SDLK_F8)
                         style_editor ^= true;
-                    if (io.WantCaptureKeyboard)
+                    //if (io.WantCaptureKeyboard)
+                    //    break;
+                    if (ui)
                         break;
                     if (event.key.repeat)
                         break;
@@ -399,7 +402,7 @@ int main(int argc, char **argv){
                             break;
                     }
                 case SDL_KEYUP:
-                    if (io.WantCaptureKeyboard)
+                    if (ui)
                         break;
                     switch(event.key.keysym.sym){
                         case SDLK_UP: // SHIFT + 7
@@ -854,13 +857,13 @@ int main(int argc, char **argv){
 		if (++frame_cnt > FRAME_LIMIT)
             break;
 #else
+        SDL_GL_SwapWindow(window);
         if (!full_speed){
-            while (SDL_GetQueuedAudioSize(audio_device_id) > audio_spec.samples * 4)
+            while (SDL_GetQueuedAudioSize(audio_device_id) > (audio_spec.samples - frame_samples) * 4)
                 SDL_Delay(1);
-            SDL_QueueAudio(audio_device_id, p_sound->buffer, audio_spec.samples * 4);
+            SDL_QueueAudio(audio_device_id, p_sound->buffer, frame_samples * 4);
         }
 #endif
-        SDL_GL_SwapWindow(window);
     }
 #ifdef FRAME_TIME
 	printf("Time: %d for frames: %d\n", (SDL_GetTicks() - time_start), frame_cnt);
