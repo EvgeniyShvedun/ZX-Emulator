@@ -20,98 +20,109 @@ WD1793::~WD1793(){
 }
 
 void WD1793::update(int clk){
-    int steps, step_clk, bytes;
+    int steps, bytes;
     clk -= last_clk;
     last_clk += clk;
 
     #ifdef DEBUG
-        printf("Command %02x, status: %02x, head: %02x, reg_track: %02x, reg_sector: %02x, reg_data: %02x, motor on: %d, label: %d, clk: %d\n", reg_command, reg_status, drive[reg_select & SYS_DRIVE].track, reg_track, reg_sector, reg_data, drive[reg_select & SYS_DRIVE].motor_on_clk, drive[reg_select & SYS_DRIVE].index_label_clk, command_clk);
+        printf("Command %02x, status: %02x, head: %d, reg_track: %d, reg_sector: %d, reg_data: %d, dirc: %d, motor_clk: %d, clk: %d\n", reg_command, reg_status, drive[reg_select & SYS_DRIVE].track, reg_track, reg_sector, reg_data, drive[reg_select & SYS_DRIVE].dirc, drive[reg_select & SYS_DRIVE].motor_clk, command_clk);
     #endif
-    if (drive[reg_select & SYS_DRIVE].motor_on_clk >= MOTOR_ON_CLK)
+    if (drive[reg_select & SYS_DRIVE].motor_clk > MOTOR_ON_CLK)
         return;
-    drive[reg_select & SYS_DRIVE].index_label_clk += clk;
-    if (!(reg_command & 0x80)){ // Type I
-        if (drive[reg_select & SYS_DRIVE].index_label_clk % DISK_TURN_CLK < INDEX_LABEL_CLK)
+    drive[reg_select & SYS_DRIVE].motor_clk += clk;
+    if (!(reg_command & 0x80)){
+        if (drive[reg_select & SYS_DRIVE].motor_clk % DISK_TURN_CLK < INDEX_LABEL_CLK) // Type I
             reg_status |= ST_INDEX;
         else
             reg_status &= ~ST_INDEX;
     }
-    if (!(reg_status & ST_BUSY)){
-        drive[reg_select & SYS_DRIVE].motor_on_clk += clk;
+    if (!(reg_status & ST_BUSY))
         return;
-    }
     command_clk += clk;
+
+    //////////////////////////////
+    if ((reg_command & 0x80) && delay_clk && (reg_command >> 0x04) != 0xD){
+        if (command_clk < delay_clk)
+            return;
+        command_clk -= delay_clk;
+        delay_clk = 0;
+    }
 
     switch ((reg_command >> 4) & 0x0F){
         case 0x00: // Restore
-            if (drive[reg_select & SYS_DRIVE].track <= command_clk / step_time[reg_command & CMD_RATE]){
+             /*
+             if (drive[reg_select & SYS_DRIVE].track <= command_clk / step_time[reg_command & CMD_RATE]){
+                drive[reg_select & SYS_DRIVE].track = 0x00;
                 reg_track = 0;
                 reg_sector = 1;
                 reg_status |= ST_TRACK0;
                 reg_status &= ~ST_BUSY;
             }
             break;
+            */
         case 0x01: // Seek
-    #ifdef DEBUG
-            printf("SEEK reg_track: %02x, reg_data: %02x, reg_status: %02x, dir: %x\n", reg_track, reg_data, reg_status, drive[reg_select & SYS_DRIVE].step_dir);
-    #endif
+            if (reg_track == reg_data || (drive[reg_select & SYS_DRIVE].dirc == -1 && !drive[reg_select & SYS_DRIVE].track)){
+                if (!drive[reg_select & SYS_DRIVE].track){
+                    reg_status |= ST_TRACK0;
+                    reg_track = 0x00;
+                }
+                if (reg_command & CMD_VERIFY)
+                    if (reg_track != drive[reg_select & SYS_DRIVE].track)
+                        reg_status |= ST_SEEK_ERR;
+                reg_status &= ~ST_BUSY;
+                break;
+            }
             steps = command_clk / step_time[reg_command & CMD_RATE];
-            if (drive[reg_select & SYS_DRIVE].step_dir > 0){
+            if (!steps)
+                break;
+            if (drive[reg_select & SYS_DRIVE].dirc > 0){
                 if (steps > reg_data - reg_track)
                     steps = reg_data - reg_track;
                 drive[reg_select & SYS_DRIVE].track += steps;
                 if (drive[reg_select & SYS_DRIVE].track > LAST_TRACK)
                     drive[reg_select & SYS_DRIVE].track = LAST_TRACK;
-                reg_track += steps;
+                if (reg_command & CMD_MODIFY)
+                    reg_track += steps;
             }else{
-                if (steps > reg_track - reg_data)
-                    steps = reg_track - reg_data;
+                steps = min(reg_track - reg_data, min(steps, drive[reg_select & SYS_DRIVE].track));
                 drive[reg_select & SYS_DRIVE].track -= steps;
-                if (drive[reg_select & SYS_DRIVE].track < 0)
-                    drive[reg_select & SYS_DRIVE].track = 0;
-                reg_track -= steps;
-                if (!drive[reg_select & SYS_DRIVE].track)
-                    reg_status |= ST_TRACK0;
+                if (reg_command & CMD_MODIFY)
+                    reg_track -= steps;
             }
             command_clk -= steps * step_time[reg_command & CMD_RATE];
-            if (reg_track == reg_data){
-                if (reg_command & CMD_VERIFY)
-                    if (reg_track != drive[reg_select & SYS_DRIVE].track)
-                        reg_status |= ST_SEEK_ERR;
-                reg_status &= ~ST_BUSY;
-            }
-            break;////////////////////////////////////////////////////////
+            break;
         case 0x02: // Step
         case 0x03: // Step modify
         case 0x04: // Step forward
         case 0x05: // Step forward modify
         case 0x06: // Step backward
         case 0x07: // Step backward modify
-            step_clk = step_time[reg_command & CMD_RATE];
-            if (command_clk < step_clk)
+            if (command_clk < step_time[reg_command & CMD_RATE])
                 break;
-            if (drive[reg_select & SYS_DRIVE].step_dir > 0){
-                if (drive[reg_select & SYS_DRIVE].track < LAST_TRACK)
-                    drive[reg_select & SYS_DRIVE].track++;
+            if (drive[reg_select & SYS_DRIVE].dirc > 0){
                 if (reg_command & CMD_MODIFY)
                     reg_track++;
+                if (drive[reg_select & SYS_DRIVE].track < LAST_TRACK)
+                    drive[reg_select & SYS_DRIVE].track++;
             }else{
-                if (drive[reg_select & SYS_DRIVE].track > 0)
-                    if (!--drive[reg_select & SYS_DRIVE].track)
-                        reg_status |= ST_TRACK0;
                 if (reg_command & CMD_MODIFY)
                     reg_track--;
+                if (drive[reg_select & SYS_DRIVE].track > 0)
+                    drive[reg_select & SYS_DRIVE].track--;
             }
-            if (reg_command & CMD_VERIFY)
-                if (reg_track != drive[reg_select & SYS_DRIVE].track)
-                    reg_status |= ST_SEEK_ERR;
+            if (!drive[reg_select & SYS_DRIVE].track){
+                reg_track = 0x00;
+                reg_status |= ST_TRACK0;
+            }
+            if (reg_command & CMD_VERIFY && reg_track != drive[reg_select & SYS_DRIVE].track)
+                reg_status |= ST_SEEK_ERR;
             reg_status &= ~ST_BUSY;
             break;
         case 0x08: // Read sector
         case 0x09: // Read sectors
             if (command_clk < DRQ_CLK)
                 break;
-            if (reg_command & CMD_MULTI_SECTOR){
+            if (reg_command & CMD_MULTISEC){
                 bytes = min(command_clk / DRQ_CLK, 0x100 * (LAST_SECTOR - (reg_sector - 1)) - data_idx);
                 reg_sector += data_idx >> 8;
                 data_idx += bytes;
@@ -121,13 +132,10 @@ void WD1793::update(int clk){
                 data_idx += bytes;
             }
             command_clk -= bytes * DRQ_CLK;
-            if (bytes > 1 || reg_status & ST_DRQ){
-                //printf("LOAD DATA bytes: %d, status: %x\n", bytes, reg_status);
+            if (bytes > 1 || reg_status & ST_DRQ)
                 reg_status |= ST_DATA_ERR;
-            }
-            if (drive[reg_select & SYS_DRIVE].p_data and bytes){
+            if (drive[reg_select & SYS_DRIVE].p_data && bytes){
                 reg_data = drive[reg_select & SYS_DRIVE].p_data[0x2000 * drive[reg_select & SYS_DRIVE].track + 0x1000 * (reg_select & SYS_HEAD ? 0 : 1) + (min(reg_sector - 1, LAST_SECTOR - 1) << 8) + data_idx - 1];
-                //printf("Read sector idx: %d, data: %02x", data_idx, reg_data);
                 reg_status |= ST_DRQ;
             }else
                 reg_status &= ~(ST_BUSY | ST_DRQ);
@@ -171,7 +179,19 @@ void WD1793::update(int clk){
             }
             break;
         case 0x0D: // Force interrupt
-            reg_status &= ~(ST_BUSY | ST_DRQ);
+            /*
+            if (!(reg_command & 0x0F)){
+                reg_status = 0x00;
+            else{
+                if (reg_command & 0x04){
+                    if (drive[reg_select & SYS_DRIVE].index_label_clk % DISK_TURN_CLK < INDEX_LABEL_CLK)
+                        reg_status = 0x00;
+                }else{
+                    if (reg_status & 0x08)
+                        reg_status &= ST_BUSY;
+                }
+            }*/
+            reg_status = 0x00;
             break;
         case 0x0E: // Read track
         case 0x0F: // Write track
@@ -201,13 +221,16 @@ bool WD1793::io_rd(unsigned short port, unsigned char *p_byte, int clk){
                 break;
         }
     }else{
-        //*p_byte &= ~0b11;
         *p_byte &= ~(SYS_INTRQ | SYS_DRQ);
-        if ((reg_command & 0x80) && (reg_command >> 8) != 0x0D) // DRQ must be separated value
-            if (reg_status & ST_DRQ)
-                *p_byte |= SYS_DRQ;
-        if (!(reg_status & ST_BUSY))
-            *p_byte |= SYS_INTRQ;
+        if ((reg_command & 0x80)){
+            if ((reg_command >> 4) != 0x0D){
+                if (reg_status & ST_DRQ) // Data transfer command.
+                    *p_byte |= SYS_DRQ;
+            }
+        }//else{
+            if (!(reg_status & ST_BUSY))
+                *p_byte |= SYS_INTRQ;
+        //}
     }
     #ifdef DEBUG
        printf("WD read %02x -> %02x\n", port & 0xFF, *p_byte);
@@ -215,55 +238,52 @@ bool WD1793::io_rd(unsigned short port, unsigned char *p_byte, int clk){
     return true;
 }
 
-bool WD1793::io_wr(unsigned short addr, unsigned char byte, int clk){
+bool WD1793::io_wr(unsigned short port, unsigned char byte, int clk){
     if (!p_board->trdos_active())
         return false;
+    #ifdef DEBUG
+        printf("WD write %x -> %x\n", (port & 0xFF), byte);
+    #endif
     update(clk);
-    if (addr & 0x80){
+    if (port & 0x80){
         reg_select = byte;
         if (!(byte & SYS_RESET))
             reset();
         return true;
     }
-    #ifdef DEBUG
-        printf("ADDR %x -> %x\n", (addr & 0xFF), byte);
-    #endif
-    switch((addr >> 5) & 0x03){
+    switch((port >> 5) & 0x03){
         case 0x00: // 1F
-            if ((byte & 0xF0) == 0xD0){
-                reset(); // Hard reset.
-                break;
-            }
-            if (reg_status & ST_BUSY)
+            if ((byte & 0xF0) == 0xF0 && byte & 0x08) // A non-existent bit combination is treated as a "Forced Interrupt".
+                byte &= 0xD0; 
+            if ((byte & 0xF0) != 0xD0 && reg_status & ST_BUSY)
                 break; // Not ready.
-            reg_command = byte;
             command_clk = 0; 
-            drive[reg_select & SYS_DRIVE].motor_on_clk = 0;
+            delay_clk = 0;
+            reg_command = byte;
+            reg_status = ST_BUSY;
             switch((byte >> 4) & 0x0F){
                 case 0x00: // Restore.
-                    drive[reg_select & SYS_DRIVE].step_dir = -1;
-                    reg_status = ST_BUSY | ST_HEAD_LOAD;
+                    reg_track = 0xFF;
+                    reg_data = 0x00;
+                    drive[reg_select & SYS_DRIVE].dirc = -1;
+                    drive[reg_select & SYS_DRIVE].motor_clk %= DISK_TURN_CLK;
                     break;
                 case 0x01: // Seek
-                    drive[reg_select & SYS_DRIVE].step_dir = reg_track < reg_data ? 1 : -1;
-                    reg_status = ST_BUSY | ST_HEAD_LOAD;
-                    //printf("Start seek status: %02x, busy: %02x, head_load: %02x\n", reg_status, ST_BUSY, ST_HEAD_LOAD);
+                    drive[reg_select & SYS_DRIVE].dirc = reg_data > reg_track ? 1 : -1;
+                    drive[reg_select & SYS_DRIVE].motor_clk %= DISK_TURN_CLK;
                     break;
                 case 0x02: // Step
-                    reg_status = ST_BUSY | ST_HEAD_LOAD;
-                    break;
                 case 0x03: // Step modify
-                    reg_status = ST_BUSY | ST_HEAD_LOAD;
                     break;
                 case 0x04: // Step forward
                 case 0x05: // Step forward modify
-                    drive[reg_select & SYS_DRIVE].step_dir = 1;
-                    reg_status = ST_BUSY | ST_HEAD_LOAD;
+                    drive[reg_select & SYS_DRIVE].dirc = 1;
+                    drive[reg_select & SYS_DRIVE].motor_clk %= DISK_TURN_CLK;
                     break;
                 case 0x06: // Step backward
                 case 0x07: // Step backward modify
-                    drive[reg_select & SYS_DRIVE].step_dir = -1;
-                    reg_status = ST_BUSY | ST_HEAD_LOAD;
+                    drive[reg_select & SYS_DRIVE].dirc = -1;
+                    drive[reg_select & SYS_DRIVE].motor_clk %= DISK_TURN_CLK;
                     break;
                 // Type 2
                 case 0x08: // Read sector
@@ -272,18 +292,18 @@ bool WD1793::io_wr(unsigned short addr, unsigned char byte, int clk){
                 case 0x0B: // Write sectors
                     if (reg_track != drive[reg_select & SYS_DRIVE].track || reg_sector < 1 || reg_sector > LAST_SECTOR){
                         reg_status |= ST_RNF;
+                        reg_status &= ~ST_BUSY;
                         break;
                     }
                     data_idx = 0;
-                    reg_status = ST_BUSY;
                     break;
                 // Type 3
                 case 0x0C: // Read address
                     data_idx = 0;
-                    reg_status = ST_BUSY;
                     break;
                 case 0x0D: // Force interrupt
-                    reg_status = ST_BUSY;
+                    if (!(reg_command & 0x0F))
+
                     break;
                 case 0x0E: // Read track
                 case 0x0F: // Write track
@@ -293,9 +313,13 @@ bool WD1793::io_wr(unsigned short addr, unsigned char byte, int clk){
             }
             break;
         case 0x01: // 0x3F
+            if (reg_status & ST_BUSY)
+                break;
             reg_track = byte;
             break;
         case 0x02: // 0x5F
+            if (reg_status & ST_BUSY)
+                break;
             reg_sector = byte;
             break;
         case 0x03: // 0x7F
@@ -312,18 +336,15 @@ void WD1793::frame(int clk){
 }
 
 void WD1793::reset(){
-    for (int i = 0; i < 4; i++){
-        drive[i].step_dir = -1;
-        drive[i].track = 0;
-    }
-    data_idx = 0;
+    reg_command = 0x03;
+    reg_select = 0x00;
+    reg_track = 0xFF;
+    reg_data = 0x00;
     command_clk = 0;
-    reg_command = 0;
-    reg_track = 0;
-    reg_sector = 1;
-    reg_data = 0;
-    reg_status = 0;
-    reg_select = SYS_INTRQ;
+    drive[reg_select & SYS_DRIVE].dirc = -1;
+    drive[reg_select & SYS_DRIVE].motor_clk = 0;
+    reg_status = ST_BUSY;
+
 }
 
 void WD1793::load_trd(int drive_idx, const char *p_path, bool writable){
