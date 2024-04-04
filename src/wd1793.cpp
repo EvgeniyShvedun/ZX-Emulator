@@ -66,9 +66,11 @@ void WD1793::update(int clk){
                     reg_status |= ST_TRACK0;
                     reg_track = 0x00;
                 }
-                if (reg_command & CMD_VERIFY)
+                if (reg_command & CMD_VERIFY){
+                    reg_status |= ST_HEAD_LOADED;
                     if (reg_track != drive[reg_select & SYS_DRIVE].track)
                         reg_status |= ST_SEEK_ERR;
+                }
                 reg_status &= ~ST_BUSY;
                 break;
             }
@@ -114,8 +116,11 @@ void WD1793::update(int clk){
                 reg_track = 0x00;
                 reg_status |= ST_TRACK0;
             }
-            if (reg_command & CMD_VERIFY && reg_track != drive[reg_select & SYS_DRIVE].track)
-                reg_status |= ST_SEEK_ERR;
+            if (reg_command & CMD_VERIFY){
+                reg_status |= ST_HEAD_LOADED;
+                if (reg_track != drive[reg_select & SYS_DRIVE].track)
+                    reg_status |= ST_SEEK_ERR;
+            }
             reg_status &= ~ST_BUSY;
             break;
         case 0x08: // Read sector
