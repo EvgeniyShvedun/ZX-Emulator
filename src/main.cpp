@@ -11,17 +11,11 @@
 #include "base.h"
 #include "config.h"
 #include <math.h>
-
 #include "disasm.h"
 
 using namespace std;
 
 #define TITLE "2024 Sinclair Research"
-#define START_MSG "ZX-Spectrum Emulator v1.1 by Evgeniy Shvedun 2006-2024.\n"
-#define EXIT_MSG "---\n"\
-                 "Facebook: https://www.facebook.com/profile.php?id=61555407730196\n"\
-                 "Github: https://github.com/EvgeniyShvedun/ZX-Emulator\n"
-
 //#define FRAME_TIME
 #define FRAME_LIMIT 10000
 
@@ -47,11 +41,10 @@ KMouse *p_mouse = NULL;
 KJoystick *p_joystick = NULL;
 
 SDL_AudioDeviceID audio_device_id = 0;
-
 SDL_Window *window = NULL;
 SDL_GLContext gl_context = NULL;
 GLuint pbo = 0;
-GLuint screen_texture = 0;
+GLuint screen = 0;
 
 void release_all(){
     if (audio_device_id)
@@ -67,9 +60,9 @@ void release_all(){
     DELETE(p_joystick);
     DELETE(p_mouse);
 
-    if (screen_texture)
-        glDeleteTextures(1, &screen_texture);
-    screen_texture = 0;
+    if (screen)
+        glDeleteTextures(1, &screen);
+    screen = 0;
     if (pbo)
         glDeleteBuffers(1, &pbo);
     pbo = 0;
@@ -101,28 +94,27 @@ void load_file(const char *ptr){
 }
 
 GLushort load_texture(const char *p_path){
-    GLuint tex;
+    GLuint texture;
     SDL_Surface *p_image = IMG_Load(p_path);
     SDL_Surface *p_surface = SDL_ConvertSurfaceFormat(p_image, SDL_PIXELFORMAT_RGBA4444, 0);
     SDL_FreeSurface(p_image);
-    glGenTextures(1, &tex);
-	glBindTexture(GL_TEXTURE_2D, tex);
+    glGenTextures(1, &texture);
+	glBindTexture(GL_TEXTURE_2D, texture);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA4, p_surface->w, p_surface->h, 0, GL_RGBA, GL_UNSIGNED_SHORT_4_4_4_4, p_surface->pixels);
 	SDL_FreeSurface(p_surface);
-    return  tex;
+    return texture;
 }
 
 int main(int argc, char **argv){
     bool loop = true;
-    bool active = true;
+    bool supsend = false;
     bool full_screen = false;
     SDL_Event event;
 
-    printf(START_MSG);
     p_cfg = new Config(CONFIG_FILE);
     int scale = p_cfg->get("scale", 2, 1, 5);
     window_width = SCREEN_WIDTH * scale;
@@ -170,8 +162,8 @@ int main(int argc, char **argv){
 
     // GL state setup
     glEnable(GL_TEXTURE_2D);
-    glGenTextures(1, &screen_texture);
-    glBindTexture(GL_TEXTURE_2D, screen_texture);
+    glGenTextures(1, &screen);
+    glBindTexture(GL_TEXTURE_2D, screen);
     glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA4, SCREEN_WIDTH, SCREEN_HEIGHT);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA4, SCREEN_WIDTH, SCREEN_HEIGHT, 0, GL_RGBA, GL_UNSIGNED_SHORT_4_4_4_4, NULL);
     if (p_cfg->get_case_index("scale_filter", 0, regex(R"((nearest)|(linear))", regex_constants::icase)) == 0){
@@ -274,21 +266,18 @@ int main(int argc, char **argv){
         load_file(argv[i]);
 
     // Audio
-    SDL_AudioSpec wanted, have;
-    SDL_zero(wanted);
-    SDL_zero(have);
-    wanted.freq = p_sound->sample_rate;
-    wanted.format = AUDIO_S16;
-    wanted.channels = 2;
-    wanted.samples = p_board->frame_clk * (p_sound->sample_rate / (float)Z80_FREQ);
-    wanted.callback = NULL;
-    audio_device_id = SDL_OpenAudioDevice(NULL, 0, &wanted, &have, 0);
+    SDL_AudioSpec audio_spec;
+    SDL_zero(audio_spec);
+    audio_spec.freq = p_sound->sample_rate;
+    audio_spec.format = AUDIO_S16;
+    audio_spec.channels = 2;
+    audio_spec.samples = p_board->frame_clk * (p_sound->sample_rate / (float)Z80_FREQ);
+    audio_spec.callback = NULL;
+    audio_device_id = SDL_OpenAudioDevice(NULL, 0, &audio_spec, NULL, 0);
     if (!audio_device_id)
         return fatal_error("SDL: Open audio device");
-    if (wanted.freq != have.freq || wanted.channels != have.channels || wanted.samples != have.samples)
-        return fatal_error("SDL Audio buffer init");
+    SDL_QueueAudio(audio_device_id, p_sound->buffer, audio_spec.samples * 4);
     SDL_PauseAudioDevice(audio_device_id, 0);
-
 #ifdef FRAME_TIME
     Uint32 time_start = SDL_GetTicks();
 	int frame_cnt = 0;
@@ -296,7 +285,6 @@ int main(int argc, char **argv){
     bool full_speed = false;
     int ui = UI_NONE;
     ImVec2 btn_size = {80, 20};
-    ImVec2 btn_small = {60, 20};
     IGFD::FileDialogConfig config = {.path = ".", .countSelectionMax = 1, .flags = ImGuiFileDialogFlags_Modal};
     GLuint kbd_layout = load_texture("data/keyboard_layout.png");
     bool style_editor = false;
@@ -312,10 +300,10 @@ int main(int argc, char **argv){
                 case SDL_WINDOWEVENT:
                     switch(event.window.event){
                         case SDL_WINDOWEVENT_SHOWN:
-                            active = true;
+                            supsend = false;
                             break;
                         case SDL_WINDOWEVENT_HIDDEN:
-                            active = false;
+                            supsend = true; 
                             break;
                         case SDL_WINDOWEVENT_EXPOSED:
                             SDL_GetWindowSize(window, &window_width, &window_height);
@@ -327,7 +315,6 @@ int main(int argc, char **argv){
                             glLoadIdentity();
                             break;
                         case SDL_WINDOWEVENT_CLOSE:
-                            //loop = false;
                             ui = UI_EXIT;
                             break;
                     }
@@ -340,10 +327,9 @@ int main(int argc, char **argv){
                             ui = UI_NONE;
                         break;
                     }
-                    if (event.key.keysym.sym == SDLK_F8){
+                    if (event.key.keysym.sym == SDLK_F8)
                         style_editor ^= true;
-                    }
-                    if (ui)
+                    if (io.WantCaptureKeyboard)
                         break;
                     if (event.key.repeat)
                         break;
@@ -413,7 +399,7 @@ int main(int argc, char **argv){
                             break;
                     }
                 case SDL_KEYUP:
-                    if (ui)
+                    if (io.WantCaptureKeyboard)
                         break;
                     switch(event.key.keysym.sym){
                         case SDLK_UP: // SHIFT + 7
@@ -640,25 +626,29 @@ int main(int argc, char **argv){
                     p_joystick->gamepad_event(event.jbutton.button, false);
                     break;
                 case SDL_MOUSEMOTION:
-                    p_mouse->motion(event.motion.xrel, event.motion.yrel);
+                    if (io.WantCaptureMouse)
+                        p_mouse->motion(event.motion.xrel, event.motion.yrel);
                     break;
                 case SDL_MOUSEBUTTONDOWN:
-                    p_mouse->button_press((event.button.button & SDL_BUTTON_LEFT ? 0x01 : 0x00) | (event.button.button & SDL_BUTTON_RIGHT ? 0x02 : 0x00));
+                    if (io.WantCaptureMouse)
+                        p_mouse->button_press((event.button.button & SDL_BUTTON_LEFT ? 0x01 : 0x00) | (event.button.button & SDL_BUTTON_RIGHT ? 0x02 : 0x00));
                     break;
                 case SDL_MOUSEBUTTONUP:
-                    p_mouse->button_release((event.button.button & SDL_BUTTON_LEFT ? 0x01 : 0x00) | (event.button.button & SDL_BUTTON_RIGHT ? 0x02 : 0x00));
+                    if (io.WantCaptureMouse)
+                        p_mouse->button_release((event.button.button & SDL_BUTTON_LEFT ? 0x01 : 0x00) | (event.button.button & SDL_BUTTON_RIGHT ? 0x02 : 0x00));
                     break;
                 case SDL_MOUSEWHEEL:
-                    p_mouse->wheel(event.wheel.y);
+                    if (io.WantCaptureMouse)
+                        p_mouse->wheel(event.wheel.y);
                     break;
             }
         }
-        if (!active){
+        if (supsend){
             SDL_Delay(100);
             continue;
         }
         // PBO data is transferred, rendering a full-screen textured quad.
-        glBindTexture(GL_TEXTURE_2D, screen_texture);
+        glBindTexture(GL_TEXTURE_2D, screen);
         glBegin(GL_QUADS);
             glTexCoord2f(0.0f, 1.0f); glVertex2f(0.0f,                  window_height);
             glTexCoord2f(1.0f, 1.0f); glVertex2f(window_width,          window_height);
@@ -865,10 +855,9 @@ int main(int argc, char **argv){
             break;
 #else
         if (!full_speed){
-            unsigned int size = p_board->frame_clk * (p_sound->sample_rate / (float)Z80_FREQ) * 4;
-            while (SDL_GetQueuedAudioSize(audio_device_id) > size)
+            while (SDL_GetQueuedAudioSize(audio_device_id) > audio_spec.samples * 4)
                 SDL_Delay(1);
-            SDL_QueueAudio(audio_device_id, p_sound->p_sound, size);
+            SDL_QueueAudio(audio_device_id, p_sound->buffer, audio_spec.samples * 4);
         }
 #endif
         SDL_GL_SwapWindow(window);
@@ -876,7 +865,6 @@ int main(int argc, char **argv){
 #ifdef FRAME_TIME
 	printf("Time: %d for frames: %d\n", (SDL_GetTicks() - time_start), frame_cnt);
 #endif
-    printf(EXIT_MSG);
     release_all();
     return 0;
 }

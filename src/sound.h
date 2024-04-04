@@ -1,5 +1,4 @@
-#define AY_RATE                     177340
-#define FRACT_BITS                  10
+#define AY_RATE                     (1774400 / 8.0)
 #define TAPE_OUT	    			0b00001000
 #define SPEAKER 	    			0b00010000
 #define TAPE_IN                     0b01000000
@@ -40,11 +39,11 @@ Register       Function                        Range
 	    enum AY { A, B, C };
         Sound(int sample_rate = 44100, MODE mode = ACB, float ay_volume = 0.8, float speaker_volume = 0.5, float tape_volume = 0.3);
 		~Sound();
-        void set_stereo_levels(MODE mixer_mode, float directed = 1.00, float cetter = 1.50, float oposite = 1.25);
-        void setup_lpf(int cut_rate=22050);
-		void set_ay_volume(float volume=0.8);
-		void set_speaker_volume(float volume=0.5);
-		void set_tape_volume(float volume=0.3);
+        void set_stereo_levels(MODE mixer_mode, float side = 1.00, float center = 1.50, float oposite = 1.25);
+        void setup_lpf(int rate = 22050);
+		void set_ay_volume(float volume = 0.8);
+		void set_speaker_volume(float volume = 0.5);
+		void set_tape_volume(float volume = 0.3);
 		void update(int clk);
 		void frame(int frame_clk);
         void reset();
@@ -53,13 +52,13 @@ Register       Function                        Range
         bool io_wr(unsigned short port, unsigned char byte, int clk);
 
         int sample_rate;
-        unsigned short *p_sound;
+        unsigned short *buffer;
 	protected:
 		int frame_idx;
 		float increment, cpu_factor;
 		unsigned char tone_a, tone_b, tone_c, noise, envelope;
-		float tone_a_cnt, tone_b_cnt, tone_c_cnt, noise_cnt, envelope_cnt;
-		float tone_a_max, tone_b_max, tone_c_max, noise_max, envelope_max;
+		float tone_a_counter, tone_b_counter, tone_c_counter, noise_counter, envelope_counter;
+		float tone_a_limit, tone_b_limit, tone_c_limit, noise_limit, envelope_limit;
 		unsigned int noise_seed;
 		int envelope_idx;
         /*
@@ -110,15 +109,15 @@ Register       Function                        Range
             0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, /* /|__*/
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
         };
-        unsigned int speaker_out, tape_in, tape_out;
-		unsigned int speaker_volume, tape_volume;
-	    unsigned int output_left, output_right;
-        unsigned int lpf;
+		float ay_volume, speaker_volume, tape_volume;
+	    float left_amp, right_amp;
+        float speaker_amp, tape_in_amp, tape_out_amp;
+        float lpf_alpha;
 		MODE mode;
         float mixer[sizeof(MODE)][sizeof(CHANNEL)][sizeof(AY)];
-		unsigned int volume_table[0x10];
+		//unsigned int volume_table[0x10];
         // Posted to comp.sys.sinclair in Dec 2001 by Matthew Westcott.
-        const float volume_level[0x10] = {
+        const float ay_volume_table[0x10] = {
             0.000000, 0.013748, 0.020462, 0.029053, 0.042343, 0.061844, 0.084718, 0.136903,
             0.169130, 0.264667, 0.352712, 0.449942, 0.570382, 0.687281, 0.848172, 1.000000
         };
