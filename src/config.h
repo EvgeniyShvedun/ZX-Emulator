@@ -5,7 +5,7 @@ class Config {
         bool exist(std::string name) { return bool(option.count(name)); };
         std::string get(std::string name, std::string default_value = std::string(), std::regex re_cases = std::regex(R"(.*)"));
         double get(std::string name, double default_value, double minimal, double maximal);
-        int get_case_index(std::string name, int default_value, std::regex re_cases);
+        int get_case(std::string name, int default_value, std::regex re_cases);
     private:
         const std::filesystem::path file_path;
         const std::regex comment = std::regex(R"(\s*;.*)");

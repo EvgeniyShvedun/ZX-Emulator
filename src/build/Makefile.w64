@@ -3,29 +3,31 @@
 # Require: -lSDL2 -lSDL2_image -lGLEW -lGLU -lGL
 #
 
-CXX		:= x86_64-w64-mingw32-c++
-SDLCFG		:= /usr/x86_64-w64-mingw32/bin/sdl2-config
-INCLUDE		:= -I/usr/local/x86_64-w64-mingw32/include -I./build/imgui -I./build/imgui/backends -I./build/ImGuiFileDialog $(shell $(SDLCFG) --cflags)
-CXXFLAGS	:= -O -fomit-frame-pointer -pipe -Wall -DGLEW_STATIC $(INCLUDE)
-LDFLAGS		:= -static ./build/glew/x64/glew32s.lib -lopengl32 -lSDL2_image $(shell $(SDLCFG) --static-libs)
-SRCDIR		:= .
-OBJDIR		:= ./build/obj/w64
-TARGET		:= ../emulator.exe
-SRC		= $(wildcard $(SRCDIR)/*.cpp) build/imgui/imgui.cpp build/imgui/imgui_tables.cpp build/imgui/imgui_widgets.cpp \
-            build/imgui/backends/imgui_impl_sdl2.cpp build/imgui/backends/imgui_impl_opengl3.cpp \
-            build/imgui/imgui_draw.cpp \
-            build/ImGuiFileDialog/ImGuiFileDialog.cpp
-OBJ		    = $(patsubst $(SRCDIR)/%.cpp,$(OBJDIR)/%.o,$(SRC))
+CXX     := x86_64-w64-mingw32-c++
+SDLCFG  := /usr/x86_64-w64-mingw32/bin/sdl2-config
+INCLUDES := -I/usr/local/x86_64-w64-mingw32/include -I./ext/imgui -I./ext/imgui/backends -I./ext/ImGuiFileDialog $(shell $(SDLCFG) --cflags)
+CXXFLAGS := -O -fomit-frame-pointer -pipe -Wall -Wno-int-to-pointer-cast -DGLEW_STATIC
+LIBS := -static ./ext/glew/x64/glew32s.lib -lopengl32 -lSDL2_image $(shell $(SDLCFG) --static-libs)
 
-$(TARGET): $(OBJ)
-	$(CXX) $^ $(LDFLAGS) $(INCLUDE) -o $@
+SRCS = ext/imgui/imgui.cpp ext/imgui/imgui_draw.cpp \
+	ext/imgui/imgui_tables.cpp ext/imgui/imgui_widgets.cpp \
+	ext/imgui/imgui_demo.cpp \
+	ext/imgui/backends/imgui_impl_sdl2.cpp \
+	ext/imgui/backends/imgui_impl_opengl3.cpp \
+	ext/ImGuiFileDialog/ImGuiFileDialog.cpp
+SRCS += main.cpp ula.cpp z80.cpp memory.cpp board.cpp device.cpp \
+	joystick.cpp keyboard.cpp mouse.cpp sound.cpp tape.cpp floppy.cpp \
+	disasm.cpp snapshot.cpp config.cpp
+OBJS = $(addsuffix .o, $(basename $(SRCS)))
+TARGET = ../emulator.exe
 
-$(OBJDIR)/%.o: $(SRCDIR)/%.cpp
-	@mkdir -p $(@D)
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+$(TARGET): $(OBJS)
+	$(CXX) -o $@ $^ $(LIBS)
 
-all: $(OBJ)
+%.o:%.cpp
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -c -o $@ $<
+
+all: $(OBJS)
 
 clean:
-	rm -f $(OBJDIR)/*.o
-	rm -f $(TARGET)
+	rm -f $(TARGET)  $(OBJS)

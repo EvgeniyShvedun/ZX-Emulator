@@ -1,13 +1,13 @@
-#include "imgui.h"
-#include "imgui_impl_sdl2.h"
-#include "imgui_impl_opengl3.h"
-#include "build/ImGuiFileDialog/ImGuiFileDialog.h"
-#include "build/ImGuiFileDialog/ImGuiFileDialogConfig.h"
 #include <stdio.h>
 #include <SDL.h>
 #include <SDL_image.h>
 #include <GL/glew.h>
 #include <GL/gl.h>
+#include "imgui.h"
+#include "imgui_impl_sdl2.h"
+#include "imgui_impl_opengl3.h"
+#include "ext/ImGuiFileDialog/ImGuiFileDialog.h"
+#include "ext/ImGuiFileDialog/ImGuiFileDialogConfig.h"
 #include "base.h"
 #include "config.h"
 #include <math.h>
@@ -15,9 +15,10 @@
 
 using namespace std;
 
-#define TITLE "2024 Sinclair Research"
+#define TITLE               "2024 Sinclair Research"
+#define CONFIG_FILE         "zx.cfg"
 //#define FRAME_TIME
-#define FRAME_LIMIT 10000
+#define FRAME_LIMIT         10000
 
 #define UI_STYLE_EDIT       -2
 #define UI_EXIT             -1
@@ -28,14 +29,11 @@ using namespace std;
 #define UI_DEBUGGER         6
 
 
-int window_width = SCREEN_WIDTH;
-int window_height = SCREEN_HEIGHT;
-
 Config *p_cfg = NULL;
 Board *p_board = NULL;
 Keyboard *p_keyboard = NULL;
 Sound *p_sound = NULL;
-WD1793 *p_wd1793 = NULL;
+FDC *p_fdc = NULL;
 Tape *p_tape = NULL;
 KMouse *p_mouse = NULL;
 KJoystick *p_joystick = NULL;
@@ -55,7 +53,7 @@ void release_all(){
     DELETE(p_board);
     DELETE(p_keyboard);
     DELETE(p_sound);
-    DELETE(p_wd1793);
+    DELETE(p_fdc);
     DELETE(p_tape);
     DELETE(p_joystick);
     DELETE(p_mouse);
@@ -80,16 +78,14 @@ int fatal_error(const char *msg){
 void load_file(const char *ptr){
     int len = strlen(ptr);
     if (len > 4){
-        if ((!strcmp(ptr + len - 4, ".z80") or !strcmp(ptr + len - 4, ".Z80"))){
+        if (!strcmp(ptr + len - 4, ".z80") or !strcmp(ptr + len - 4, ".Z80"))
             p_board->load_z80(ptr);
-        }else{
-            if (!strcmp(ptr + len - 4, ".tap") or !strcmp(ptr + len - 4, ".TAP")){
-                p_tape->load_tap(ptr);
-            }
-            if (!strcmp(ptr + len - 4, ".trd") or !strcmp(ptr + len - 4, ".TRD")){
-                p_wd1793->load_trd(0, ptr);
-            }
-        }
+        if (!strcmp(ptr + len - 4, ".tap") or !strcmp(ptr + len - 4, ".TAP"))
+            p_tape->load_tap(ptr);
+        if (!strcmp(ptr + len - 4, ".trd") or !strcmp(ptr + len - 4, ".TRD"))
+            p_fdc->load_trd(0, ptr);
+        if (!strcmp(ptr + len - 4, ".scl") or !strcmp(ptr + len - 4, ".SCL"))
+            p_fdc->load_scl(0, ptr);
     }
 }
 
@@ -113,12 +109,11 @@ int main(int argc, char **argv){
     bool loop = true;
     bool supsend = false;
     bool full_screen = false;
-    SDL_Event event;
 
     p_cfg = new Config(CONFIG_FILE);
     int scale = p_cfg->get("scale", 2, 1, 5);
-    window_width = SCREEN_WIDTH * scale;
-    window_height = SCREEN_HEIGHT * scale;
+    int window_width = SCREEN_WIDTH * scale;
+    int window_height = SCREEN_HEIGHT * scale;
 
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMECONTROLLER | SDL_INIT_TIMER) != 0)
         return fatal_error("SDL init");
@@ -136,9 +131,9 @@ int main(int argc, char **argv){
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
     SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
-    full_screen = p_cfg->get_case_index("full_screen", 0, regex(R"((no)|(yes))", regex_constants::icase)) == 0 ? false : true;
+    full_screen = p_cfg->get_case("full_screen", 0, regex(R"((no)|(yes))", regex_constants::icase)) == 0 ? false : true;
     if (full_screen)
-        window_flags = (SDL_WindowFlags) (window_flags | (p_cfg->get_case_index("full_screen_mode", 0, regex(R"((native)|(desktop))", regex_constants::icase)) == 0 ? SDL_WINDOW_FULLSCREEN : SDL_WINDOW_FULLSCREEN_DESKTOP));
+        window_flags = (SDL_WindowFlags) (window_flags | (p_cfg->get_case("full_screen_mode", 0, regex(R"((native)|(desktop))", regex_constants::icase)) == 0 ? SDL_WINDOW_FULLSCREEN : SDL_WINDOW_FULLSCREEN_DESKTOP));
     if (!(window = SDL_CreateWindow(TITLE, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, window_width, window_height, window_flags)))
         return fatal_error("Create window");
     gl_context = SDL_GL_CreateContext(window);
@@ -149,7 +144,7 @@ int main(int argc, char **argv){
     if (glewInit() != GLEW_OK)
         return fatal_error("glew init");
     #ifndef FRAME_TIME
-    if (p_cfg->get_case_index("vsync", 0, regex(R"((yes)|(no))", regex_constants::icase)) == 0)
+    if (p_cfg->get_case("vsync", 0, regex(R"((yes)|(no))", regex_constants::icase)) == 0)
         SDL_GL_SetSwapInterval(1); // Enable vsync
     else
         SDL_GL_SetSwapInterval(0);
@@ -166,7 +161,7 @@ int main(int argc, char **argv){
     glBindTexture(GL_TEXTURE_2D, screen);
     glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA4, SCREEN_WIDTH, SCREEN_HEIGHT);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA4, SCREEN_WIDTH, SCREEN_HEIGHT, 0, GL_RGBA, GL_UNSIGNED_SHORT_4_4_4_4, NULL);
-    if (p_cfg->get_case_index("scale_filter", 0, regex(R"((nearest)|(linear))", regex_constants::icase)) == 0){
+    if (p_cfg->get_case("scale_filter", 0, regex(R"((nearest)|(linear))", regex_constants::icase)) == 0){
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     }else{
@@ -213,14 +208,14 @@ int main(int argc, char **argv){
     p_keyboard = new Keyboard();
 	p_sound = new Sound(
         p_cfg->get("audio_rate", AUDIO_RATE, 22050, 192100),
-        (Sound::MODE)p_cfg->get_case_index("ay_stereo_mode", Sound::MODE::ACB, regex(R"((mono)|(abc)|(acb))", regex_constants::icase)),
+        (Sound::MODE)p_cfg->get_case("ay_mixer_mode", Sound::MODE::ACB, regex(R"((mono)|(abc)|(acb))", regex_constants::icase)),
         p_cfg->get("ay_volume", 0.8, 0.0, 1.0),
         p_cfg->get("speaker_volume", 0.5, 0.0, 1.0),
         p_cfg->get("tape_volume", 0.3, 0.0, 1.0)
     );
     p_sound->setup_lpf(p_cfg->get("lpf_rate", 22050, 11025, 44100));
 
-    p_wd1793 = new WD1793(p_board);
+    p_fdc = new FDC(p_board);
     p_joystick = new KJoystick(p_board);
     p_tape = new Tape();
     p_mouse = new KMouse();
@@ -233,14 +228,18 @@ int main(int argc, char **argv){
     p_joystick->map(JOY_B, p_cfg->get("joy_b", 1, 0, 1000));
 
     try {
-        if (p_cfg->exist("disk_a"))
-             p_wd1793->load_trd(0, p_cfg->get("disk_a").c_str());
-        if (p_cfg->exist("disk_b"))
-             p_wd1793->load_trd(1, p_cfg->get("disk_b").c_str());
-        if (p_cfg->exist("disk_c"))
-             p_wd1793->load_trd(2, p_cfg->get("disk_c").c_str());
-        if (p_cfg->exist("disk_d"))
-            p_wd1793->load_trd(3, p_cfg->get("disk_d").c_str());
+        char name[32] = "disk_a";
+        for (char drv = 0; drv <= 3; drv++){
+            name[5] = 'a' + drv;
+            if (p_cfg->exist(name)){
+                const char *ptr = p_cfg->get(name).c_str();
+                int len = strlen(ptr);
+                if (!strcmp(ptr + len - 4, ".trd") or !strcmp(ptr + len - 4, ".TRD"))
+                    p_fdc->load_trd(drv, ptr);
+                if (!strcmp(ptr + len - 4, ".scl") or !strcmp(ptr + len - 4, ".SCL"))
+                    p_fdc->load_trd(drv, ptr);
+            }
+        }
     }catch(runtime_error & ex){
         cerr << ex.what() << endl;
     }
@@ -253,7 +252,7 @@ int main(int argc, char **argv){
     p_board->add_device(p_sound);
     p_board->add_device(p_mouse);
     p_board->add_device(p_keyboard);
-    p_board->add_device(p_wd1793);
+    p_board->add_device(p_fdc);
     p_board->add_device(p_joystick);
 
     p_board->set_rom(ROM_128);
@@ -272,7 +271,7 @@ int main(int argc, char **argv){
     audio_spec.freq = p_sound->sample_rate;
     audio_spec.format = AUDIO_S16;
     audio_spec.channels = 2;
-    audio_spec.samples = frame_samples * 3;
+    audio_spec.samples = frame_samples * 2;
     audio_spec.callback = NULL;
     audio_device_id = SDL_OpenAudioDevice(NULL, 0, &audio_spec, NULL, 0);
     if (!audio_device_id)
@@ -290,6 +289,7 @@ int main(int argc, char **argv){
     GLuint kbd_layout = load_texture("data/keyboard_layout.png");
     bool style_editor = false;
 
+    SDL_Event event;
     while (loop){
         while (SDL_PollEvent(&event)){
             if (ui)
@@ -342,7 +342,7 @@ int main(int argc, char **argv){
                                 if (full_screen)
                                     SDL_SetWindowFullscreen(window, 0);
                                 else{
-                                    if (p_cfg->get_case_index("full_screen_mode", 0, regex(R"((native)|(desktop))", regex_constants::icase)) == 0)
+                                    if (p_cfg->get_case("full_screen_mode", 0, regex(R"((native)|(desktop))", regex_constants::icase)) == 0)
                                         SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN);
                                     else
                                         SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN_DESKTOP);
@@ -354,7 +354,7 @@ int main(int argc, char **argv){
                             ui = UI_KBLAYOUT;
                             break;
                         case SDLK_F2:
-                            ImGuiFileDialog::Instance()->OpenDialog("ChooseFileDlgKey", "Choose File", ".z80;.sna;.tap;.trd {.z80,.sna,.tap,.trd}", config);
+                            ImGuiFileDialog::Instance()->OpenDialog("ChooseFileDlgKey", "Choose File", ".z80;.sna;.tap;.trd;.scl {.z80,.sna,.tap,.trd,.scl}", config);
                             ui = UI_OPEN_SNAPSHOT;
                             break;
                         /*
@@ -393,7 +393,7 @@ int main(int argc, char **argv){
                             if (full_speed)
                                 SDL_GL_SetSwapInterval(0);
                             else
-                                if (p_cfg->get_case_index("vsync", 0, regex(R"((yes)|(no))", regex_constants::icase)) == 0)
+                                if (p_cfg->get_case("vsync", 0, regex(R"((yes)|(no))", regex_constants::icase)) == 0)
                                     SDL_GL_SetSwapInterval(1);
                             break;
                         default:

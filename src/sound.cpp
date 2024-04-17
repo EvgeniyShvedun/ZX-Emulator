@@ -133,8 +133,8 @@ void Sound::update(int clk){
         	left += vol * mixer[mode][LEFT][C];
         	right += vol * mixer[mode][RIGHT][C];
 		}
-        left_amp += lpf_alpha * ((left + speaker_amp + tape_in_amp + tape_out_amp) / 8.0f - left_amp);
-        right_amp += lpf_alpha * ((right + speaker_amp + tape_in_amp + tape_out_amp) / 8.0f - right_amp);
+        left_amp += lpf_alpha * ((left + speaker_amp + tape_in_amp + tape_out_amp) / 10.0f - left_amp);
+        right_amp += lpf_alpha * ((right + speaker_amp + tape_in_amp + tape_out_amp) / 10.0f - right_amp);
         buffer[frame_idx * 2] = 0x8000 * left_amp;
         buffer[frame_idx * 2 + 1] = 0x8000 * right_amp;
 	}

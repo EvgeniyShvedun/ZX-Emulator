@@ -62,7 +62,7 @@ double Config::get(string name, double default_value, double minimal, double max
     return value;
 }
 
-int Config::get_case_index(string name, int default_value, regex re_cases){
+int Config::get_case(string name, int default_value, regex re_cases){
     smatch match;
     if (option.count(name)){
         if (regex_match(option[name], match, re_cases))

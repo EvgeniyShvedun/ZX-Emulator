@@ -34,5 +34,5 @@
 #include "snapshot.h"
 #include "board.h"
 #include "joystick.h"
-#include "wd1793.h"
+#include "floppy.h"
 #include "sound.h"
