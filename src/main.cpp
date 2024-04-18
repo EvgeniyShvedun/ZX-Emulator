@@ -177,6 +177,7 @@ int main(int argc, char **argv){
 
     SDL_SetWindowIcon(window, IMG_Load("data/icon.png"));
     SDL_SetWindowMinimumSize(window, SCREEN_WIDTH, SCREEN_HEIGHT);
+    SDL_ShowCursor(SDL_DISABLE);
 
     // GL state setup
     glEnable(GL_TEXTURE_2D);
@@ -298,7 +299,7 @@ int main(int argc, char **argv){
     ImVec2 btn_size = {80, 20};
     IGFD::FileDialogConfig config = {.path = ".", .countSelectionMax = 1, .flags = ImGuiFileDialogFlags_Modal};
     GLuint kbd_layout = load_texture("data/keyboard_layout.png");
-    bool style_editor = false;
+    //bool style_editor = false;
 
     SDL_Event event;
     while (loop){
@@ -335,12 +336,14 @@ int main(int argc, char **argv){
                      if (event.key.keysym.sym == SDLK_ESCAPE){
                         if (ui == UI_NONE)
                             ui = UI_EXIT;
-                        else
+                        else{
                             ui = UI_NONE;
+                            SDL_ShowCursor(SDL_DISABLE);
+                        }
                         break;
                     }
-                    if (event.key.keysym.sym == SDLK_F8)
-                        style_editor ^= true;
+                    //if (event.key.keysym.sym == SDLK_F8)
+                    //    style_editor ^= true;
                     //if (io.WantCaptureKeyboard)
                     //    break;
                     if (ui)
@@ -365,7 +368,7 @@ int main(int argc, char **argv){
                             ui = UI_KBLAYOUT;
                             break;
                         case SDLK_F2:
-                            ImGuiFileDialog::Instance()->OpenDialog("ChooseFileDlgKey", "Choose File", ".z80;.sna;.tap;.trd;.scl {.z80,.sna,.tap,.trd,.scl}", config);
+                            ImGuiFileDialog::Instance()->OpenDialog("ChooseFileDlgKey", "Choose File", ".z80;.sna;.tap;.trd;.scl {(([.]z80|Z80|sna|SNA|trd|TRD|scl|SCL|tap|TAP))}", config);
                             ui = UI_OPEN_SNAPSHOT;
                             break;
                         /*
@@ -867,6 +870,8 @@ int main(int argc, char **argv){
             }
             ImGui::Render();
             ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+            if (ui == UI_NONE)
+                SDL_ShowCursor(SDL_DISABLE);
         }
 #ifdef FRAME_TIME
 		if (++frame_cnt > FRAME_LIMIT)
