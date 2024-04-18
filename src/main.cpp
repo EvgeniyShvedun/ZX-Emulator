@@ -38,15 +38,19 @@ Tape *p_tape = NULL;
 KMouse *p_mouse = NULL;
 KJoystick *p_joystick = NULL;
 
-SDL_AudioDeviceID audio_device_id = 0;
 SDL_Window *window = NULL;
 SDL_GLContext gl_context = NULL;
 GLuint pbo = 0;
 GLuint screen = 0;
+SDL_AudioSpec audio_spec;
+SDL_AudioDeviceID audio_device_id = 0;
+unsigned int frame_samples = 0;
 
 void release_all(){
-    if (audio_device_id)
-        SDL_PauseAudioDevice(audio_device_id, 0);
+    if (audio_device_id){
+        //SDL_PauseAudioDevice(audio_device_id, 0);
+        SDL_CloseAudioDevice(audio_device_id);
+    }
     audio_device_id = 0;
 
     DELETE(p_cfg);
@@ -103,6 +107,25 @@ GLushort load_texture(const char *p_path){
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA4, p_surface->w, p_surface->h, 0, GL_RGBA, GL_UNSIGNED_SHORT_4_4_4_4, p_surface->pixels);
 	SDL_FreeSurface(p_surface);
     return texture;
+}
+
+void reinit_sound(int sample_rate, int frame_clk){
+    SDL_zero(audio_spec);
+    if (audio_device_id){
+        SDL_PauseAudioDevice(audio_device_id, 1);
+        SDL_CloseAudioDevice(audio_device_id);
+    }
+    frame_samples = frame_clk * (sample_rate / (float)Z80_FREQ);
+    audio_spec.freq = sample_rate;
+    audio_spec.format = AUDIO_S16;
+    audio_spec.channels = 2;
+    audio_spec.samples = frame_samples * 2;
+    audio_spec.callback = NULL;
+    audio_device_id = SDL_OpenAudioDevice(NULL, 0, &audio_spec, NULL, 0);
+    if (!audio_device_id)
+        throw runtime_error("SDL: Open audio device");
+    //SDL_QueueAudio(audio_device_id, p_sound->buffer, audio_spec.samples * 2 * 4);
+    SDL_PauseAudioDevice(audio_device_id, 0);
 }
 
 int main(int argc, char **argv){
@@ -204,7 +227,7 @@ int main(int argc, char **argv){
     //style.FramePadding                    = ImVec2(3, 3);
     //style.IndentSpacing                   = 25.0f;
 
-    p_board = new Board(HW::SPECTRUM_128);
+    p_board = new Board((HW)p_cfg->get_case("model", HW::PENTAGON_128, regex(R"((Pentagon-128)|(Spectrum-128)|(Spectrum-48))", regex_constants::icase)));
     p_keyboard = new Keyboard();
 	p_sound = new Sound(
         p_cfg->get("audio_rate", AUDIO_RATE, 22050, 192100),
@@ -265,19 +288,7 @@ int main(int argc, char **argv){
         load_file(argv[i]);
 
     // Audio
-    unsigned int frame_samples = p_board->frame_clk * (p_sound->sample_rate / (float)Z80_FREQ);
-    SDL_AudioSpec audio_spec;
-    SDL_zero(audio_spec);
-    audio_spec.freq = p_sound->sample_rate;
-    audio_spec.format = AUDIO_S16;
-    audio_spec.channels = 2;
-    audio_spec.samples = frame_samples * 2;
-    audio_spec.callback = NULL;
-    audio_device_id = SDL_OpenAudioDevice(NULL, 0, &audio_spec, NULL, 0);
-    if (!audio_device_id)
-        return fatal_error("SDL: Open audio device");
-    SDL_QueueAudio(audio_device_id, p_sound->buffer, audio_spec.samples * 4);
-    SDL_PauseAudioDevice(audio_device_id, 0);
+    reinit_sound(p_sound->sample_rate, p_board->frame_clk);
 #ifdef FRAME_TIME
     Uint32 time_start = SDL_GetTicks();
 	int frame_cnt = 0;
@@ -368,14 +379,17 @@ int main(int argc, char **argv){
                         case SDLK_F5:
                             p_board->set_rom(ROM_48);
                             p_board->reset();
+                            reinit_sound(p_sound->sample_rate, p_board->frame_clk);
                             break;
                         case SDLK_F6:
                             p_board->set_rom(ROM_128);
                             p_board->reset();
+                            reinit_sound(p_sound->sample_rate, p_board->frame_clk);
                             break;
                         case SDLK_F7:
                             p_board->set_rom(ROM_TRDOS);
                             p_board->reset();
+                            reinit_sound(p_sound->sample_rate, p_board->frame_clk);
                             break;
                         case SDLK_F8:
                             break;
@@ -710,6 +724,7 @@ int main(int argc, char **argv){
                             std::string filePathName = ImGuiFileDialog::Instance()->GetFilePathName();
                             std::string filePath = ImGuiFileDialog::Instance()->GetCurrentPath();
                             load_file(filePathName.c_str());
+                            reinit_sound(p_sound->sample_rate, p_board->frame_clk);
                         }
                         ImGuiFileDialog::Instance()->Close();
                         ui = UI_NONE;
