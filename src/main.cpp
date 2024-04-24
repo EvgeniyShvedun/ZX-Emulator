@@ -6,7 +6,7 @@
 #include "base.h"
 #include "ui.h"
 
-#define TITLE "2024 Sinclair Research"
+#define TITLE "2024 Sinclair Research v1.1"
 const char* glsl_version = "#version 130";
 SDL_Window *window = NULL;
 SDL_GLContext gl_context = NULL;
