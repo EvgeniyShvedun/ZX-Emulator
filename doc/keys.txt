@@ -1,16 +1,13 @@
 Binded keys:
 
-F2 - Open file dialog
+F1 - Keyboard layout
+F2 - Open file
+F4 - Settings
 
-Cassete:
-F9  - Start play
-F10 - Stop play
-F10 - Rewind to start
+F5 - Reset 48
+F6 - Reset 128
+F7 - Reset TRDOS
 
-Reset:
-F5 - ROM 48
-F6 - ROM 128
-F7 - TRDOS 128 (if exist)
-
-Other:
-F12 - Maximal speed switch
+F9  - Tape start play
+F10 - Tape stop play
+F11 - Tape rewind to the beginning
