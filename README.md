@@ -1,7 +1,7 @@
 ZX-Spectrum Emulator.
 
-Load formats:
-z80, sna, trd, scl, tap.
+Linux compilation:
+cd src; ln -s build/Makefile.linux Makefile; make -j
 
-Builds for Linux and Win64 (cross build).
-Compile: Copy src/build/Makefile.x to source root and do make.
+Cross build for Win64:
+cd src; ln -s build/Makefile.w64 Makefile; make -j
