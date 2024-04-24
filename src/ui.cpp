@@ -349,8 +349,8 @@ namespace UI {
                                 board->sound.set_tape_volume(cfg->audio.tape_volume);
                             EndTabItem();
                         }
+                        /*
                         if (BeginTabItem("Gamepad")){
-                            static int gamepad_button_idx = 0;
                             static struct { const char *name; ImVec2 pos; } gamepad[] = {
                                 { "Left", ImVec2(28.0f, 46.0f) },
                                 { "Right", ImVec2(55.0f, 45.0f) },
@@ -359,6 +359,7 @@ namespace UI {
                                 { "A", ImVec2(159.0, 46.0) },
                                 { "B", ImVec2(175.0, 30.0) }
                             };
+                            static int gamepad_button_idx = -1;
                             float width = GetContentRegionAvail().x;
                             float hover_size = 24.0f;
                             float gamepad_aspect = 616.0f / 425.0f;
@@ -372,8 +373,8 @@ namespace UI {
                             //SetCursorPosX((GetContentRegionAvail().x - CalcTextSize(gamepad_button_name[gamepad_button_idx]).x) / 2);
                             if (gamepad_button_idx == -1){
                                 SetCursorPos(ImVec2((width - btn_size.x * 2) / 2, GetCursorPosY() + 10.0f));
-                                if (Button("Configure", ImVec2(btn_size.x * 2, btn_size.y)))
-                                    gamepad_button_idx++;
+                                Button("Configure", ImVec2(btn_size.x * 2, btn_size.y));
+                                //    gamepad_button_idx++;
                             }else{
                                 if (Button("Next", ImVec2(btn_size.x * 2, btn_size.y)))
                                     if (++gamepad_button_idx >= (int)sizeof(gamepad))
@@ -382,7 +383,7 @@ namespace UI {
                                 Image((ImTextureID)x_texture, ImVec2(hover_size, hover_size));
                             }
                             EndTabItem();
-                        }
+                        }*/
                         EndTabBar();
                     }
                     End();
