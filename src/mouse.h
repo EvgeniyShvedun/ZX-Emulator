@@ -1,13 +1,11 @@
-class KMouse : public Device {
+class Mouse : public Device {
     public:
-        KMouse();
-        bool io_rd(unsigned short port, unsigned char *p_val, int clk);
-        void wheel(char pos);
-        void button_press(char button);
-        void button_release(char button);
         void motion(char x, char y);
+        void button(char button, bool status);
+        void wheel(char pos);
+        bool io_rd(unsigned short port, unsigned char *val, int clk);
     private:
-        char wheel_and_button;
-        char x_coord;
-        char y_coord;
+        char wheel_button = 0;
+        char x_coord = 0;
+        char y_coord = 0;
 };

@@ -5,205 +5,216 @@
 #include <string.h>
 #include "base.h"
 
-using namespace std;
+#define header_v145_length 30
+#define header_v201_length 23
+#define header_v300_length 54
 
-Snapshot::Snapshot(){
-    p_file = NULL;
-    p_data = NULL;
-}
+#pragma pack(1)
+struct Z80_Header {
+   unsigned char a;
+    unsigned char f;
+    unsigned short bc;
+    unsigned short hl;
+    unsigned short pc;
+    unsigned short sp;
+    unsigned char i;
+    unsigned char r;
+    unsigned char flags;
+    unsigned short de;
+    unsigned short alt_bc;
+    unsigned short alt_de;
+    unsigned short alt_hl;
+    unsigned char alt_a;
+    unsigned char alt_f;
+    unsigned short iy;
+    unsigned short ix;
+    unsigned char iff1;
+    unsigned char iff2;
+    unsigned char im;
+    // Version 2.01 extension.
+    unsigned short ext_length;
+    unsigned short ext_pc;
+    unsigned char mode;
+    unsigned char p7ffd;
+    unsigned char ram_paged;
+    unsigned char emu_opt;
+    unsigned char pfffd;
+    unsigned char ay_regs[0x10];
+    // Version 3.00
+    unsigned short clk_lo;
+    unsigned char clk_hi;
+    unsigned char skip[28];
+};
+struct Z80_Data {
+    unsigned short length;
+    unsigned char page;
+};
+#pragma pack()
 
-Snapshot::~Snapshot(){
-    free();
-}
 
-void Snapshot::free(){
-    if (p_file)
-        fclose(p_file);
-    p_file = NULL;
-    DELETE_ARRAY(p_data);
-}
-
-int Snapshot::rle_decode(unsigned char **p_pages, unsigned int *p_page_offset, unsigned char *p_encoded, int encoded_size){
-    int idx = 0;
-    while (idx < encoded_size and *p_pages){
-        if (idx + 4 < encoded_size and p_encoded[idx] == 0xED and p_encoded[idx+1] == 0xED){
-            for (int i = 0; i < p_encoded[idx+2]; i++){
-                (*p_pages)[(*p_page_offset)++] = p_encoded[idx+3];
-                if (*p_page_offset >= PAGE_SIZE){
-                    *p_page_offset = 0;
-                    if (!*++p_pages)
-                        break;
+namespace Snapshot {
+    unsigned int rle_decode(unsigned char **pages, int *offset, unsigned char *src, unsigned int src_size){
+        unsigned int idx = 0;
+        while (idx < src_size){
+            if (idx + 4 < src_size && src[idx] == 0xED && src[idx+1] == 0xED){
+                for (int cnt = 0; cnt < src[idx+2]; cnt++){
+                    (*pages)[(*offset)++] = src[idx+3];
+                    if (*offset >= PAGE_SIZE){
+                        *offset = 0;
+                        pages++;
+                        if (!*pages)
+                            return idx;
+                    }
+                }
+                idx += 4;
+            }else{
+                (*pages)[(*offset)++] = src[idx++];
+                if (*offset >= PAGE_SIZE){
+                    *offset = 0;
+                    pages++;
+                    if (!*pages)
+                        return idx;
                 }
             }
-            idx += 4;
-        }else{
-            (*p_pages)[(*p_page_offset)++] = p_encoded[idx++];
-            if (*p_page_offset >= PAGE_SIZE){
-                *p_page_offset = 0;
-                if (!*++p_pages)
-                    break;
-            }
         }
+        return idx;
     }
-    return idx;
-}
 
-void Snapshot::save_z80(const char *p_path, Z80 *p_cpu, Memory *p_memory, IO *p_io){
-    try {
-        p_file = fopen(p_path, "wb");
+    void save_z80(const char *path, Z80 *cpu, Memory *memory, IO *io){
+        FILE *fp = fopen(path, "wb");
         struct Z80_Header header {
-            .a = p_cpu->a, .f = p_cpu->f,
-            .bc = p_cpu->bc, .hl = p_cpu->hl, .pc = 0, .sp = p_cpu->sp,
-            .i = p_cpu->irh, .r = p_cpu->irl,
-            .de = p_cpu->de,
-            .alt_bc = p_cpu->alt.bc, .alt_de = p_cpu->alt.de, .alt_hl = p_cpu->alt.hl,
-            .alt_a = p_cpu->alt.a, .alt_f = p_cpu->alt.f,
-            .iy = p_cpu->iy, .ix = p_cpu->ix,
-            .iff1 = p_cpu->iff1, .iff2 = p_cpu->iff2, .im = p_cpu->im,
+            .a = cpu->a, .f = cpu->f,
+            .bc = cpu->bc, .hl = cpu->hl, .pc = 0, .sp = cpu->sp,
+            .i = cpu->irh, .r = cpu->irl,
+            .de = cpu->de,
+            .alt_bc = cpu->alt.bc, .alt_de = cpu->alt.de, .alt_hl = cpu->alt.hl,
+            .alt_a = cpu->alt.a, .alt_f = cpu->alt.f,
+            .iy = cpu->iy, .ix = cpu->ix,
+            .iff1 = cpu->iff1, .iff2 = cpu->iff2, .im = cpu->im,
 
             .ext_length = header_v300_length,
-            .ext_pc = p_cpu->pc,
+            .ext_pc = cpu->pc,
             .ram_paged = 0,
             .emu_opt = 0b1000111,
             .pfffd = 0x0F
         };
-        header.flags = ((p_cpu->r8bit >> 7) & 0x01);
+        header.flags = ((cpu->r8bit >> 7) & 0x01);
         header.mode = 4;
-        header.p7ffd = p_memory->read_7FFD();
-        header.clk_lo = p_cpu->clk & 0xFFFF;
-        header.clk_hi = p_cpu->clk >> 16;
+        header.p7ffd = memory->read_7FFD();
+        header.clk_lo = cpu->clk & 0xFFFF;
+        header.clk_hi = cpu->clk >> 16;
         struct Z80_Data data { .length = 0xFFFF };
         for (int i = 0; i < 0x10; i++){
-            p_io->write(0xFFFD, i);
-            header.ay_regs[i] = p_io->read(0xBFFD);
+            io->write(0xFFFD, i);
+            header.ay_regs[i] = io->read(0xBFFD);
         }
-        if (fwrite(&header, sizeof(Z80_Header), 1, p_file) != 1)
-            throw runtime_error("Write z80 snapshot header");
+        if (fwrite(&header, sizeof(Z80_Header), 1, fp) != 1)
+            throw std::runtime_error("Write z80 snapshot header");
         for (unsigned char page = 0; page <= 7 ; page++){
             data.page = page + 3;
-            if (fwrite(&data, sizeof(Z80_Data), 1, p_file) != 1)
-                throw runtime_error("Write data header");
-            if (fwrite(p_memory->page(page), 0x4000, 1, p_file) != 1)
-                throw runtime_error("Write page data");
+            if (fwrite(&data, sizeof(Z80_Data), 1, fp) != 1)
+                throw std::runtime_error("Write data header");
+            if (fwrite(memory->page(page), 0x4000, 1, fp) != 1)
+                throw std::runtime_error("Write page data");
         }
-        fclose(p_file);
-        p_file = NULL;
-    }catch(exception &e){
-        cerr << "EXCEPTION: " << e.what();
+        fclose(fp);
     }
-}
 
-void memory_dump(unsigned char *p_page, unsigned short ptr, int length, int line_split){
-    for (int i = 0; i < length; i++){
-        if (!(i % line_split))
-            printf("\n%04x ", ptr+i);
-        printf(" %02x", p_page[i]);
-    }
-}
-
-HW Snapshot::load_z80(const char *p_path, Z80 *p_cpu, Memory *p_memory, IO *p_io){
-    HW hw = HW::SPECTRUM_128;
-    Z80_Header *p_header;
-    int page_mode = 1;
-    int page_map[2][12] = { { -1, -1, -1, -1, 2, 0, -1, -1, 5, -1, -1, -1 }, { -1, -1, -1, 0, 1, 2, 3, 4, 5, 6, 7, -1 } };
-    int idx, block_size, page;
-    unsigned char *p_pages[4];
-    unsigned int page_offset;
-    try {
-        p_file = fopen(p_path, "rb");
-        fseek(p_file, 0, SEEK_END);
-        file_size = ftell(p_file);
-        fseek(p_file, 0, SEEK_SET);
-        p_data = new unsigned char[file_size];
-        if (fread(p_data, 1, file_size, p_file) != (size_t)file_size)
-            throw range_error("Read file data error");
+    HW_Model load_z80(const char *path, Z80 *cpu, Memory *memory, IO *io){
+        HW_Model hw = HW_SPECTRUM_128;
+        Z80_Header *header;
+        int page_mode = 1;
+        int page_map[2][12] = { { -1, -1, -1, -1, 2, 0, -1, -1, 5, -1, -1, -1 }, { -1, -1, -1, 0, 1, 2, 3, 4, 5, 6, 7, -1 } };
+        unsigned int idx, block_size, page;
+        unsigned char *pages[4];
+        int page_offset;
+        size_t size;
+        FILE *fp = fopen(path, "rb");
+        fseek(fp, 0, SEEK_END);
+        size = ftell(fp);
+        fseek(fp, 0, SEEK_SET);
+        unsigned char *data = new unsigned char[size];
+        if (fread(data, 1, size, fp) != size)
+            throw std::runtime_error("Read Z80 snapshot");
+        fclose(fp);
         idx = header_v145_length;
-        p_header = (Z80_Header*)p_data;
-        if (p_header->flags == 0xFF)
-            p_header->flags = 1;
-        if (!p_header->pc){
-            idx += p_header->ext_length + 2;
-            if (p_header->ext_length == header_v201_length){
-                if (p_header->mode < 3)
-                    hw = HW::SPECTRUM_48;
+        header = (Z80_Header*)data;
+        if (header->flags == 0xFF)
+            header->flags = 1;
+        if (!header->pc){
+            idx += header->ext_length + 2;
+            if (header->ext_length == header_v201_length){
+                if (header->mode < 3)
+                    hw = HW_SPECTRUM_48;
             }else{
-                if (p_header->mode < 4)
-                    hw = HW::SPECTRUM_48;
+                if (header->mode < 4)
+                    hw = HW_SPECTRUM_48;
             }
-            if (p_header->mode == 9)
-                hw = HW::PENTAGON_128;
-            page_mode = (hw == HW::SPECTRUM_128 || hw == HW::PENTAGON_128) ? 1 : 0;
-            while (idx + 4 < file_size){
-                block_size = p_data[idx] | (p_data[idx + 1] << 8);
-                page = p_data[idx + 2];
+            if (header->mode == 9)
+                hw = HW_PENTAGON_128;
+            page_mode = (hw == HW_SPECTRUM_128 || hw == HW_PENTAGON_128) ? 1 : 0;
+            while (idx + 4 < size){
+                block_size = data[idx] | (data[idx + 1] << 8);
+                page = data[idx + 2];
                 idx += 3;
                 if (page >= 12)
-                    throw range_error("RAM page index overflow");
+                    throw std::runtime_error("RAM-page index overflow");
                 if (block_size == 0xFFFF){ // Not encoded.
                     block_size = 0x4000;
-                    if (idx + block_size > file_size)
-                        throw range_error("Block size out of file data");
-                    memcpy(p_memory->page(page_map[page_mode][page]), &p_data[idx], block_size);
+                    if (idx + block_size > size)
+                        throw std::runtime_error("Wrong block size");
+                    memcpy(memory->page(page_map[page_mode][page]), &data[idx], block_size);
                     idx += block_size;
                 }else{
-                    p_pages[0] = p_memory->page(page_map[page_mode][page]);
-                    p_pages[1] = NULL;
+                    pages[0] = memory->page(page_map[page_mode][page]);
+                    pages[1] = NULL;
                     page_offset = 0;
-                    idx += rle_decode(p_pages, &page_offset, &p_data[idx], block_size);
+                    idx += rle_decode(pages, &page_offset, &data[idx], block_size);
                 }
             }
-            p_io->write(0x7FFD, page_mode == 1 ? p_header->p7ffd : 0x10);
+            io->write(0x7FFD, page_mode == 1 ? header->p7ffd : 0x10);
             for (int i = 0; i < 0x10; i++){
-                p_io->write(0xFFFD, i);
-                p_io->write(0xBFFD, p_header->ay_regs[i]);
+                io->write(0xFFFD, i);
+                io->write(0xBFFD, header->ay_regs[i]);
             }
-            p_cpu->pc = p_header->ext_pc;
+            cpu->pc = header->ext_pc;
         }else{
-            if (p_header->flags & 0b100000){ // RLE
-                p_pages[0] = p_memory->page(5);
-                p_pages[1] = p_memory->page(2);
-                p_pages[2] = p_memory->page(0);
-                p_pages[3] = NULL;
+            if (header->flags & 0b100000){ // RLE
+                pages[0] = memory->page(5);
+                pages[1] = memory->page(2);
+                pages[2] = memory->page(0);
+                pages[3] = NULL;
                 page_offset = 0;
-                rle_decode(p_pages, &page_offset, &p_data[idx], file_size - idx);
-                //memory_dump(p_memory->page(5), 0x4000, 0x4000, 0x10);
-                printf("\n");
-                //memory_dump(p_memory->page(2), 0x8000, 0x4000, 0x10);
-                printf("\n");
-                //memory_dump(p_memory->page(0), 0xC000, 0x4000, 0x10);
-                printf("\n");
+                rle_decode(pages, &page_offset, &data[idx], size - idx);
             }else{
-                memcpy(p_memory->page(5), &p_data[idx], 0x4000);
-                memcpy(p_memory->page(2), &p_data[idx + 0x4000], 0x4000);
-                memcpy(p_memory->page(0), &p_data[idx + 0x8000], 0x4000);
+                memcpy(memory->page(5), &data[idx], 0x4000);
+                memcpy(memory->page(2), &data[idx + 0x4000], 0x4000);
+                memcpy(memory->page(0), &data[idx + 0x8000], 0x4000);
             }
-            p_io->write(0x7FFD, 0x10);
-            p_cpu->pc = p_header->pc;
+            io->write(0x7FFD, 0x10);
+            cpu->pc = header->pc;
         }
-        p_cpu->a = p_header->a;
-        p_cpu->f = p_header->f;
-        p_cpu->bc = p_header->bc;
-        p_cpu->hl = p_header->hl;
-        p_cpu->sp = p_header->sp;
-        p_cpu->irh = p_header->i;
-        p_cpu->irl = p_header->r & 0x7F;
-        p_cpu->r8bit = (p_header->flags & 0x01) << 7;
-        p_cpu->de = p_header->de;
-        p_cpu->alt.bc = p_header->alt_bc;
-        p_cpu->alt.de = p_header->alt_de;
-        p_cpu->alt.hl = p_header->alt_hl;
-        p_cpu->alt.a = p_header->alt_a;
-        p_cpu->alt.f = p_header->alt_f;
-        p_cpu->iy = p_header->iy;
-        p_cpu->ix = p_header->ix;
-        p_cpu->iff1 = p_header->iff1;
-        p_cpu->iff2 = p_header->iff2;
-        p_cpu->im = p_header->im & 0x03;
-        p_io->write(0xFE, (p_header->flags >> 1) & 0x07);
-    }catch(exception &e){
-        cerr << e.what();
-        throw(e);
+        cpu->a = header->a;
+        cpu->f = header->f;
+        cpu->bc = header->bc;
+        cpu->hl = header->hl;
+        cpu->sp = header->sp;
+        cpu->irh = header->i;
+        cpu->irl = header->r & 0x7F;
+        cpu->r8bit = (header->flags & 0x01) << 7;
+        cpu->de = header->de;
+        cpu->alt.bc = header->alt_bc;
+        cpu->alt.de = header->alt_de;
+        cpu->alt.hl = header->alt_hl;
+        cpu->alt.a = header->alt_a;
+        cpu->alt.f = header->alt_f;
+        cpu->iy = header->iy;
+        cpu->ix = header->ix;
+        cpu->iff1 = header->iff1;
+        cpu->iff2 = header->iff2;
+        cpu->im = header->im & 0x03;
+        io->write(0xFE, (header->flags >> 1) & 0x07);
+        DELETE_ARRAY(data);
+        return hw;
     }
-    free();
-    return hw;
 }

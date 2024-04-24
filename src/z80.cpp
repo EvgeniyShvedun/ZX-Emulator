@@ -95,7 +95,7 @@ void Z80::reset(){
 void Z80::interrupt(ULA *p_memory){
     if (!iff1)
         return;
-    iff1 = 0x00;
+    iff1 = iff2 = 0x00;
     irl++;
     if (p_memory->read_byte(pc) == 0x76) // HALT
         pc++;
@@ -128,7 +128,7 @@ void Z80::step_into(ULA *p_memory, IO *p_io, int frame_clk){
 }
 
 void Z80::frame(ULA *p_memory, IO *p_io, int frame_clk){
-    while (clk <= frame_clk){
+    while (clk < frame_clk){
         irl++;
         switch (p_memory->read_byte_ex(pc++)){
             case 0x00: // NOP

@@ -8,10 +8,6 @@
 #define P7FFD_ROM48         0b00010000
 #define P7FFD_LOCK          0b00100000
 
-#define ROM_TRDOS           0
-#define ROM_128             1
-#define ROM_48              2
-
 class Memory : public Device {
     public:
         Memory();

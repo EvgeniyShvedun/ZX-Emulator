@@ -4,7 +4,7 @@
 //#define DEBUG
 using namespace std;
 
-FDC::FDC(Board *p_board) : p_board(p_board){
+FDC::FDC(){
     reset();
 }
 
@@ -19,7 +19,7 @@ void FDC::update(int clk){
     clk -= last_clk;
     last_clk += clk;
     #ifdef DEBUG
-        printf("Command %02x, status: %02x, head: %d, reg_track: %d, reg_sector: %d, reg_data: %d, step_dir: %d, motor: %d, clk: %d\n", reg_command, reg_status, disk.track, reg_track, reg_sector, reg_data, disk.step_dir, disk.motor_clk, command_clk);
+        printf("Command %02x, status: %02x, head: %d, reg_track: %d, reg_sector: %d, reg_data: %d, step_dir: %d, motor: %d, com_clk: %d, clk: %d\n", reg_command, reg_status, disk.track, reg_track, reg_sector, reg_data, disk.step_dir, disk.motor_clk, command_clk, clk);
     #endif
     if (disk.motor_clk > MOTOR_CLK)
         return;
@@ -185,8 +185,6 @@ void FDC::update(int clk){
 }
 
 bool FDC::io_rd(unsigned short port, unsigned char *p_byte, int clk){
-    if (!p_board->trdos_active())
-        return false;
     update(clk);
     if (!(port & 0x80)){                // System port decode only by A8.
         switch ((port >> 5) & 0x03){    // All other by A8-A6.
@@ -218,8 +216,6 @@ bool FDC::io_rd(unsigned short port, unsigned char *p_byte, int clk){
 }
 
 bool FDC::io_wr(unsigned short port, unsigned char byte, int clk){
-    if (!p_board->trdos_active())
-        return false;
     #ifdef DEBUG
         printf("WD write %x -> %x\n", (port & 0xFF), byte);
     #endif
@@ -311,7 +307,9 @@ void FDC::reset(){
     reg_system = 0x00;
     reg_track = 0xFF;
     reg_data = 0x00;
+    last_clk = 0;
     command_clk = 0;
+    delay_clk = 0;
     fdd[reg_system & SYS_DRIVE].step_dir = -1;
     fdd[reg_system & SYS_DRIVE].motor_clk = 0;
     reg_status = STS_BUSY;

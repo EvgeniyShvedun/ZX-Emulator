@@ -3,71 +3,17 @@
 #include <SDL_image.h>
 #include <GL/glew.h>
 #include <GL/gl.h>
-#include "imgui.h"
-#include "imgui_impl_sdl2.h"
-#include "imgui_impl_opengl3.h"
-#include "ext/ImGuiFileDialog/ImGuiFileDialog.h"
-#include "ext/ImGuiFileDialog/ImGuiFileDialogConfig.h"
 #include "base.h"
-#include "config.h"
-#include <math.h>
-#include "disasm.h"
+#include "ui.h"
 
-using namespace std;
-
-#define TITLE               "2024 Sinclair Research"
-#define CONFIG_FILE         "zx.cfg"
-//#define FRAME_TIME
-#define FRAME_LIMIT         10000
-
-#define UI_STYLE_EDIT       -2
-#define UI_EXIT             -1
-#define UI_NONE             0
-#define UI_KBLAYOUT         1
-#define UI_OPEN_SNAPSHOT    2
-#define UI_SETTINGS         5
-#define UI_DEBUGGER         6
-
-
-Config *p_cfg = NULL;
-Board *p_board = NULL;
-Keyboard *p_keyboard = NULL;
-Sound *p_sound = NULL;
-FDC *p_fdc = NULL;
-Tape *p_tape = NULL;
-KMouse *p_mouse = NULL;
-KJoystick *p_joystick = NULL;
-
+#define TITLE "2024 Sinclair Research"
+const char* glsl_version = "#version 130";
 SDL_Window *window = NULL;
 SDL_GLContext gl_context = NULL;
-GLuint pbo = 0;
-GLuint screen = 0;
-SDL_AudioSpec audio_spec;
-SDL_AudioDeviceID audio_device_id = 0;
-unsigned int frame_samples = 0;
+Board *board = NULL;
 
 void release_all(){
-    if (audio_device_id){
-        //SDL_PauseAudioDevice(audio_device_id, 0);
-        SDL_CloseAudioDevice(audio_device_id);
-    }
-    audio_device_id = 0;
-
-    DELETE(p_cfg);
-    DELETE(p_board);
-    DELETE(p_keyboard);
-    DELETE(p_sound);
-    DELETE(p_fdc);
-    DELETE(p_tape);
-    DELETE(p_joystick);
-    DELETE(p_mouse);
-
-    if (screen)
-        glDeleteTextures(1, &screen);
-    screen = 0;
-    if (pbo)
-        glDeleteBuffers(1, &pbo);
-    pbo = 0;
+    DELETE(board);
     SDL_GL_DeleteContext(gl_context);
     SDL_DestroyWindow(window);
     SDL_Quit();
@@ -79,815 +25,88 @@ int fatal_error(const char *msg){
     return -1;
 }
 
-void load_file(const char *ptr){
-    int len = strlen(ptr);
-    if (len > 4){
-        if (!strcmp(ptr + len - 4, ".z80") or !strcmp(ptr + len - 4, ".Z80"))
-            p_board->load_z80(ptr);
-        if (!strcmp(ptr + len - 4, ".tap") or !strcmp(ptr + len - 4, ".TAP"))
-            p_tape->load_tap(ptr);
-        if (!strcmp(ptr + len - 4, ".trd") or !strcmp(ptr + len - 4, ".TRD"))
-            p_fdc->load_trd(0, ptr);
-        if (!strcmp(ptr + len - 4, ".scl") or !strcmp(ptr + len - 4, ".SCL"))
-            p_fdc->load_scl(0, ptr);
-    }
-}
-
-GLushort load_texture(const char *p_path){
-    GLuint texture;
-    SDL_Surface *p_image = IMG_Load(p_path);
-    SDL_Surface *p_surface = SDL_ConvertSurfaceFormat(p_image, SDL_PIXELFORMAT_RGBA4444, 0);
-    SDL_FreeSurface(p_image);
-    glGenTextures(1, &texture);
-	glBindTexture(GL_TEXTURE_2D, texture);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA4, p_surface->w, p_surface->h, 0, GL_RGBA, GL_UNSIGNED_SHORT_4_4_4_4, p_surface->pixels);
-	SDL_FreeSurface(p_surface);
-    return texture;
-}
-
-void reinit_sound(int sample_rate, int frame_clk){
-    SDL_zero(audio_spec);
-    if (audio_device_id){
-        SDL_PauseAudioDevice(audio_device_id, 1);
-        SDL_CloseAudioDevice(audio_device_id);
-    }
-    frame_samples = frame_clk * (sample_rate / (float)Z80_FREQ);
-    audio_spec.freq = sample_rate;
-    audio_spec.format = AUDIO_S16;
-    audio_spec.channels = 2;
-    audio_spec.samples = frame_samples * 2;
-    audio_spec.callback = NULL;
-    audio_device_id = SDL_OpenAudioDevice(NULL, 0, &audio_spec, NULL, 0);
-    if (!audio_device_id)
-        throw runtime_error("SDL: Open audio device");
-    //SDL_QueueAudio(audio_device_id, p_sound->buffer, audio_spec.samples * 2 * 4);
-    SDL_PauseAudioDevice(audio_device_id, 0);
-}
-
 int main(int argc, char **argv){
-    bool loop = true;
-    bool supsend = false;
-    bool full_screen = false;
-
-    p_cfg = new Config(CONFIG_FILE);
-    int scale = p_cfg->get("scale", 2, 1, 5);
-    int window_width = SCREEN_WIDTH * scale;
-    int window_height = SCREEN_HEIGHT * scale;
-
+    CFG *cfg = Config::load();
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMECONTROLLER | SDL_INIT_TIMER) != 0)
-        return fatal_error("SDL init");
+        return fatal_error("SDL: init");
     if (SDL_NumJoysticks()){
         SDL_JoystickOpen(0);
         SDL_JoystickEventState(SDL_ENABLE);
-        //if ( SDL_GameControllerAddMappingsFromFile("data/gamepad_mappings.db")== -1)
-        //    printf("SDL ERROR: %s\n", SDL_GetError());
     }
-
-    const char* glsl_version = "#version 130";
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, 0);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-    SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
-    full_screen = p_cfg->get_case("full_screen", 0, regex(R"((no)|(yes))", regex_constants::icase)) == 0 ? false : true;
-    if (full_screen)
-        window_flags = (SDL_WindowFlags) (window_flags | (p_cfg->get_case("full_screen_mode", 0, regex(R"((native)|(desktop))", regex_constants::icase)) == 0 ? SDL_WINDOW_FULLSCREEN : SDL_WINDOW_FULLSCREEN_DESKTOP));
-    if (!(window = SDL_CreateWindow(TITLE, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, window_width, window_height, window_flags)))
-        return fatal_error("Create window");
-    gl_context = SDL_GL_CreateContext(window);
-    if (!gl_context)
-        return fatal_error("Create OpenGL context");
+    SDL_WindowFlags flags = (SDL_WindowFlags)(SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
+    if (cfg->video.full_screen)
+        flags = (SDL_WindowFlags)(flags | SDL_WINDOW_FULLSCREEN);
+    if (!(window = SDL_CreateWindow(TITLE, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+                    SCREEN_WIDTH*cfg->video.scale, SCREEN_HEIGHT*cfg->video.scale, flags)))
+        return fatal_error("SDL_CreateWindow");
+    if (!(gl_context = SDL_GL_CreateContext(window)))
+        return fatal_error("SDL_GL_CreateContext");
     SDL_GL_MakeCurrent(window, gl_context);
     glewExperimental = true;
     if (glewInit() != GLEW_OK)
-        return fatal_error("glew init");
-    #ifndef FRAME_TIME
-    if (p_cfg->get_case("vsync", 0, regex(R"((yes)|(no))", regex_constants::icase)) == 0)
-        SDL_GL_SetSwapInterval(1); // Enable vsync
-    else
-        SDL_GL_SetSwapInterval(0);
-    #else
-        SDL_GL_SetSwapInterval(0);
-    #endif
-
+        return fatal_error("glewInit");
     SDL_SetWindowIcon(window, IMG_Load("data/icon.png"));
-    SDL_SetWindowMinimumSize(window, SCREEN_WIDTH, SCREEN_HEIGHT);
+    SDL_SetWindowMinimumSize(window, SCREEN_WIDTH*2, SCREEN_HEIGHT*2);
     SDL_ShowCursor(SDL_DISABLE);
 
-    // GL state setup
-    glEnable(GL_TEXTURE_2D);
-    glGenTextures(1, &screen);
-    glBindTexture(GL_TEXTURE_2D, screen);
-    glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA4, SCREEN_WIDTH, SCREEN_HEIGHT);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA4, SCREEN_WIDTH, SCREEN_HEIGHT, 0, GL_RGBA, GL_UNSIGNED_SHORT_4_4_4_4, NULL);
-    if (p_cfg->get_case("scale_filter", 0, regex(R"((nearest)|(linear))", regex_constants::icase)) == 0){
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    }else{
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    }
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glBindTexture(GL_TEXTURE_2D, 0);
-    glGenBuffers(1, &pbo);
+    board = new Board(cfg);
+    for (int i = 1; i < argc; i++)
+        board->load(argv[i]);
+    UI::setup(window, gl_context, glsl_version);
 
-    // Setup Dear ImGui context
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    ImGuiIO& io = ImGui::GetIO(); (void)io;
-    io.IniFilename = NULL;
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
-    //io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
-    // Setup Dear ImGui style
-    ImGui::StyleColorsDark();
-    //ImGui::StyleColorsLight();
-    // Setup Platform/Renderer backends
-    ImGui_ImplSDL2_InitForOpenGL(window, gl_context);
-    ImGui_ImplOpenGL3_Init(glsl_version);
+    static bool loop = true;
+    static bool supsend = false;
 
-    ImGuiStyle& style = ImGui::GetStyle();
-    style.Colors[ImGuiCol_ModalWindowDimBg] = ImVec4(0.0f, 0.0f, 0.0f, 0.0f);
-    style.WindowPadding                     = ImVec2(10, 10);
-    style.WindowRounding                    = 4.5;
-    style.FrameRounding                     = 2.0;
-    style.GrabRounding                      = 7.0;
-    //style.Colors[ImGuiCol_WindowBg]         = ImVec4(0.0f, 0.0f, 1.0f, 1.0f);
-    //style.Colors[ImGuiCol_FrameBg]          = ImVec4(1.0f, 0.0f, 1.0f, 1.0f);
-    //style.Colors[ImGuiCol_FrameBgActive]    = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
-    style.Colors[ImGuiCol_ChildBg].w        = 0.37f;
-    style.Colors[ImGuiCol_Border]           = ImVec4(0.00f, 0.00f, 0.00f, 1.0f);
-    //style.FrameRounding                   = 3.0f;
-    //style.ItemSpacing                     = ImVec2(12, 8);
-    //style.ItemInnerSpacing                = ImVec2(8, 6);
-    //style.FramePadding                    = ImVec2(3, 3);
-    //style.IndentSpacing                   = 25.0f;
-
-    p_board = new Board((HW)p_cfg->get_case("model", HW::PENTAGON_128, regex(R"((Pentagon-128)|(Spectrum-128)|(Spectrum-48))", regex_constants::icase)));
-    p_keyboard = new Keyboard();
-	p_sound = new Sound(
-        p_cfg->get("audio_rate", AUDIO_RATE, 22050, 192100),
-        (Sound::MODE)p_cfg->get_case("ay_mixer_mode", Sound::MODE::ACB, regex(R"((mono)|(abc)|(acb))", regex_constants::icase)),
-        p_cfg->get("ay_volume", 0.8, 0.0, 1.0),
-        p_cfg->get("speaker_volume", 0.5, 0.0, 1.0),
-        p_cfg->get("tape_volume", 0.3, 0.0, 1.0)
-    );
-    p_sound->setup_lpf(p_cfg->get("lpf_rate", 22050, 11025, 44100));
-
-    p_fdc = new FDC(p_board);
-    p_joystick = new KJoystick(p_board);
-    p_tape = new Tape();
-    p_mouse = new KMouse();
-
-    p_joystick->map(JOY_LEFT, p_cfg->get("joy_left", 15, 0, 1000));
-    p_joystick->map(JOY_RIGHT, p_cfg->get("joy_right", 13, 0, 1000));
-    p_joystick->map(JOY_DOWN, p_cfg->get("joy_down", 14, 0, 1000));
-    p_joystick->map(JOY_UP, p_cfg->get("joy_up", 12, 0, 1000));
-    p_joystick->map(JOY_A, p_cfg->get("joy_a", 3, 0, 1000));
-    p_joystick->map(JOY_B, p_cfg->get("joy_b", 1, 0, 1000));
-
-    try {
-        char name[32] = "disk_a";
-        for (char drv = 0; drv <= 3; drv++){
-            name[5] = 'a' + drv;
-            if (p_cfg->exist(name)){
-                const char *ptr = p_cfg->get(name).c_str();
-                int len = strlen(ptr);
-                if (!strcmp(ptr + len - 4, ".trd") or !strcmp(ptr + len - 4, ".TRD"))
-                    p_fdc->load_trd(drv, ptr);
-                if (!strcmp(ptr + len - 4, ".scl") or !strcmp(ptr + len - 4, ".SCL"))
-                    p_fdc->load_trd(drv, ptr);
-            }
-        }
-    }catch(runtime_error & ex){
-        cerr << ex.what() << endl;
-    }
-
-    p_board->load_rom(ROM_TRDOS, p_cfg->get("rom_trdos", "data/rom/trdos.rom").c_str());
-    p_board->load_rom(ROM_128, p_cfg->get("rom_128", "data/rom/128.rom").c_str());
-    p_board->load_rom(ROM_48, p_cfg->get("rom_48", "data/rom/48.rom").c_str());
-
-    p_board->add_device(p_tape);
-    p_board->add_device(p_sound);
-    p_board->add_device(p_mouse);
-    p_board->add_device(p_keyboard);
-    p_board->add_device(p_fdc);
-    p_board->add_device(p_joystick);
-
-    p_board->set_rom(ROM_128);
-
-    // Load tape for config
-    if (p_cfg->exist("open_tap") && !p_tape->load_tap(p_cfg->get("open_tap").c_str()))
-        cerr << "Loading tape file error: " << p_cfg->get("open_tap").c_str() << "'\n";
-
-    for (int i = 0; i < argc; i++)
-        load_file(argv[i]);
-
-    // Audio
-    reinit_sound(p_sound->sample_rate, p_board->frame_clk);
-#ifdef FRAME_TIME
-    Uint32 time_start = SDL_GetTicks();
-	int frame_cnt = 0;
-#endif
-    bool full_speed = false;
-    int ui = UI_NONE;
-    ImVec2 btn_size = {80, 20};
-    IGFD::FileDialogConfig config = {.path = ".", .countSelectionMax = 1, .flags = ImGuiFileDialogFlags_Modal};
-    GLuint kbd_layout = load_texture("data/keyboard_layout.png");
-    //bool style_editor = false;
-
-    SDL_Event event;
     while (loop){
+        SDL_Event event;
         while (SDL_PollEvent(&event)){
-            if (ui)
-                ImGui_ImplSDL2_ProcessEvent(&event);
-            switch(event.type){
-                case SDL_QUIT:
-                    ui = UI_EXIT;
-                    break;
+            switch (event.type){
                 case SDL_WINDOWEVENT:
-                    switch(event.window.event){
+                    switch (event.window.event){
+                        case SDL_WINDOWEVENT_CLOSE:
+                            loop = false;
+                            break;
+                        case SDL_WINDOWEVENT_HIDDEN:
+                            supsend = true;
+                            break;
                         case SDL_WINDOWEVENT_SHOWN:
                             supsend = false;
                             break;
-                        case SDL_WINDOWEVENT_HIDDEN:
-                            supsend = true; 
-                            break;
                         case SDL_WINDOWEVENT_EXPOSED:
-                            SDL_GetWindowSize(window, &window_width, &window_height);
-                            glViewport(0, 0, (GLsizei)window_width, (GLsizei)window_height);
-                            glMatrixMode(GL_PROJECTION);
-                            glLoadIdentity();
-                            glOrtho(0.0, window_width, window_height, 0.0, -1.0, 1.0);
-                            glMatrixMode(GL_MODELVIEW);
-                            glLoadIdentity();
-                            break;
-                        case SDL_WINDOWEVENT_CLOSE:
-                            ui = UI_EXIT;
+                            int width, height;
+                            SDL_GetWindowSize(window, &width, &height);
+                            board->viewport_resize(width, height);
                             break;
                     }
                     break;
                 case SDL_KEYDOWN:
-                     if (event.key.keysym.sym == SDLK_ESCAPE){
-                        if (ui == UI_NONE)
-                            ui = UI_EXIT;
-                        else{
-                            ui = UI_NONE;
-                            SDL_ShowCursor(SDL_DISABLE);
-                        }
-                        break;
-                    }
-                    //if (event.key.keysym.sym == SDLK_F8)
-                    //    style_editor ^= true;
-                    //if (io.WantCaptureKeyboard)
-                    //    break;
-                    if (ui)
-                        break;
                     if (event.key.repeat)
                         break;
-                    switch(event.key.keysym.sym){
-                        case SDLK_RETURN:
-                            if (event.key.keysym.mod & KMOD_CTRL){
-                                if (full_screen)
-                                    SDL_SetWindowFullscreen(window, 0);
-                                else{
-                                    if (p_cfg->get_case("full_screen_mode", 0, regex(R"((native)|(desktop))", regex_constants::icase)) == 0)
-                                        SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN);
-                                    else
-                                        SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN_DESKTOP);
-                                }
-                                full_screen ^= true;
-                            }
-                            break;
-                        case SDLK_F1:
-                            ui = UI_KBLAYOUT;
-                            break;
-                        case SDLK_F2:
-                            ImGuiFileDialog::Instance()->OpenDialog("ChooseFileDlgKey", "Choose File", ".z80;.sna;.tap;.trd;.scl {(([.]z80|Z80|sna|SNA|trd|TRD|scl|SCL|tap|TAP))}", config);
-                            ui = UI_OPEN_SNAPSHOT;
-                            break;
-                        /*
-                        case SDLK_F3:
-                            ui = UI_SETTINGS;
-                            break;
-                        case SDLK_F4:
-                            ui = UI_DEBUGGER;
-                            break;
-                        */
-                        case SDLK_F5:
-                            p_board->set_rom(ROM_48);
-                            p_board->reset();
-                            reinit_sound(p_sound->sample_rate, p_board->frame_clk);
-                            break;
-                        case SDLK_F6:
-                            p_board->set_rom(ROM_128);
-                            p_board->reset();
-                            reinit_sound(p_sound->sample_rate, p_board->frame_clk);
-                            break;
-                        case SDLK_F7:
-                            p_board->set_rom(ROM_TRDOS);
-                            p_board->reset();
-                            reinit_sound(p_sound->sample_rate, p_board->frame_clk);
-                            break;
-                        case SDLK_F8:
-                            break;
-                        case SDLK_F9:
-                            p_tape->play();
-                            break;
-                        case SDLK_F10:
-                            p_tape->stop();
-                            break;
-                        case SDLK_F11:
-                            p_tape->rewind(-15000);
-                            break;
-                        case SDLK_F12:
-                            full_speed ^= true;
-                            if (full_speed)
-                                SDL_GL_SetSwapInterval(0);
-                            else
-                                if (p_cfg->get_case("vsync", 0, regex(R"((yes)|(no))", regex_constants::icase)) == 0)
-                                    SDL_GL_SetSwapInterval(1);
-                            break;
-                        default:
-                            if (event.key.keysym.mod & (KMOD_NUM | KMOD_CAPS))
-                                SDL_SetModState(KMOD_NONE);
-                            break;
-                    }
-                case SDL_KEYUP:
-                    if (ui)
+                    case SDLK_RETURN:
+                        if (event.key.keysym.mod & KMOD_CTRL)
+                            board->full_screen(cfg->video.full_screen ^= true);
                         break;
-                    switch(event.key.keysym.sym){
-                        case SDLK_UP: // SHIFT + 7
-                            p_keyboard->set_btn_state(0xFEFE, 0x01, event.type == SDL_KEYDOWN);
-                            p_keyboard->set_btn_state(0xEFFE, 0x08, event.type == SDL_KEYDOWN);
-                            break;
-                        case SDLK_DOWN: // SHIFT + 6
-                            p_keyboard->set_btn_state(0xFEFE, 0x01, event.type == SDL_KEYDOWN);
-                            p_keyboard->set_btn_state(0xEFFE, 0x10, event.type == SDL_KEYDOWN);
-                            break;
-                        case SDLK_LEFT: // SHIFT + 5
-                            p_keyboard->set_btn_state(0xFEFE, 0x01, event.type == SDL_KEYDOWN);
-                            p_keyboard->set_btn_state(0xF7FE, 0x10, event.type == SDL_KEYDOWN);
-                            break;
-                        case SDLK_RIGHT: // SHIFT + 8
-                            p_keyboard->set_btn_state(0xFEFE, 0x01, event.type == SDL_KEYDOWN);
-                            p_keyboard->set_btn_state(0xEFFE, 0x04, event.type == SDL_KEYDOWN);
-                            break;
-                        case SDLK_DELETE:
-                        case SDLK_BACKSPACE:
-                            p_keyboard->set_btn_state(0xFEFE, 0x01, event.type == SDL_KEYDOWN); // SHIFT + 0
-                            p_keyboard->set_btn_state(0xEFFE, 0x01, event.type == SDL_KEYDOWN);
-                            break;
-                        case SDLK_KP_PLUS: // CTRL + k for "+"
-                            p_keyboard->set_btn_state(0x7FFE, 0x02, event.type == SDL_KEYDOWN);
-                            p_keyboard->set_btn_state(0xBFFE, 0x04, event.type == SDL_KEYDOWN);
-                            break;
-                        case SDLK_MINUS:
-                        case SDLK_KP_MINUS:
-                            p_keyboard->set_btn_state(0x7FFE, 0x02, event.type == SDL_KEYDOWN); // CTRL + j for "-"
-                            p_keyboard->set_btn_state(0xBFFE, 0x08, event.type == SDL_KEYDOWN);
-                            break;
-                        case SDLK_KP_MULTIPLY: // CTRL + b for "*"
-                            p_keyboard->set_btn_state(0x7FFE, 0x02, event.type == SDL_KEYDOWN);
-                            p_keyboard->set_btn_state(0x7FFE, 0x10, event.type == SDL_KEYDOWN);
-                            break;
-                        case SDLK_KP_DIVIDE: // CTRL + v for "/"
-                            p_keyboard->set_btn_state(0x7FFE, 0x02, event.type == SDL_KEYDOWN);
-                            p_keyboard->set_btn_state(0xFEFE, 0x10, event.type == SDL_KEYDOWN);
-                            break;
-                        case SDLK_EQUALS:
-                        case SDLK_KP_EQUALS:
-                            p_keyboard->set_btn_state(0x7FFE, 0x02, event.type == SDL_KEYDOWN); // CTRL + l for "="
-                            p_keyboard->set_btn_state(0xBFFE, 0x02, event.type == SDL_KEYDOWN);
-                            break;
-                        case SDLK_COMMA:
-                        case SDLK_KP_COMMA:
-                            p_keyboard->set_btn_state(0x7FFE, 0x02, event.type == SDL_KEYDOWN); // CTRL + n for ","
-                            p_keyboard->set_btn_state(0x7FFE, 0x08, event.type == SDL_KEYDOWN);
-                            break;
-                        case SDLK_PERIOD:
-                        case SDLK_KP_PERIOD:
-                            p_keyboard->set_btn_state(0x7FFE, 0x02, event.type == SDL_KEYDOWN); // CTRL + m for "."
-                            p_keyboard->set_btn_state(0x7FFE, 0x04, event.type == SDL_KEYDOWN);
-                            break;
-                        case SDLK_SPACE:
-                            p_keyboard->set_btn_state(0x7FFE, 0x01, event.type == SDL_KEYDOWN);
-                            break;
-                        case SDLK_LCTRL:
-                        case SDLK_RCTRL:
-                            p_keyboard->set_btn_state(0x7FFE, 0x02, event.type == SDL_KEYDOWN);
-                            break;
-                        case SDLK_m:
-                            p_keyboard->set_btn_state(0x7FFE, 0x04, event.type == SDL_KEYDOWN);
-                            break;
-                        case SDLK_n:
-                            p_keyboard->set_btn_state(0x7FFE, 0x08, event.type == SDL_KEYDOWN);
-                            break;
-                        case SDLK_b:
-                            p_keyboard->set_btn_state(0x7FFE, 0x10, event.type == SDL_KEYDOWN);
-                            break;
-                        case SDLK_RETURN:
-                        case SDLK_KP_ENTER:
-                            p_keyboard->set_btn_state(0xBFFE, 0x01, event.type == SDL_KEYDOWN);
-                            break;
-                        case SDLK_l:
-                            p_keyboard->set_btn_state(0xBFFE, 0x02, event.type == SDL_KEYDOWN);
-                            break;
-                        case SDLK_k:
-                            p_keyboard->set_btn_state(0xBFFE, 0x04, event.type == SDL_KEYDOWN);
-                            break;
-                        case SDLK_j:
-                            p_keyboard->set_btn_state(0xBFFE, 0x08, event.type == SDL_KEYDOWN);
-                            break;
-                        case SDLK_h:
-                            p_keyboard->set_btn_state(0xBFFE, 0x10, event.type == SDL_KEYDOWN);
-                            break;
-                        case SDLK_p:
-                            p_keyboard->set_btn_state(0xDFFE, 0x01, event.type == SDL_KEYDOWN);
-                            break;
-                        case SDLK_o:
-                            p_keyboard->set_btn_state(0xDFFE, 0x02, event.type == SDL_KEYDOWN);
-                            break;
-                        case SDLK_i:
-                            p_keyboard->set_btn_state(0xDFFE, 0x04, event.type == SDL_KEYDOWN);
-                            break;
-                        case SDLK_u:
-                            p_keyboard->set_btn_state(0xDFFE, 0x08, event.type == SDL_KEYDOWN);
-                            break;
-                        case SDLK_y:
-                            p_keyboard->set_btn_state(0xDFFE, 0x10, event.type == SDL_KEYDOWN);
-                            break;
-                        case SDLK_0:
-                            p_keyboard->set_btn_state(0xEFFE, 0x01, event.type == SDL_KEYDOWN);
-                            break;
-                        case SDLK_9:
-                            p_keyboard->set_btn_state(0xEFFE, 0x02, event.type == SDL_KEYDOWN);
-                            break;
-                        case SDLK_8:
-                            p_keyboard->set_btn_state(0xEFFE, 0x04, event.type == SDL_KEYDOWN);
-                            break;
-                        case SDLK_7:
-                            p_keyboard->set_btn_state(0xEFFE, 0x08, event.type == SDL_KEYDOWN);
-                            break;
-                        case SDLK_6:
-                            p_keyboard->set_btn_state(0xEFFE, 0x10, event.type == SDL_KEYDOWN);
-                            break;
-                        case SDLK_1:
-                            p_keyboard->set_btn_state(0xF7FE, 0x01, event.type == SDL_KEYDOWN);
-                            break;
-                        case SDLK_2:
-                            p_keyboard->set_btn_state(0xF7FE, 0x02, event.type == SDL_KEYDOWN);
-                            break;
-                        case SDLK_3:
-                            p_keyboard->set_btn_state(0xF7FE, 0x04, event.type == SDL_KEYDOWN);
-                            break;
-                        case SDLK_4:
-                            p_keyboard->set_btn_state(0xF7FE, 0x08, event.type == SDL_KEYDOWN);
-                            break;
-                        case SDLK_5:
-                            p_keyboard->set_btn_state(0xF7FE, 0x10, event.type == SDL_KEYDOWN);
-                            break;
-                        case SDLK_q:
-                            p_keyboard->set_btn_state(0xFBFE, 0x01, event.type == SDL_KEYDOWN);
-                            break;
-                        case SDLK_w:
-                            p_keyboard->set_btn_state(0xFBFE, 0x02, event.type == SDL_KEYDOWN);
-                            break;
-                        case SDLK_e:
-                            p_keyboard->set_btn_state(0xFBFE, 0x04, event.type == SDL_KEYDOWN);
-                            break;
-                        case SDLK_r:
-                            p_keyboard->set_btn_state(0xFBFE, 0x08, event.type == SDL_KEYDOWN);
-                            break;
-                        case SDLK_t:
-                            p_keyboard->set_btn_state(0xFBFE, 0x10, event.type == SDL_KEYDOWN);
-                            break;
-                        case SDLK_a:
-                            p_keyboard->set_btn_state(0xFDFE, 0x01, event.type == SDL_KEYDOWN);
-                            break;
-                        case SDLK_s:
-                            p_keyboard->set_btn_state(0xFDFE, 0x02, event.type == SDL_KEYDOWN);
-                            break;
-                        case SDLK_d:
-                            p_keyboard->set_btn_state(0xFDFE, 0x04, event.type == SDL_KEYDOWN);
-                            break;
-                        case SDLK_f:
-                            p_keyboard->set_btn_state(0xFDFE, 0x08, event.type == SDL_KEYDOWN);
-                            break;
-                        case SDLK_g:
-                            p_keyboard->set_btn_state(0xFDFE, 0x10, event.type == SDL_KEYDOWN);
-                            break;
-                        case SDLK_LSHIFT:
-                        case SDLK_RSHIFT:
-                            p_keyboard->set_btn_state(0xFEFE, 0x01, event.type == SDL_KEYDOWN);
-                            break;
-                        case SDLK_z:
-                            p_keyboard->set_btn_state(0xFEFE, 0x02, event.type == SDL_KEYDOWN);
-                            break;
-                        case SDLK_x:
-                            p_keyboard->set_btn_state(0xFEFE, 0x04, event.type == SDL_KEYDOWN);
-                            break;
-                        case SDLK_c:
-                            p_keyboard->set_btn_state(0xFEFE, 0x08, event.type == SDL_KEYDOWN);
-                            break;
-                        case SDLK_v:
-                            p_keyboard->set_btn_state(0xFEFE, 0x10, event.type == SDL_KEYDOWN);
-                            break;
-                    }
-                    break;
-                case SDL_JOYHATMOTION:
-                    switch (event.jhat.value){
-                        case SDL_HAT_LEFT:
-                            p_joystick->set_state(JOY_LEFT, true);
-                            p_joystick->set_state(JOY_RIGHT | JOY_UP | JOY_DOWN, false);
-                            break;
-                        case SDL_HAT_LEFTUP:
-                            p_joystick->set_state(JOY_LEFT | JOY_UP, true);
-                            p_joystick->set_state(JOY_RIGHT | JOY_DOWN, false);
-                            break;
-                        case SDL_HAT_LEFTDOWN:
-                            p_joystick->set_state(JOY_LEFT | JOY_DOWN, true);
-                            p_joystick->set_state(JOY_RIGHT | JOY_UP, false);
-                            break;
-                        case SDL_HAT_RIGHT:
-                            p_joystick->set_state(JOY_RIGHT, true);
-                            p_joystick->set_state(JOY_LEFT | JOY_UP | JOY_DOWN, false);
-                            break;
-                        case SDL_HAT_RIGHTUP:
-                            p_joystick->set_state(JOY_RIGHT | JOY_UP, true);
-                            p_joystick->set_state(JOY_LEFT | JOY_DOWN, false);
-                            break;
-                        case SDL_HAT_RIGHTDOWN:
-                            p_joystick->set_state(JOY_RIGHT | JOY_DOWN, true);
-                            p_joystick->set_state(JOY_LEFT | JOY_UP, false);
-                            break;
-                        case SDL_HAT_UP:
-                            p_joystick->set_state(JOY_UP, true);
-                            p_joystick->set_state(JOY_LEFT | JOY_RIGHT | JOY_DOWN, false);
-                            break;
-                        case SDL_HAT_DOWN:
-                            p_joystick->set_state(JOY_DOWN, true);
-                            p_joystick->set_state(JOY_LEFT | JOY_RIGHT | JOY_UP, false);
-                            break;
-                        case SDL_HAT_CENTERED:
-                            p_joystick->set_state(JOY_LEFT | JOY_RIGHT | JOY_UP | JOY_DOWN, false);
-                            break;
-                    }
-                    break;
-                case SDL_JOYBUTTONDOWN:
-                    p_joystick->gamepad_event(event.jbutton.button, true);
-                    break;
-                case SDL_JOYBUTTONUP:
-                    p_joystick->gamepad_event(event.jbutton.button, false);
-                    break;
-                case SDL_MOUSEMOTION:
-                    if (io.WantCaptureMouse)
-                        p_mouse->motion(event.motion.xrel, event.motion.yrel);
-                    break;
-                case SDL_MOUSEBUTTONDOWN:
-                    if (io.WantCaptureMouse)
-                        p_mouse->button_press((event.button.button & SDL_BUTTON_LEFT ? 0x01 : 0x00) | (event.button.button & SDL_BUTTON_RIGHT ? 0x02 : 0x00));
-                    break;
-                case SDL_MOUSEBUTTONUP:
-                    if (io.WantCaptureMouse)
-                        p_mouse->button_release((event.button.button & SDL_BUTTON_LEFT ? 0x01 : 0x00) | (event.button.button & SDL_BUTTON_RIGHT ? 0x02 : 0x00));
-                    break;
-                case SDL_MOUSEWHEEL:
-                    if (io.WantCaptureMouse)
-                        p_mouse->wheel(event.wheel.y);
-                    break;
             }
+            if (UI::event(event))
+                board->keyboard.clear();
+            else
+                board->event(event);
         }
         if (supsend){
             SDL_Delay(100);
             continue;
         }
-        // PBO data is transferred, rendering a full-screen textured quad.
-        glBindTexture(GL_TEXTURE_2D, screen);
-        glBegin(GL_QUADS);
-            glTexCoord2f(0.0f, 1.0f); glVertex2f(0.0f,                  window_height);
-            glTexCoord2f(1.0f, 1.0f); glVertex2f(window_width,          window_height);
-            glTexCoord2f(1.0f, 0.0f); glVertex2f(window_width,          0.0f);
-            glTexCoord2f(0.0f, 0.0f); glVertex2f(0.0f,                  0.0f);
-        glEnd();
-        // Update the PBO and setup async byte-transfer to the screen texture.
-        glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pbo);
-        glBufferData(GL_PIXEL_UNPACK_BUFFER, SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(GLushort), NULL, GL_DYNAMIC_DRAW);
-        p_board->set_frame_buffer(glMapBuffer(GL_PIXEL_UNPACK_BUFFER, GL_WRITE_ONLY));
-        if (ui != UI_DEBUGGER)
-            p_board->frame();
-        glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
-        // Start update texture.
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, GL_RGBA, GL_UNSIGNED_SHORT_4_4_4_4, NULL);
-        glBindTexture(GL_TEXTURE_2D, 0);
-        glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
-
-        if (ui){
-            ImGui_ImplOpenGL3_NewFrame();
-            ImGui_ImplSDL2_NewFrame();
-            ImGui::NewFrame();
-            //if (style_editor)
-            //    ImGui::ShowStyleEditor();
-            switch(ui){
-                case UI_EXIT:
-                    static const char *confirm_txt = "Do you exit?";
-                    ImGui::SetNextWindowPos(ImVec2(window_width*0.5, window_height*0.5), ImGuiCond_Always, ImVec2(0.5, 0.5));
-                    if (ImGui::Begin("Exit", NULL, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoDecoration)){
-                        ImGui::SetWindowFocus();
-                        ImGui::SetCursorPosX((ImGui::GetWindowSize().x - ImGui::CalcTextSize(confirm_txt).x) * 0.5);
-                        ImGui::Text(confirm_txt);
-                        ImGui::Spacing();
-                        if (ImGui::Button("Yes", btn_size))
-                            loop = false;
-                        ImGui::SetItemDefaultFocus();
-                        ImGui::SameLine();
-                        if (ImGui::Button("No", btn_size))
-                            ui = UI_NONE;
-                        ImGui::End();
-                    }
-                    break;
-                case UI_KBLAYOUT:
-                    ImGui::SetNextWindowSize(ImVec2(window_width*0.95, window_height * 0.5), ImGuiCond_Always);
-                    ImGui::SetNextWindowPos(ImVec2(window_width*0.5, window_height*0.5), ImGuiCond_Always, ImVec2(0.5, 0.5));
-                    if (ImGui::Begin("#kbd", NULL, ImGuiWindowFlags_NoDecoration)){
-                        ImGui::Image((ImTextureID)kbd_layout, ImGui::GetWindowSize());
-                        ImGui::End();
-                    }
-                    break;
-                case UI_OPEN_SNAPSHOT:
-                    ImGui::SetNextWindowPos(ImVec2(window_width*0.15, window_height*0.25), ImGuiCond_Always);
-                    ImGui::SetNextWindowSize(ImVec2(window_width*0.7, window_height*0.5), ImGuiCond_Always);
-                    if (ImGuiFileDialog::Instance()->Display("ChooseFileDlgKey", ImGuiWindowFlags_NoDecoration)){
-                        if (ImGuiFileDialog::Instance()->IsOk()){
-                            std::string filePathName = ImGuiFileDialog::Instance()->GetFilePathName();
-                            std::string filePath = ImGuiFileDialog::Instance()->GetCurrentPath();
-                            load_file(filePathName.c_str());
-                            reinit_sound(p_sound->sample_rate, p_board->frame_clk);
-                        }
-                        ImGuiFileDialog::Instance()->Close();
-                        ui = UI_NONE;
-                    }
-                    break;
-                /*
-                case UI_SETTINGS:
-                    static int model_id = 1;
-                    static int scale = 3;
-                    static int video_filter = 0;
-                    static bool v_sync = false;
-                    static char disk_a[256]="floppy/disk_a.trd";
-                    static char disk_b[256]="floppy/disk_b.trd";
-                    static char disk_c[256]="floppy/disk_c.trd";
-                    static char disk_d[256]="floppy/disk_d.trd";
-                    //ImGui::SetNextWindowPos(ImVec2(window_width*0.15, window_height*0.25), ImGuiCond_Always);
-                    //ImGui::SetNextWindowSize(ImVec2(window_width*0.7, window_height*0.5), ImGuiCond_Always);
-                    ImGui::SetNextWindowSize(ImVec2(400, 0), ImGuiCond_Always);
-                    ImGui::SetNextWindowPos(ImVec2(window_width*0.5, window_height*0.5), ImGuiCond_Always, ImVec2(0.5, 0.5));
-                    //if (ImGui::Begin("Main", NULL, ImGuiWindowFlags_NoDecoration)){// | ImGuiWindowFlags_NavFlattened)){
-                    if (ImGui::Begin("Main", NULL, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoDecoration)){
-                        ImGui::BeginChild("##frame", ImVec2(400, 300));
-                        if (ImGui::BeginTabBar("tabs")){
-                            if (ImGui::BeginTabItem("General")){
-                                ImGui::Combo("##model", &model_id, "Pentagon-128\0Sinclair-128\0Sinclair-48\0\0");
-                                ImGui::EndTabItem();
-                            }
-                            if (ImGui::BeginTabItem("Video")){
-                                ImGui::SliderInt("##scale", &scale, 0, 5);
-                                ImGui::RadioButton("Nearest", &video_filter, 0);
-                                ImGui::RadioButton("Linear", &video_filter, 1);
-                                ImGui::Checkbox("v_sync", &v_sync);
-                                ImGui::EndTabItem();
-                            }
-                            if (ImGui::BeginTabItem("Audio")){
-                                ImGui::EndTabItem();
-                            }
-                            if (ImGui::BeginTabItem("Disk")){
-                                ImGui::SetKeyboardFocusHere();
-                                ImGui::InputText("##disk_a", disk_a, 256, ImGuiInputTextFlags_ReadOnly);
-                                ImGui::SameLine();
-                                if (ImGui::Button("A:", btn_small)){
-                                }
-                                ImGui::InputText("##disk_b", disk_b, 256, ImGuiInputTextFlags_ReadOnly);
-                                ImGui::SameLine();
-                                if (ImGui::Button("B:", btn_small)){
-                                }
-                                ImGui::InputText("##disk_c", disk_c, 256, ImGuiInputTextFlags_ReadOnly);
-                                ImGui::SameLine();
-                                if (ImGui::Button("C:", btn_small)){
-                                }
-                                ImGui::InputText("##disk_d", disk_d, 256, ImGuiInputTextFlags_ReadOnly);
-                                ImGui::SameLine();
-                                if (ImGui::Button("D:", btn_small)){
-                                }
-                                ImGui::EndTabItem();
-                            }
-                            if (ImGui::BeginTabItem("Input")){
-                                ImGui::EndTabItem();
-                            }
-                            ImGui::EndTabBar();
-                        }
-                        ImGui::EndChild();
-                        ImGui::Spacing();
-                        ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (80 * 2 + ImGui::GetStyle().ItemSpacing.x * 2));
-                        if (ImGui::Button("OK", ImVec2(80, 20)))
-                            ui = UI_NONE;
-                        ImGui::SameLine();
-                        if (ImGui::Button("Cancel", ImVec2(80, 20)))
-                            ui = UI_NONE;
-                        ImGui::End();
-                }
-                    break;
-                case UI_DEBUGGER:
-                    unsigned short pointer = p_board->cpu.pc, next;
-                    char line[128];
-                    char reg_value[8];
-                    const char *flags[] = {"S", "Z", "5", "H", "3", "P", "N", "C"};
-                    #define DISASM_LINES 24
-                    //static char* desasm_lines[DISASM_LINES];
-                    ImGui::SetNextWindowSize(ImVec2(500, 0), ImGuiCond_Always);
-                    ImGui::SetNextWindowPos(ImVec2(window_width*0.5, window_height*0.5), ImGuiCond_Always, ImVec2(0.5, 0.5));
-                    if (ImGui::Begin("Debugger")){
-                        ImGui::BeginTable("##disasm_columns", 2);
-                        ImGui::TableSetupColumn("Disassembler", ImGuiTableColumnFlags_WidthStretch);
-                        ImGui::TableSetupColumn("Registers", ImGuiTableColumnFlags_WidthFixed);
-                        //ImGui::TableSetupColumn("Disassembler", ImGuiTableColumnFlags_WidthStretch);
-                        //ImGui::TableSetupColumn("Registers", ImGuiTableColumnFlags_WidthFixed, 0.120f);
-                        ImGui::TableNextRow();
-                        ImGui::TableHeadersRow();
-                        ImGui::TableNextRow();
-                        ImGui::TableNextColumn();
-                        for (int i = 0; i < DISASM_LINES; i++){
-                            next = Disasm::line(line, pointer, &p_board->cpu, &p_board->ula, true);
-                            ImGui::Selectable(line, pointer == p_board->cpu.pc, ImGuiSelectableFlags_Disabled);
-                            pointer = next;
-                        }
-                        ImGui::TableNextColumn();
-                        for (int i = 0; i < 8; i++){
-                            if (i)
-                                ImGui::SameLine(0.0f, 0.0f);
-                            if (p_board->cpu.af & (0x80 >> i))
-                                ImGui::Text(flags[i]);
-                            else
-                                ImGui::TextColored(ImVec4(0.5, 0.5, 0.5, 1.0), flags[i]);
-                        }
-                        sprintf(reg_value, "%04x", p_board->cpu.af);
-                        ImGui::Text("AF");
-                        ImGui::SameLine();
-                        ImGui::InputText("##af", reg_value, sizeof(reg_value)-1, ImGuiInputTextFlags_CharsHexadecimal | ImGuiInputTextFlags_AutoSelectAll);
-                        ImGui::Text("BC=");
-                        ImGui::SameLine();
-                        sprintf(reg_value, "%04x", p_board->cpu.bc);
-                        ImGui::InputText("##bc", reg_value, sizeof(reg_value)-1, ImGuiInputTextFlags_CharsHexadecimal | ImGuiInputTextFlags_AutoSelectAll);
-                        ImGui::Text("HL=");
-                        ImGui::SameLine();
-                        sprintf(reg_value, "%04x", p_board->cpu.hl);
-                        ImGui::InputText("##hl", reg_value, sizeof(reg_value)-1, ImGuiInputTextFlags_CharsHexadecimal | ImGuiInputTextFlags_AutoSelectAll);
-                        ImGui::Text("DE=");
-                        ImGui::SameLine();
-                        sprintf(reg_value, "%04x", p_board->cpu.de);
-                        ImGui::InputText("##de", reg_value, sizeof(reg_value)-1, ImGuiInputTextFlags_CharsHexadecimal | ImGuiInputTextFlags_AutoSelectAll);
-                        ImGui::Text("PC=");
-                        ImGui::SameLine();
-                        sprintf(reg_value, "%04x", p_board->cpu.pc);
-                        ImGui::InputText("##pc", reg_value, sizeof(reg_value)-1, ImGuiInputTextFlags_CharsHexadecimal | ImGuiInputTextFlags_AutoSelectAll);
-                        ImGui::Text("CLK=");
-                        ImGui::SameLine();
-                        sprintf(reg_value, "%d", p_board->cpu.clk);
-                        ImGui::InputText("##clk", reg_value, sizeof(reg_value)-1, ImGuiInputTextFlags_ReadOnly);
-                        ImGui::EndTable();
-                        ImGui::End();
-                    }
-                    if (ImGui::IsKeyPressed(ImGuiKey_F7))
-                        p_board->cpu.step_into(&p_board->ula, p_board, p_board->frame_clk);
-                    if (ImGui::IsKeyPressed(ImGuiKey_F8))
-                        p_board->cpu.step_into(&p_board->ula, p_board, p_board->frame_clk);
-                    break;
-                    */
-            }
-            ImGui::Render();
-            ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-            if (ui == UI_NONE)
-                SDL_ShowCursor(SDL_DISABLE);
-        }
-#ifdef FRAME_TIME
-		if (++frame_cnt > FRAME_LIMIT)
+        board->frame();
+        if (UI::frame(cfg, board))
             break;
-#else
         SDL_GL_SwapWindow(window);
-        if (!full_speed){
-            while (SDL_GetQueuedAudioSize(audio_device_id) > (audio_spec.samples - frame_samples) * 4)
-                SDL_Delay(1);
-            SDL_QueueAudio(audio_device_id, p_sound->buffer, frame_samples * 4);
-        }
-#endif
     }
-#ifdef FRAME_TIME
-	printf("Time: %d for frames: %d\n", (SDL_GetTicks() - time_start), frame_cnt);
-#endif
+    Config::save();
     release_all();
     return 0;
 }

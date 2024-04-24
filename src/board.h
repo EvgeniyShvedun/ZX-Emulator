@@ -1,31 +1,37 @@
-#define STATUS_PIC_X                    SCREEN_WIDTH - 18
-#define STATUS_PIC_Y                    SCREEN_HEIGHT - 18
-#define STATUS_PIC_WIDTH                16
-#define STATUS_PIC_HEIGHT               16
-
-
-#define HW_SPECTRUM_128                 0
-#define HW_SPECTRUM_48                  1
-#define HW_PENTAGON_128                 3
-
 
 class Board : public IO {
     public:
-        Board(HW hw);
-        void set_hw(HW hw){ this->hw = hw; frame_clk = hw_frame_clk[hw]; };
+        Board(CFG *cfg);
+        ~Board();
+        void set_hw(HW_Model hw);
+        void event(SDL_Event &event);
+        void load_rom(int id, const char *p_path){ ula.load_rom(id, p_path); };
+        void load(const char *path);
+
+        void viewport_resize(int width, int height);
+        void video_filter(VF_Filter filter);
+        void full_screen(bool on);
+        void vsync(bool on);
+
         void frame();
         void reset();
-        void load_rom(int id, const char *p_path){ ula.load_rom(id, p_path); };
-        void load_z80(const char *p_path){ set_hw(snapshot.load_z80(p_path, &cpu, &ula, this)); };
-        void set_frame_buffer(void *ptr) { ula.set_frame_buffer((GLushort*)ptr); };
-        bool trdos_active() { return ula.trdos_active(); };
-        void set_rom(int rom_id){ ula.set_rom(rom_id); };
+
+        unsigned char read(unsigned short port, int clk = 0);
+        void write(unsigned short port, unsigned char byte, int clk = 0);
+
         int frame_clk;
         Z80 cpu;
         ULA ula;
+        Sound sound;
+        Keyboard keyboard;
     private:
-        //void draw_device_status();
-        Snapshot snapshot;
-        HW hw;
-        int hw_frame_clk[3] = { 70908, 69888,  71680 };
+        GLuint screen_texture = 0;
+        GLuint pbo = 0;
+        int viewport_width = -1;
+        int viewport_height = -1;
+        Tape tape;
+        Joystick joystick;
+        Mouse mouse;
+        FDC fdc;
+        int hw;
 };

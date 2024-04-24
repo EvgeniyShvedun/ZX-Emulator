@@ -13,6 +13,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <string.h>
+#include <limits.h>
 #include <string>
 #include <iostream>
 #include <fstream>
@@ -24,15 +25,17 @@
 #include <algorithm>
 #include "const.h"
 #include "util.h"
+#include "config.h"
 #include "device.h"
+
 #include "keyboard.h"
 #include "mouse.h"
 #include "tape.h"
+#include "sound.h"
+#include "floppy.h"
+#include "joystick.h"
 #include "memory.h"
 #include "ula.h"
 #include "z80.h"
 #include "snapshot.h"
 #include "board.h"
-#include "joystick.h"
-#include "floppy.h"
-#include "sound.h"

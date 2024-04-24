@@ -13,13 +13,12 @@ INCLUDES = -I./ext/imgui -I./ext/imgui/backends
 
 SRCS = ext/imgui/imgui.cpp ext/imgui/imgui_draw.cpp \
 	ext/imgui/imgui_tables.cpp ext/imgui/imgui_widgets.cpp \
-	ext/imgui/imgui_demo.cpp \
 	ext/imgui/backends/imgui_impl_sdl2.cpp \
 	ext/imgui/backends/imgui_impl_opengl3.cpp \
 	ext/ImGuiFileDialog/ImGuiFileDialog.cpp
-SRCS += main.cpp ula.cpp z80.cpp memory.cpp board.cpp device.cpp \
+SRCS += main.cpp ula.cpp z80.cpp memory.cpp board.cpp \
 	joystick.cpp keyboard.cpp mouse.cpp sound.cpp tape.cpp floppy.cpp \
-	disasm.cpp snapshot.cpp config.cpp
+	disasm.cpp snapshot.cpp config.cpp ui.cpp
 OBJS = $(addsuffix .o, $(basename $(SRCS)))
 TARGET = ../emulator
 
@@ -33,4 +32,4 @@ $(TARGET): $(OBJS)
 all: $(OBJS)
 
 clean:
-	rm -f $(TARGET)  $(OBJS)
+	rm -f $(TARGET) $(OBJS)

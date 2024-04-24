@@ -1128,6 +1128,7 @@ class Z80 {
         unsigned char flag_sz53p[0x100];
         unsigned char flag_cp[0x10000];
         unsigned char flag_cpb[0x10000];
+        bool nested_int = false;
 #ifdef DEBUG
         bool trace = true;
 #endif

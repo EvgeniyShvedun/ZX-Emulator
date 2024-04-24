@@ -50,7 +50,7 @@ struct FDD {
 
 class FDC : public Device {
 public:
-    FDC(Board *p_board);
+    FDC();
     ~FDC();
 
     void load_trd(int drive_num, const char *path);
@@ -71,7 +71,7 @@ private:
     unsigned char reg_data;
     unsigned char reg_status;
     unsigned char reg_system;
-    int command_clk;
+    int command_clk = 0;
     int last_clk;
     int delay_clk;
     int data_idx;
@@ -79,7 +79,6 @@ private:
         6 * Z80_FREQ / 1000, 12 * Z80_FREQ / 1000,
        20 * Z80_FREQ / 1000, 30 * Z80_FREQ / 1000 };
     FDD fdd[4];
-    Board *p_board;
 };
 
 #pragma pack(1)

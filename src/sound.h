@@ -34,17 +34,19 @@ Register       Function                        Range
     	PORT_A, PORT_B
 	};
     public:
-        enum MODE { MONO, ABC, ACB };
-	    enum CHANNEL { LEFT, RIGHT };
-	    enum AY { A, B, C };
-        Sound(int sample_rate = 44100, MODE mode = ACB, float ay_volume = 0.8, float speaker_volume = 0.5, float tape_volume = 0.3);
+	    enum STEREO { LEFT, RIGHT };
+	    enum CHANNEL { A, B, C };
 		~Sound();
-        void set_stereo_levels(MODE mixer_mode, float side = 1.00, float center = 1.50, float oposite = 1.25);
-        void setup_lpf(int rate = 22050);
-		void set_ay_volume(float volume = 0.8);
+        void init(int sample_rate, int frame_clk);
+        void setup_lpf(int rate);
+        void set_mixer_levels(float side = 1.0, float center = 0.5, float opposite = 0.25);
+        void set_mixer_mode(int mode) { mixer_mode = mode; };
+		void set_ay_volume(float volume = 1.0);
 		void set_speaker_volume(float volume = 0.5);
 		void set_tape_volume(float volume = 0.3);
 		void update(int clk);
+        void queue();
+
 		void frame(int frame_clk);
         void reset();
 
@@ -52,7 +54,7 @@ Register       Function                        Range
         bool io_wr(unsigned short port, unsigned char byte, int clk);
 
         int sample_rate;
-        unsigned short *buffer;
+        short *buffer = NULL;
 	protected:
 		int frame_idx;
 		float increment, cpu_factor;
@@ -113,8 +115,8 @@ Register       Function                        Range
 	    float left_amp, right_amp;
         float speaker_amp, tape_in_amp, tape_out_amp;
         float lpf_alpha;
-		MODE mode;
-        float mixer[sizeof(MODE)][sizeof(CHANNEL)][sizeof(AY)];
+		int mixer_mode;
+        float mixer[sizeof(AY_MODE)][sizeof(STEREO)][sizeof(CHANNEL)];
 		//unsigned int volume_table[0x10];
         // Posted to comp.sys.sinclair in Dec 2001 by Matthew Westcott.
         const float ay_volume_table[0x10] = {
@@ -123,4 +125,7 @@ Register       Function                        Range
         };
 		unsigned char registers[0x10];
 		unsigned char pwFE, prFE, pwFFFD;
+        SDL_AudioSpec audio_spec;
+        SDL_AudioDeviceID audio_device_id = 0;
+        unsigned int frame_samples = 0;
 };

@@ -1,50 +1,79 @@
 #include <math.h>
 #include "base.h"
 
-Sound::Sound(int sample_rate, MODE mode, float ay_volume, float speaker_volume, float tape_volume) : sample_rate(sample_rate), mode(mode) {
-    buffer = new unsigned short[sample_rate * 2];
+#define BUFFER_TIME_SEC 4
+
+void Sound::init(int sample_rate, int frame_clk){
+    this->sample_rate = sample_rate;
     cpu_factor = sample_rate / (float)Z80_FREQ;
     increment = AY_RATE / (float)sample_rate;
-    set_stereo_levels(MONO);
-    set_stereo_levels(ABC);
-    set_stereo_levels(ACB);
-    set_ay_volume(ay_volume);
-    set_speaker_volume(speaker_volume);
-    set_tape_volume(tape_volume);
-	reset();
+    reset();
+    if (audio_device_id){
+        SDL_PauseAudioDevice(audio_device_id, 1);
+        SDL_CloseAudioDevice(audio_device_id);
+    }
+    DELETE_ARRAY(buffer);
+    buffer = new short[sample_rate * BUFFER_TIME_SEC];
+    memset(buffer, 0, sample_rate * sizeof(short) * BUFFER_TIME_SEC);
+    SDL_zero(audio_spec);
+    frame_samples = frame_clk * (sample_rate / (float)Z80_FREQ);
+    audio_spec.freq = sample_rate;
+    audio_spec.format = AUDIO_S16;
+    audio_spec.channels = 2;
+    audio_spec.samples = frame_samples * 2;
+    audio_spec.callback = NULL;
+    audio_device_id = SDL_OpenAudioDevice(NULL, 0, &audio_spec, NULL, 0);
+    if (!audio_device_id)
+        throw std::runtime_error("SDL: Open audio device");
+    SDL_QueueAudio(audio_device_id, buffer, audio_spec.samples * 2 * 4);
+    SDL_PauseAudioDevice(audio_device_id, 0);
 }
 
-void Sound::set_stereo_levels(MODE mixer_mode, float side, float center, float oposite){
+void Sound::set_mixer_levels(float side, float center, float opposite){
     switch(mixer_mode){
-        case ACB:
-            mixer[ACB][LEFT][A] = side;
-            mixer[ACB][LEFT][B] = center;
-            mixer[ACB][LEFT][C] = oposite;
-            mixer[ACB][RIGHT][A] = oposite;
-            mixer[ACB][RIGHT][B] = center;
-            mixer[ACB][RIGHT][C] = side;
+        case AY_ABC:
+            if (side >= 0.0){
+	            mixer[mixer_mode][LEFT][A] = side;
+	            mixer[mixer_mode][RIGHT][C] = side;
+            }
+            if (center >= 0.0){
+	            mixer[mixer_mode][LEFT][B] = center;
+	            mixer[mixer_mode][RIGHT][B] = center;
+            }
+            if (opposite >= 0.0){
+	            mixer[mixer_mode][LEFT][C] = opposite;
+    	        mixer[mixer_mode][RIGHT][A] = opposite;
+            }
             break;
-        case ABC:
-	        mixer[ABC][LEFT][A] = side;
-	        mixer[ABC][LEFT][B] = center;
-	        mixer[ABC][LEFT][C] = oposite;
-    	    mixer[ABC][RIGHT][A] = oposite;
-	        mixer[ABC][RIGHT][B] = center;
-	        mixer[ABC][RIGHT][C] = side;
+        case AY_ACB:
+            if (side >= 0.0){
+                mixer[mixer_mode][LEFT][A] = side;
+                mixer[mixer_mode][RIGHT][B] = side;
+            }
+            if (center >= 0.0){
+                mixer[mixer_mode][LEFT][C] = center;
+                mixer[mixer_mode][RIGHT][C] = center;
+            }
+            if (opposite >= 0.0){
+                mixer[mixer_mode][LEFT][B] = opposite;
+                mixer[mixer_mode][RIGHT][A] = opposite;
+            }
             break;
-        case MONO:
-	        mixer[MONO][LEFT][A] = 1.0;
-	        mixer[MONO][LEFT][B] = 1.0;
-	        mixer[MONO][LEFT][C] = 1.0;
-	        mixer[MONO][RIGHT][A] = 1.0;
-	        mixer[MONO][RIGHT][B] = 1.0;
-	        mixer[MONO][RIGHT][C] = 1.0;
+        case AY_MONO:
+	        mixer[mixer_mode][LEFT][A] = 1.0;
+	        mixer[mixer_mode][LEFT][B] = 1.0;
+	        mixer[mixer_mode][LEFT][C] = 1.0;
+	        mixer[mixer_mode][RIGHT][A] = 1.0;
+	        mixer[mixer_mode][RIGHT][B] = 1.0;
+	        mixer[mixer_mode][RIGHT][C] = 1.0;
             break;
     }
 }
 
 Sound::~Sound(){
 	DELETE_ARRAY(buffer);
+    if (audio_device_id)
+        SDL_CloseAudioDevice(audio_device_id);
 }
 
 void Sound::set_ay_volume(float volume){
@@ -120,21 +149,21 @@ void Sound::update(int clk){
         float left = 0.0f, right = 0.0f;
 		if ((tone_a | (registers[MIX] & 0x01)) && (noise | (registers[MIX] & 0x08))){
         	float vol = registers[A_VOL] & 0x10 ? ay_volume_table[envelope] : ay_volume_table[registers[A_VOL] & 0x0F];
-        	left += vol * mixer[mode][LEFT][A];
-        	right += vol * mixer[mode][RIGHT][A];
+        	left += vol * mixer[mixer_mode][LEFT][A];
+        	right += vol * mixer[mixer_mode][RIGHT][A];
 		}
 		if ((tone_b | (registers[MIX] & 0x02)) && (noise | (registers[MIX] & 0x10))){
         	float vol = registers[B_VOL] & 0x10 ? ay_volume_table[envelope] : ay_volume_table[registers[B_VOL] & 0x0F];
-        	left += vol * mixer[mode][LEFT][B];
-        	right += vol * mixer[mode][RIGHT][B];
+        	left += vol * mixer[mixer_mode][LEFT][B];
+        	right += vol * mixer[mixer_mode][RIGHT][B];
 		}
 		if ((tone_c | (registers[MIX] & 0x04)) && (noise | (registers[MIX] & 0x20))){
         	float vol = registers[C_VOL] & 0x10 ? ay_volume_table[envelope] : ay_volume_table[registers[C_VOL] & 0x0F];
-        	left += vol * mixer[mode][LEFT][C];
-        	right += vol * mixer[mode][RIGHT][C];
+        	left += vol * mixer[mixer_mode][LEFT][C];
+        	right += vol * mixer[mixer_mode][RIGHT][C];
 		}
-        left_amp += lpf_alpha * ((left + speaker_amp + tape_in_amp + tape_out_amp) / 10.0f - left_amp);
-        right_amp += lpf_alpha * ((right + speaker_amp + tape_in_amp + tape_out_amp) / 10.0f - right_amp);
+        left_amp += lpf_alpha * ((left + speaker_amp + tape_in_amp + tape_out_amp) / 4.0f - left_amp);
+        right_amp += lpf_alpha * ((right + speaker_amp + tape_in_amp + tape_out_amp) / 4.0f - right_amp);
         buffer[frame_idx * 2] = 0x8000 * left_amp;
         buffer[frame_idx * 2 + 1] = 0x8000 * right_amp;
 	}
@@ -242,4 +271,10 @@ void Sound::reset(){
 void Sound::frame(int frame_clk){
 	update(frame_clk);
 	frame_idx = 0;
+}
+
+void Sound::queue(){
+    while (SDL_GetQueuedAudioSize(audio_device_id) > (audio_spec.samples - frame_samples) * 4)
+        SDL_Delay(1);
+    SDL_QueueAudio(audio_device_id, buffer, frame_samples * 4);
 }

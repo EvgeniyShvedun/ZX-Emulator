@@ -15,8 +15,9 @@
 
 class Keyboard : public Device {
     public:
-        void set_btn_state(unsigned short port, unsigned char btn_mask, bool pressed);
-        bool io_rd(unsigned short port, unsigned char *p_byte, int clk);
+        void button(unsigned short port, char mask, bool state);
+        bool io_rd(unsigned short port, unsigned char *byte, int clk);
+        void clear(){ memset(kbd, 0xFF, sizeof(kbd)); };
     private:
-        unsigned char kbd_state[8] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
+        unsigned char kbd[8] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
 };

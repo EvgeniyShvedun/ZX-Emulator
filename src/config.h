@@ -1,14 +1,56 @@
-class Config {
-    public:
-        Config(const std::filesystem::path file_path = "");
-        void read(const std::filesystem::path file_path);
-        bool exist(std::string name) { return bool(option.count(name)); };
-        std::string get(std::string name, std::string default_value = std::string(), std::regex re_cases = std::regex(R"(.*)"));
-        double get(std::string name, double default_value, double minimal, double maximal);
-        int get_case(std::string name, int default_value, std::regex re_cases);
-    private:
-        const std::filesystem::path file_path;
-        const std::regex comment = std::regex(R"(\s*;.*)");
-        const std::regex definition = std::regex(R"((\S+)\s*=\s*(\S+))");
-        std::unordered_map<std::string, std::string> option;
+
+enum ROM_BANK {
+    ROM_TRDOS, ROM_128, ROM_48
 };
+
+enum HW_Model {
+    HW_PENTAGON_128, HW_SPECTRUM_128, HW_SPECTRUM_48
+};
+
+enum AY_MODE { AY_ABC, AY_ACB, AY_MONO};
+
+enum VF_Filter { 
+    VF_NEAREST, VF_LEANER
+};
+
+struct CFG {
+    struct {
+        int hw_model = HW_PENTAGON_128;
+        char rom_path[sizeof(ROM_BANK)][PATH_MAX] = {
+           "data/rom/trdos.rom",
+            "data/rom/128.rom",
+            "data/rom/48.rom"
+        };
+        bool full_speed = false;
+    } main;
+    struct {
+        int scale = 3;
+        int filter = VF_NEAREST;
+        bool full_screen = false;
+        bool vsync = true;
+    } video;
+    struct {
+        int sample_rate = 44100;
+        int lpf_rate = 11050;
+        int ay_mixer_mode = AY_ABC;
+        float ay_volume = 1.0;
+        float speaker_volume = 0.7;
+        float tape_volume = 0.3;
+        float ay_side_level = 1.0;
+        float ay_center_level = 0.7;
+        float ay_interpenetration_level = 0.3;
+    } audio;
+    struct {
+        int left = 15;
+        int right = 16;
+        int down = 14;
+        int up = 13;
+        int button_a = 1;
+        int button_b = 3;
+    } gamepad;
+};
+
+namespace Config {
+    CFG *load(const char *path = "zx.dat");
+    void save(const char *path = "zx.dat");
+}

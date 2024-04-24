@@ -1,35 +1,33 @@
 #include "base.h"
 
-KJoystick::KJoystick(Board *p_board) : p_board(p_board){
-}
-
-void KJoystick::gamepad_event(int pad_btn, bool state){
+void Joystick::gamepad(int code, bool state){
     for (int i = 0; i <= 5; i++){
-        if (button_map[i] == pad_btn){
-            set_state(0x01 << i, state);
+        if (gamepad_map[i] == code){
+            button(0x01 << i, state);
             break;
         }
     }
 }
-void KJoystick::set_state(unsigned char btn_mask, bool state){
+
+void Joystick::button(char mask, bool state){
     if (state)
-        p1F |= btn_mask;
+        p1F |= mask;
     else
-        p1F &= ~btn_mask;
+        p1F &= ~mask;
 }
 
-void KJoystick::map(char btn_mask, int pad_btn){
+void Joystick::map(char mask, int code){
     for (int i = 0; i <= 5; i++){
-        if (btn_mask & (0x01 << i)){
-            button_map[i] = pad_btn;
+        if (mask & (0x01 << i)){
+            gamepad_map[i] = code;
             break;
         }
     }
 }
 
-bool KJoystick::io_rd(unsigned short addr, unsigned char *p_val, int clk){
-    if (!p_board->trdos_active() && !(addr & 0x20)){
-        *p_val &= p1F;
+bool Joystick::io_rd(unsigned short port, unsigned char *val, int clk){
+    if (!(port & 0x20)){
+        *val &= p1F;
         return true;
     }
     return false;
