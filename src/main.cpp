@@ -42,7 +42,7 @@ int main(int argc, char **argv){
     if (!(window = SDL_CreateWindow(TITLE, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
         cfg->video.full_screen ? SCREEN_WIDTH*2 : SCREEN_WIDTH*cfg->video.scale,
         cfg->video.full_screen ? SCREEN_HEIGHT*2 : SCREEN_WIDTH*cfg->video.scale,
-        cfg->video.full_screen ? flags : (SDL_WindowFlags)(flags | SDL_WINDOW_FULLSCREEN))))
+        cfg->video.full_screen ? (SDL_WindowFlags)(flags | SDL_WINDOW_FULLSCREEN) : flags)))
         return fatal_error("SDL_CreateWindow");
     if (!(gl_context = SDL_GL_CreateContext(window)))
         return fatal_error("SDL_GL_CreateContext");
