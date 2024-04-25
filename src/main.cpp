@@ -26,6 +26,7 @@ int fatal_error(const char *msg){
 }
 
 int main(int argc, char **argv){
+    int width, height;
     CFG *cfg = Config::load();
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMECONTROLLER | SDL_INIT_TIMER) != 0)
         return fatal_error("SDL: init");
@@ -39,10 +40,15 @@ int main(int argc, char **argv){
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
     SDL_WindowFlags flags = (SDL_WindowFlags)(SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
-    if (cfg->video.full_screen)
+    if (cfg->video.full_screen){
+        width = SCREEN_WIDTH*2;
+        height = SCREEN_HEIGHT*2;
         flags = (SDL_WindowFlags)(flags | SDL_WINDOW_FULLSCREEN);
-    if (!(window = SDL_CreateWindow(TITLE, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-                    SCREEN_WIDTH*cfg->video.scale, SCREEN_HEIGHT*cfg->video.scale, flags)))
+    }else{
+        width = SCREEN_WIDTH*cfg->video.scale;
+        height = SCREEN_HEIGHT*cfg->video.scale;
+    }
+    if (!(window = SDL_CreateWindow(TITLE, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, width, height, flags)))
         return fatal_error("SDL_CreateWindow");
     if (!(gl_context = SDL_GL_CreateContext(window)))
         return fatal_error("SDL_GL_CreateContext");
@@ -78,7 +84,6 @@ int main(int argc, char **argv){
                             supsend = false;
                             break;
                         case SDL_WINDOWEVENT_EXPOSED:
-                            int width, height;
                             SDL_GetWindowSize(window, &width, &height);
                             board->viewport_resize(width, height);
                             break;

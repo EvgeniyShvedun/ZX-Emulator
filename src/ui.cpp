@@ -231,8 +231,14 @@ namespace UI {
                                         board->viewport_resize(SCREEN_WIDTH*cfg->video.scale, SCREEN_HEIGHT*cfg->video.scale);
                                     }
                                     SetCursorPosX(LEFT);
-                                    if (Checkbox("Full screen", &cfg->video.full_screen))
+                                    if (Checkbox("Full screen", &cfg->video.full_screen)){
+                                        if (cfg->video.full_screen)
+                                            board->viewport_resize(SCREEN_WIDTH*2, SCREEN_HEIGHT*2);
+                                        else
+                                            board->viewport_resize(SCREEN_WIDTH*cfg->video.scale, SCREEN_HEIGHT*cfg->video.scale);
                                         board->full_screen(cfg->video.full_screen);
+                                    }
+                                   board->full_screen(cfg->video.full_screen);
                                     SeparatorText("Display");
                                     AlignTextToFramePadding();
                                     Text("Type");
