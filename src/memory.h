@@ -18,7 +18,7 @@ class Memory : public Device {
         bool exec_trap(unsigned short pc);
         bool trdos_active(){ return p_page_ex[0] == p_rom[ROM_TRDOS]; };
         unsigned char* page(int n) { return (n < RAM_PAGES and n >= 0) ? p_ram[n] : NULL; };
-        void load_rom(int id, const char *p_file_path);
+        void load_rom(ROM_BANK id, const char *path);
         bool io_wr(unsigned short port, unsigned char byte, int clk);
         void reset();
         void set_rom(int id);

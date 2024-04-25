@@ -82,24 +82,22 @@ bool Memory::exec_trap(unsigned short pc){
     }
     return false;
 }
-void Memory::load_rom(int id, const char *p_path){
-    FILE *p_file = fopen(p_path, "rb");
-    if (p_file){
-        fseek(p_file, 0, SEEK_END);
-        size_t file_size = ftell(p_file);
-        fseek(p_file, 0, SEEK_SET);
-        if (file_size == PAGE_SIZE){
-            if (fread(p_rom[id], 1, PAGE_SIZE, p_file) == PAGE_SIZE){
-                if (id != ROM_TRDOS){
-                    memcpy(p_trap[id], p_rom[id], PAGE_SIZE);
-                    if (id == ROM_48)
-                        memset(p_trap[id] + 0x3D00, Z80_TRAP_OPCODE, 0x100);
-                }else
-                    memset(p_trap[id], Z80_TRAP_OPCODE, PAGE_SIZE);
-                fclose(p_file);
-                return;
-            }
-        }
-        fclose(p_file);
-    }
+
+void Memory::load_rom(ROM_BANK id, const char *path){
+    FILE *fp = fopen(path, "rb");
+    if (!fp)
+        throw std::runtime_error(std::string("Open file: ") + std::string(path));
+    fseek(fp, 0, SEEK_END);
+    size_t size = ftell(fp);
+    fseek(fp, 0, SEEK_SET);
+    if (size != PAGE_SIZE)
+        throw std::runtime_error(std::string("ROM file: ") + std::string(path) + std::string(" has wring format"));
+    fread(p_rom[id], 1, PAGE_SIZE, fp);
+    if (id != ROM_TRDOS){
+        memcpy(p_trap[id], p_rom[id], PAGE_SIZE);
+        if (id == ROM_48)
+            memset(p_trap[id] + 0x3D00, Z80_TRAP_OPCODE, 0x100);
+    }else
+        memset(p_trap[id], Z80_TRAP_OPCODE, PAGE_SIZE);
+    fclose(fp);
 }

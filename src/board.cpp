@@ -1,6 +1,7 @@
 #include "base.h"
 
 Board::Board(CFG *cfg){
+    this->cfg = cfg;
     set_hw((HW_Model)cfg->main.hw_model);
 
     glEnable(GL_TEXTURE_2D);
@@ -8,12 +9,12 @@ Board::Board(CFG *cfg){
     glBindTexture(GL_TEXTURE_2D, screen_texture);
     glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA4, SCREEN_WIDTH, SCREEN_HEIGHT);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA4, SCREEN_WIDTH, SCREEN_HEIGHT, 0, GL_RGBA, GL_UNSIGNED_SHORT_4_4_4_4, NULL);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glBindTexture(GL_TEXTURE_2D, 0);
     glGenBuffers(1, &pbo);
+    video_filter((VF)cfg->video.filter);
+    vsync(cfg->video.vsync);
 
     sound.set_ay_volume(cfg->audio.ay_volume);
     sound.set_speaker_volume(cfg->audio.speaker_volume);
@@ -30,9 +31,9 @@ Board::Board(CFG *cfg){
     joystick.map(JOY_A, cfg->gamepad.button_a);
     joystick.map(JOY_B, cfg->gamepad.button_b);
 
-    load_rom(ROM_TRDOS, cfg->main.rom_path[ROM_TRDOS]);
-    load_rom(ROM_128, cfg->main.rom_path[ROM_128]);
-    load_rom(ROM_48, cfg->main.rom_path[ROM_48]);
+    ula.load_rom(ROM_TRDOS, cfg->main.rom_path[ROM_TRDOS]);
+    ula.load_rom(ROM_128, cfg->main.rom_path[ROM_128]);
+    ula.load_rom(ROM_48, cfg->main.rom_path[ROM_48]);
     reset();
 }
 
@@ -120,7 +121,8 @@ void Board::frame(){
     glBindTexture(GL_TEXTURE_2D, 0);
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 
-    sound.queue();
+    if (!cfg->main.full_speed)
+        sound.queue();
 }
 
 void Board::viewport_resize(int width, int height){
@@ -136,14 +138,14 @@ void Board::viewport_resize(int width, int height){
     glLoadIdentity();
 }
 
-void Board::video_filter(VF_Filter filter){
+void Board::video_filter(VF filter){
     glBindTexture(GL_TEXTURE_2D, screen_texture);
     switch (filter){
         case VF_NEAREST:
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
             break;
-        case VF_LEANER:
+        case VF_LINEAR:
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
             break;

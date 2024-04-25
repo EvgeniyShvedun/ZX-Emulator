@@ -9,15 +9,15 @@ enum HW_Model {
 
 enum AY_MODE { AY_ABC, AY_ACB, AY_MONO};
 
-enum VF_Filter { 
-    VF_NEAREST, VF_LEANER
+enum VF { 
+    VF_NEAREST, VF_LINEAR
 };
 
 struct CFG {
     struct {
         int hw_model = HW_PENTAGON_128;
         char rom_path[sizeof(ROM_BANK)][PATH_MAX] = {
-           "data/rom/trdos.rom",
+            "data/rom/trdos.rom",
             "data/rom/128.rom",
             "data/rom/48.rom"
         };
