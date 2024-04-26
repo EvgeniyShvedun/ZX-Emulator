@@ -1,13 +1,11 @@
-Binded keys:
-
 F1 - Keyboard layout
 F2 - Open file
+F3 - Save file
 F4 - Settings
 
-F5 - Reset 48
-F6 - Reset 128
-F7 - Reset TRDOS
+F5 - Play/Stop tape switch
+F6 - Rewind tape to the beginning
+F9 - Maximal speed on/off switch
 
-F9  - Tape start play
-F10 - Tape stop play
-F11 - Tape rewind to the beginning
+F11 - Reset
+F12 - Reset to TRDOS
