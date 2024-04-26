@@ -27,7 +27,7 @@ class ULA : public Memory {
         GLshort palette[0x10];
         unsigned char *page = NULL;
         unsigned char flash_mask = 0x7F;
-        unsigned char pFE = 0x00;
+        unsigned char pFE = 0xFF;
         int update_clk = 0;
         int frame_count = 0;
         int idx = 0;

@@ -56,7 +56,7 @@ int main(int argc, char **argv){
 
     board = new Board(cfg);
     for (int i = 1; i < argc; i++)
-        board->load(argv[i]);
+        board->load_file(argv[i]);
     UI::setup(window, gl_context, glsl_version);
 
     static bool loop = true;
@@ -84,10 +84,6 @@ int main(int argc, char **argv){
                     break;
                 case SDL_KEYDOWN:
                     if (event.key.repeat)
-                        break;
-                    case SDLK_RETURN:
-                        if (event.key.keysym.mod & KMOD_CTRL)
-                            board->full_screen(cfg->video.full_screen ^= true);
                         break;
             }
             if (UI::event(event))

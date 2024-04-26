@@ -328,7 +328,7 @@ void FDC::load_trd(int drive, const char *path){
     fclose(file);
 }
 
-void FDC::write_trd(int drive, const char *path){
+void FDC::save_trd(int drive, const char *path){
     FDD &disk = fdd[drive & 0x03];
     if (!disk.data)
         throw runtime_error("Disk image is not exist");

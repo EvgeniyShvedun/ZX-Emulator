@@ -24,7 +24,7 @@ struct CFG {
         bool full_speed = false;
     } main;
     struct {
-        int scale = 3;
+        int scale = 2;
         int filter = VF_NEAREST;
         bool full_screen = false;
         bool vsync = true;
@@ -53,5 +53,6 @@ struct CFG {
 namespace Config {
     CFG *load(const char *path = "zx.dat");
     void save(const char *path = "zx.dat");
+    CFG *get();
     CFG* get_defaults();
 }

@@ -63,14 +63,40 @@ void Board::set_hw(HW_Model model){
      }
 }
 
+/*
+p_board->add_device(p_tape);
+    p_board->add_device(p_sound);
+    p_board->add_device(p_wd1793);
+    p_board->add_device(p_keyboard);
+    p_board->add_device(p_joystick);
+    p_board->add_device(p_mouse);
+    */
+
 unsigned char Board::read(unsigned short port, int clk){
     unsigned char byte = 0xFF;
+    /*
+    if (tape.io_rd(port, &byte, clk))
+        return byte;
+    if (sound.io_rd(port, &byte, clk))
+        return byte;
     if (ula.trdos_active())
         if (fdc.io_rd(port, &byte, clk))
             return byte;
+    if (keyboard.io_rd(port, &byte, clk))
+        return byte;
     if (joystick.io_rd(port, &byte, clk))
         return byte;
+    if (mouse.io_rd(port, &byte, clk))
+        return byte;
+    if (tape.io_rd(port, &byte, clk))
+        return byte;
+    */
+    if (ula.trdos_active())
+        if (fdc.io_rd(port, &byte, clk))
+            return byte;
     if (keyboard.io_rd(port, &byte, clk))
+        return byte;
+    if (joystick.io_rd(port, &byte, clk))
         return byte;
     if (mouse.io_rd(port, &byte, clk))
         return byte;
@@ -83,6 +109,15 @@ unsigned char Board::read(unsigned short port, int clk){
 }
 
 void Board::write(unsigned short port, unsigned char byte, int clk){
+    /*
+    if (tape.io_wr(port, byte, clk))
+        return;
+    if (sound.io_wr(port, byte, clk))
+        return;
+    if (ula.trdos_active())
+        if (fdc.io_wr(port, byte, clk))
+            return;
+    */
     if (ula.trdos_active())
         if (fdc.io_wr(port, byte, clk))
             return;
@@ -194,6 +229,13 @@ void Board::event(SDL_Event &event){
                 break;
             case SDLK_F11:
                 tape.rewind(0);
+                break;
+            case SDLK_F12:
+                Config::get()->main.full_speed ^= true;
+                break;
+            case SDLK_RETURN:
+                if (event.key.keysym.mod & KMOD_CTRL)
+                    full_screen(Config::get()->video.full_screen ^= true);
                 break;
         }
     }
@@ -442,21 +484,28 @@ void Board::event(SDL_Event &event){
         }
 }
 
-void Board::load(const char *path){
+void Board::load_file(const char *path){
     int len = strlen(path);
     if (len < 4)
         return;
-    if (!strcmp(path + len - 4, ".z80") || !strcmp(path + len - 4, ".Z80")){
+    if (!strcmp(path+len-4, ".z80") || !strcmp(path+len-4, ".Z80")){
         set_hw(Snapshot::load_z80(path, &cpu, &ula, this));
         sound.init(sound.sample_rate, frame_clk);
-    }else
-        if (!strcmp(path + len - 4, ".trd") || !strcmp(path + len - 4, ".TRD")){
-            fdc.load_trd(0, path);
-        }else{
-            if (!strcmp(path + len - 4, ".scl") || !strcmp(path + len - 4, ".SCL")){
-                fdc.load_scl(0, path);
-            }else
-                if (!strcmp(path + len - 4, ".tap") || !strcmp(path + len - 4, ".TAP"))
-                    tape.load_tap(path);
-        }
+    }
+    if (!strcmp(path+len-4, ".trd") || !strcmp(path+len-4, ".TRD"))
+        fdc.load_trd(0, path);
+    if (!strcmp(path+len-4, ".scl") || !strcmp(path+len-4, ".SCL"))
+        fdc.load_scl(0, path);
+    if (!strcmp(path+len-4, ".tap") || !strcmp(path+len-4, ".TAP"))
+        tape.load_tap(path);
+}
+
+void Board::save_file(const char *path){
+    int len = strlen(path);
+    if (len < 4)
+        return;
+    if (!strcmp(path+len-4, ".z80") || !strcmp(path+len-4, ".Z80"))
+        Snapshot::save_z80(path, &cpu, &ula, this);
+    if (!strcmp(path+len-4, ".trd") || !strcmp(path+len-4, ".TRD"))
+        fdc.save_trd(0, path);
 }

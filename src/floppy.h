@@ -55,7 +55,7 @@ public:
 
     void load_trd(int drive_num, const char *path);
     void load_scl(int drive_num, const char *path);
-    void write_trd(int drive_num, const char *path);
+    void save_trd(int drive_num, const char *path);
 
     bool io_wr(unsigned short port, unsigned char byte, int clk);
     bool io_rd(unsigned short port, unsigned char *p_byte, int clk);

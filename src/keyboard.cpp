@@ -16,7 +16,7 @@ bool Keyboard::io_rd(unsigned short port, unsigned char *byte, int clk){
         for (int i = 0; i < 8; i++)
             if (!(port & (0x8000 >> i)))
                 *byte &= kbd[i];
-        ///////////////
+        //return true;
     }
     return false;
 }

@@ -5,13 +5,14 @@ class Board : public IO {
         ~Board();
         void set_hw(HW_Model hw);
         void event(SDL_Event &event);
-        void load(const char *path);
-
         void viewport_resize(int width, int height);
         void video_filter(VF filter);
         void full_speed(bool on);
         void full_screen(bool on);
         void vsync(bool on);
+
+        void load_file(const char *path);
+        void save_file(const char *path);
 
         void frame();
         void reset();
