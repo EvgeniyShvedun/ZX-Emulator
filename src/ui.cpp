@@ -304,7 +304,7 @@ namespace UI {
                                 SameLine(LEFT);
                                 SetNextItemWidth(width-(LEFT-style->ItemSpacing.x));
                                 if (InputInt("##dsp", &cfg->audio.sample_rate, 1000, 10000, ImGuiInputTextFlags_CharsDecimal | ImGuiInputTextFlags_CharsNoBlank | ImGuiInputTextFlags_EnterReturnsTrue)){
-                                    cfg->audio.sample_rate = std::min(std::max(cfg->audio.sample_rate, 11025), 119200);
+                                    cfg->audio.sample_rate = std::min(std::max(cfg->audio.sample_rate, 11025), 192000);
                                     board->sound.init(cfg->audio.sample_rate, board->frame_clk);
                                 }
                                 AlignTextToFramePadding();
