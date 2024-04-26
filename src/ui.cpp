@@ -17,7 +17,7 @@ using namespace ImGui;
 #define HEIGHT           400
 #define LEFT             100
 #define FILE_WIDTH       550
-#define FILE_HEIGHT      400
+#define FILE_HEIGHT      300
 
 namespace UI {
     ImGuiIO *io = NULL;
@@ -31,7 +31,7 @@ namespace UI {
     const char *gamepad_path = "data/gamepad.png";
     const char *x_path = "data/x.png";
     int load_rom = -1;
-    IGFD::FileDialogConfig file_config = { .path = ".", .countSelectionMax = 1};//, .flags = ImGuiFileDialogFlags_DisableBookmarkMode };
+    IGFD::FileDialogConfig file_config = { .path = ".", .countSelectionMax = 1 };//, .flags = ImGuiFileDialogFlags_Modal };
 
     GLuint load_texture(const char *path){
         GLuint texture;
@@ -89,6 +89,9 @@ namespace UI {
         if (ui_mode != UI_None){
             ImGui_ImplSDL2_ProcessEvent(&event);
             if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_ESCAPE){
+                if (load_rom != -1)
+                    load_rom = -1;
+                else
                     ui_mode = UI_None;
             }
             return true;
@@ -96,10 +99,7 @@ namespace UI {
             if (event.type == SDL_KEYDOWN){
             switch (event.key.keysym.sym){
                 case SDLK_ESCAPE:
-                    if (load_rom != -1)
-                        load_rom = -1;
-                    else
-                        ui_mode = UI_Exit;
+                    ui_mode = UI_Exit;
                     break;
                 case SDLK_F1:
                     ui_mode = UI_KbdLayout;
@@ -151,8 +151,8 @@ namespace UI {
                         }
                         break;
                     case UI_OpenFile:
-                        SetNextWindowPos(ImVec2(io->DisplaySize.x*0.5f, io->DisplaySize.y*0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
                         SetNextWindowSize(ImVec2(FILE_WIDTH, FILE_HEIGHT), ImGuiCond_Always);
+                        SetNextWindowPos(ImVec2(io->DisplaySize.x*0.5f, io->DisplaySize.y*0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
                         ImGuiFileDialog::Instance()->OpenDialog("Open file", "Open file", ".z80;.sna;.tap;.trd;.scl {(([.]z80|Z80|sna|SNA|trd|TRD|scl|SCL|tap|TAP))}", file_config);
                         if (ImGuiFileDialog::Instance()->Display("Open file", UI_WindowFlags)){
                             if (ImGuiFileDialog::Instance()->IsOk())
