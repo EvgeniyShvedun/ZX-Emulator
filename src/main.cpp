@@ -41,7 +41,7 @@ int main(int argc, char **argv){
     SDL_WindowFlags flags = (SDL_WindowFlags)(SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
     if (!(window = SDL_CreateWindow(TITLE, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
         cfg->video.full_screen ? SCREEN_WIDTH*2 : SCREEN_WIDTH*cfg->video.scale,
-        cfg->video.full_screen ? SCREEN_HEIGHT*2 : SCREEN_WIDTH*cfg->video.scale,
+        cfg->video.full_screen ? SCREEN_HEIGHT*2 : SCREEN_HEIGHT*cfg->video.scale,
         cfg->video.full_screen ? (SDL_WindowFlags)(flags | SDL_WINDOW_FULLSCREEN) : flags)))
         return fatal_error("SDL_CreateWindow");
     if (!(gl_context = SDL_GL_CreateContext(window)))
@@ -78,7 +78,9 @@ int main(int argc, char **argv){
                             supsend = false;
                             break;
                         case SDL_WINDOWEVENT_EXPOSED:
-                            board->viewport_resize(cfg->video.full_screen ? SCREEN_WIDTH*2 : SCREEN_WIDTH*cfg->video.scale, cfg->video.full_screen ? SCREEN_HEIGHT*2 : SCREEN_HEIGHT*cfg->video.scale);
+                            int width, height;
+                            SDL_GetWindowSize(window, &width, &height);
+                            board->viewport_resize(width, height);
                             break;
                     }
                     break;
