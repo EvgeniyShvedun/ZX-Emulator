@@ -41,9 +41,12 @@ void Tape::play(){
     state = SILENCE;
 }
 
-void Tape::rewind(int time_shift){
+bool Tape::is_play(){
+    return state != STOP;
+}
+
+void Tape::rewind_begin(){
     idx = 0;
-    play();
 }
 
 void Tape::stop(){

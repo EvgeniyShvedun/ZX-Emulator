@@ -21,9 +21,10 @@ class Memory : public Device {
         void load_rom(ROM_BANK id, const char *path);
         bool io_wr(unsigned short port, unsigned char byte, int clk);
         void reset();
-        void set_rom(int id);
+        void set_rom(ROM_BANK id){ reset_rom = id; };
         unsigned char read_7FFD(){ return p7FFD; };
     protected:
+        ROM_BANK reset_rom = ROM_TRDOS;
         unsigned char *p_page_wr_null;
         unsigned char *p_rom[ROM_PAGES];
         unsigned char *p_trap[ROM_PAGES];
@@ -31,6 +32,5 @@ class Memory : public Device {
         unsigned char *p_page_rd[4];
         unsigned char *p_page_wr[4];
         unsigned char *p_page_ex[4];
-        int rom_id;
         unsigned char p7FFD;
 };

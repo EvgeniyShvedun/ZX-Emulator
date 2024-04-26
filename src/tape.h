@@ -15,9 +15,10 @@ class Tape : public Device {
         Tape();
         ~Tape();
         bool load_tap(const char *p_path);
-        void rewind(int time_shift);
+        void rewind_begin();
         void play();
         void stop();
+        bool is_play();
         void update(int clk);
         void frame(int clk);
         bool io_rd(unsigned short port, unsigned char *p_byte, int clk);

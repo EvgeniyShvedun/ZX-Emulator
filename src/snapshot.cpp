@@ -121,7 +121,7 @@ namespace Snapshot {
     }
 
     HW_Model load_z80(const char *path, Z80 *cpu, Memory *memory, IO *io){
-        HW_Model hw = HW_SPECTRUM_128;
+        HW_Model hw = HW_SINCLAIR_128;
         Z80_Header *header;
         int page_mode = 1;
         int page_map[2][12] = { { -1, -1, -1, -1, 2, 0, -1, -1, 5, -1, -1, -1 }, { -1, -1, -1, 0, 1, 2, 3, 4, 5, 6, 7, -1 } };
@@ -145,14 +145,14 @@ namespace Snapshot {
             idx += header->ext_length + 2;
             if (header->ext_length == header_v201_length){
                 if (header->mode < 3)
-                    hw = HW_SPECTRUM_48;
+                    hw = HW_SINCLAIR_48;
             }else{
                 if (header->mode < 4)
-                    hw = HW_SPECTRUM_48;
+                    hw = HW_SINCLAIR_48;
             }
             if (header->mode == 9)
                 hw = HW_PENTAGON_128;
-            page_mode = (hw == HW_SPECTRUM_128 || hw == HW_PENTAGON_128) ? 1 : 0;
+            page_mode = (hw == HW_SINCLAIR_128 || hw == HW_PENTAGON_128) ? 1 : 0;
             while (idx + 4 < size){
                 block_size = data[idx] | (data[idx + 1] << 8);
                 page = data[idx + 2];

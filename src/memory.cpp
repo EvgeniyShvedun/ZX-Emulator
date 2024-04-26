@@ -28,19 +28,15 @@ void Memory::reset(){
     p_page_rd[1] = p_page_wr[1] = p_page_ex[1] = p_ram[5] - PAGE_SIZE*1;                    // RAM5 0x4000 - 0x7FFF
     p_page_rd[2] = p_page_wr[2] = p_page_ex[2] = p_ram[2] - PAGE_SIZE*2;                    // RAM2 0x8000 - 0xBFFF
     p_page_rd[3] = p_page_wr[3] = p_page_ex[3] = p_ram[p7FFD & P7FFD_PAGE] - PAGE_SIZE*3;   // RAM  0xC000 - 0xFFFF
-    if (rom_id != ROM_TRDOS){
-        p_page_rd[0] = p_rom[rom_id];
-        p_page_ex[0] = p_trap[rom_id];
+    if (reset_rom != ROM_TRDOS){
+        p_page_rd[0] = p_rom[reset_rom];
+        p_page_ex[0] = p_trap[reset_rom];
     }else{
-        p_page_rd[0] = p_page_ex[0] = p_rom[rom_id];
-        p_page_ex[1] = p_trap[rom_id] - PAGE_SIZE*1;
-        p_page_ex[2] = p_trap[rom_id] - PAGE_SIZE*2;
-        p_page_ex[3] = p_trap[rom_id] - PAGE_SIZE*3;
+        p_page_rd[0] = p_page_ex[0] = p_rom[reset_rom];
+        p_page_ex[1] = p_trap[reset_rom] - PAGE_SIZE*1;
+        p_page_ex[2] = p_trap[reset_rom] - PAGE_SIZE*2;
+        p_page_ex[3] = p_trap[reset_rom] - PAGE_SIZE*3;
     }
-}
-
-void Memory::set_rom(int id){
-    rom_id = id;
 }
 
 bool Memory::io_wr(unsigned short port, unsigned char byte, int clk){

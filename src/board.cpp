@@ -48,11 +48,11 @@ Board::~Board(){
 
 void Board::set_hw(HW_Model model){
      switch(model){
-         case HW_SPECTRUM_48:
+         case HW_SINCLAIR_48:
              ula.set_rom(ROM_48);
              frame_clk = 71680;
              break;
-         case HW_SPECTRUM_128:
+         case HW_SINCLAIR_128:
              ula.set_rom(ROM_128);
              frame_clk = 69888;
              break;
@@ -208,30 +208,27 @@ void Board::event(SDL_Event &event){
     if (event.type == SDL_KEYDOWN && !event.key.repeat){
         switch (event.key.keysym.sym){
             case SDLK_F5:
-                ula.set_rom(ROM_48);
-                reset();
+                if (tape.is_play())
+                    tape.stop();
+                else
+                    tape.play();
                 break;
             case SDLK_F6:
-                ula.set_rom(ROM_128);
-                reset();
+                tape.rewind_begin();
                 break;
-            case SDLK_F7:
-                ula.set_rom(ROM_TRDOS);
-                reset();
-                break;
-            case SDLK_F8:
-                return;
             case SDLK_F9:
-                tape.play();
-                break;
-            case SDLK_F10:
-                tape.stop();
+                if (Config::get()->main.full_speed ^= true)
+                    vsync(false);
+                else
+                    vsync(Config::get()->video.vsync);
                 break;
             case SDLK_F11:
-                tape.rewind(0);
+                ula.set_rom(Config::get()->main.hw_model != HW_SINCLAIR_48 ? ROM_128 : ROM_48);
+                reset();
                 break;
             case SDLK_F12:
-                Config::get()->main.full_speed ^= true;
+                ula.set_rom(ROM_TRDOS);
+                reset();
                 break;
             case SDLK_RETURN:
                 if (event.key.keysym.mod & KMOD_CTRL)

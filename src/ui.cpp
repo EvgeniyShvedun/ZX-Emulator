@@ -189,7 +189,7 @@ namespace UI {
                     SetNextWindowSize(ImVec2(WIDTH, 0), ImGuiCond_Always);
                     if (Begin("Settings", NULL, UI_WindowFlags | ImGuiWindowFlags_AlwaysAutoResize)){
                         if (BeginTabBar("tabs")){
-                            if (BeginTabItem("General")){
+                            if (BeginTabItem("Main")){
                                 float width = GetContentRegionAvail().x;
                                 SeparatorText("Hardware");
                                 AlignTextToFramePadding();
@@ -201,7 +201,12 @@ namespace UI {
                                     board->reset();
                                 }
                                 SetCursorPosX(LEFT);
-                                Checkbox("Full speed", &cfg->main.full_speed);
+                                if (Checkbox("Full speed", &cfg->main.full_speed)){
+                                    if (cfg->main.full_speed)
+                                        board->vsync(false);
+                                    else
+                                        board->vsync(cfg->video.vsync);
+                                }
                                 SeparatorText("BIOS");
                                 for (int i = 0; i < (int)sizeof(ROM_BANK) - 1; i++){
                                     AlignTextToFramePadding();
@@ -267,8 +272,16 @@ namespace UI {
                                 if (RadioButton("CRT", &cfg->video.filter, VF_LINEAR))
                                     board->video_filter(VF_LINEAR);
                                 SetCursorPosX(LEFT);
-                                if (Checkbox("V-Sync", &cfg->video.vsync))
-                                    board->vsync(cfg->video.vsync);
+                                if (!cfg->main.full_speed){
+                                    if (Checkbox("V-Sync", &cfg->video.vsync))
+                                        board->vsync(cfg->video.vsync);
+                                }else{
+                                    bool vsync = cfg->video.vsync;
+                                    PushStyleVar(ImGuiStyleVar_Alpha, 0.4f);
+                                    if (Checkbox("V-Sync", &cfg->video.vsync))
+                                        cfg->video.vsync = vsync;
+                                    PopStyleVar();
+                                }
                                 SetCursorPos(ImVec2(GetWindowWidth()-btn_size.x-style->WindowPadding.x, GetCursorPosY()+style->ItemSpacing.y*3));
                                 if (Button("Reset", btn_size)){
                                     memcpy(&cfg->video, &Config::get_defaults()->video, sizeof(CFG::video));
