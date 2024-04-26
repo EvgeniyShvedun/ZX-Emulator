@@ -1,13 +1,15 @@
 #
-# Cross build for Windows.
-# Require: -lSDL2 -lSDL2_image -lGLEW -lGLU -lGL
+# Build for Linux
 #
 
-CXX     := x86_64-w64-mingw32-c++
-SDLCFG  := /usr/x86_64-w64-mingw32/bin/sdl2-config
-INCLUDES := -I/usr/local/x86_64-w64-mingw32/include -I./ext/imgui -I./ext/imgui/backends -I./ext/ImGuiFileDialog $(shell $(SDLCFG) --cflags)
-CXXFLAGS := -O -fomit-frame-pointer -pipe -Wall -Wno-int-to-pointer-cast -DGLEW_STATIC
-LIBS := -static ./ext/glew/x64/glew32s.lib -lopengl32 -lSDL2_image $(shell $(SDLCFG) --static-libs)
+CXX = c++
+CXXFLAGS = -O -fomit-frame-pointer -pipe -Wall -Wno-int-to-pointer-cast \
+	$(shell sdl2-config --cflags)
+
+LIBS = -lGLEW -lGL -ldl -lSDL2_image \
+	$(shell sdl2-config --libs)
+
+INCLUDES = -I./ext/imgui -I./ext/imgui/backends
 
 SRCS = ext/imgui/imgui.cpp ext/imgui/imgui_draw.cpp \
 	ext/imgui/imgui_tables.cpp ext/imgui/imgui_widgets.cpp \
@@ -18,7 +20,8 @@ SRCS += main.cpp ula.cpp z80.cpp memory.cpp board.cpp \
 	joystick.cpp keyboard.cpp mouse.cpp sound.cpp tape.cpp floppy.cpp \
 	disasm.cpp snapshot.cpp config.cpp ui.cpp
 OBJS = $(addsuffix .o, $(basename $(SRCS)))
-TARGET = ../emulator.exe
+TARGET = ../emulator
+
 
 $(TARGET): $(OBJS)
 	$(CXX) -o $@ $^ $(LIBS)

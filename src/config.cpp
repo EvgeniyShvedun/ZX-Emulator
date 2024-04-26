@@ -1,20 +1,24 @@
 #include "base.h"
 
 namespace Config {
-    CFG data_default, data;
+    CFG cfg, defaults;
     CFG* load(const char *path){
         FILE *fp = fopen(path, "r");
-        if (!fp || fread(&data, 1, sizeof(data), fp) != sizeof(data))
-            memcpy(&data, &data_default, sizeof(data));
+        if (!fp || fread(&cfg, 1, sizeof(cfg), fp) != sizeof(cfg))
+            memcpy(&cfg, &defaults, sizeof(cfg));
         if (fp)
             fclose(fp);
-        return &data;
+        return &cfg;
     }
 
     void save(const char *path){
         FILE *fp = fopen(path, "w");
-        if (!fp || fwrite(&data, 1, sizeof(data), fp) != sizeof(data))
+        if (!fp || fwrite(&cfg, 1, sizeof(cfg), fp) != sizeof(cfg))
             throw std::runtime_error("Can't write file");
         fclose(fp);
+    }
+    
+    CFG* get_defaults(){
+        return &defaults;
     }
 }

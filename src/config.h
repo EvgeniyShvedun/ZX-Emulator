@@ -53,4 +53,5 @@ struct CFG {
 namespace Config {
     CFG *load(const char *path = "zx.dat");
     void save(const char *path = "zx.dat");
+    CFG* get_defaults();
 }

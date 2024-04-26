@@ -13,8 +13,8 @@
 
 using namespace ImGui;
 
-#define WIDTH            300
-#define HEIGHT           370
+#define WIDTH            250
+#define HEIGHT           400
 #define LEFT             100
 #define FILE_WIDTH       550
 #define FILE_HEIGHT      400
@@ -73,7 +73,7 @@ namespace UI {
         style->GrabRounding                      = 2.0;
         style->TabRounding                       = 2.0;
         style->GrabMinSize                       = 10.0;
-        style->SeparatorTextPadding              = ImVec2(20.0, 8.0);
+        //style->SeparatorTextPadding              = ImVec2(10.0, 8.0);
         style->SeparatorTextBorderSize           = 2.0;
         style->Colors[ImGuiCol_ChildBg].w        = 0.37f;
         style->Colors[ImGuiCol_Border]           = ImVec4(0.00f, 0.00f, 0.00f, 1.0f);
@@ -123,11 +123,11 @@ namespace UI {
             ImGui_ImplSDL2_NewFrame();
             NewFrame();
             if (ui_mode != UI_None){
-                SetNextWindowPos(ImVec2(io->DisplaySize.x*0.5f, io->DisplaySize.y*0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
                 switch (ui_mode){
                     case UI_None:
                         break;
                     case UI_Exit:
+                        SetNextWindowPos(ImVec2(io->DisplaySize.x*0.5f, io->DisplaySize.y*0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
                         if (Begin("Exit", NULL, UI_WindowFlags | ImGuiWindowFlags_AlwaysAutoResize)){
                             SetCursorPosX((GetWindowSize().x - CalcTextSize("Do you exit ?").x) * 0.5);
                             Text("Do you exit ?");
@@ -143,6 +143,7 @@ namespace UI {
                         }
                         break;
                     case UI_KbdLayout:
+                        SetNextWindowPos(ImVec2(io->DisplaySize.x*0.5f, io->DisplaySize.y*0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
                         SetNextWindowSize(ImVec2(io->DisplaySize.x * 0.8f, io->DisplaySize.y * 0.5f), ImGuiCond_Always);
                         if (Begin("Keyboard layout", NULL, UI_WindowFlags)){
                             Image((ImTextureID)kbd_layout_texture, GetContentRegionAvail());
@@ -150,6 +151,7 @@ namespace UI {
                         }
                         break;
                     case UI_OpenFile:
+                        SetNextWindowPos(ImVec2(io->DisplaySize.x*0.5f, io->DisplaySize.y*0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
                         SetNextWindowSize(ImVec2(FILE_WIDTH, FILE_HEIGHT), ImGuiCond_Always);
                         ImGuiFileDialog::Instance()->OpenDialog("Open file", "Open file", ".z80;.sna;.tap;.trd;.scl {(([.]z80|Z80|sna|SNA|trd|TRD|scl|SCL|tap|TAP))}", file_config);
                         if (ImGuiFileDialog::Instance()->Display("Open file", UI_WindowFlags)){
@@ -171,10 +173,11 @@ namespace UI {
                             { .label = "##rom_48",    .name = "Rom 48" }
                         };
                         float glyph_width = CalcTextSize("A").x;
-                        SetNextWindowSize(ImVec2(WIDTH, HEIGHT), ImGuiCond_Always);
-                        if (Begin("Settings", NULL, UI_WindowFlags)){
+                        SetNextWindowPos(ImVec2(io->DisplaySize.x*0.5f, io->DisplaySize.y/2-HEIGHT/2), ImGuiCond_Always, ImVec2(0.5f, 0.0f));
+                        SetNextWindowSize(ImVec2(WIDTH, 0), ImGuiCond_Always);
+                        if (Begin("Settings", NULL, UI_WindowFlags | ImGuiWindowFlags_AlwaysAutoResize)){
                             if (BeginTabBar("tabs")){
-                                if (BeginTabItem("Main")){
+                                if (BeginTabItem("General")){
                                     float width = GetContentRegionAvail().x;
                                     SeparatorText("Hardware");
                                     AlignTextToFramePadding();
@@ -187,7 +190,7 @@ namespace UI {
                                     }
                                     SetCursorPosX(LEFT);
                                     Checkbox("Full speed", &cfg->main.full_speed);
-                                    SeparatorText("Bios");
+                                    SeparatorText("BIOS");
                                     for (int i = 0; i < (int)sizeof(ROM_BANK) - 1; i++){
                                         AlignTextToFramePadding();
                                         Text(rom[i].name);
@@ -217,6 +220,12 @@ namespace UI {
                                             load_rom = -1;
                                         }
                                     }
+                                    SetCursorPos(ImVec2(GetWindowWidth()-btn_size.x-style->WindowPadding.x, GetCursorPosY()+style->ItemSpacing.y*3));
+                                    if (Button("Reset", btn_size)){
+                                        memcpy(&cfg->main, &Config::get_defaults()->main, sizeof(CFG::main));
+                                        board->set_hw((HW_Model)cfg->main.hw_model);
+                                        board->reset();
+                                    }
                                     EndTabItem();
                                 }
                                 if (BeginTabItem("Video")){
@@ -238,7 +247,7 @@ namespace UI {
                                             board->viewport_resize(SCREEN_WIDTH*cfg->video.scale, SCREEN_HEIGHT*cfg->video.scale);
                                         board->full_screen(cfg->video.full_screen);
                                     }
-                                   board->full_screen(cfg->video.full_screen);
+                                    board->full_screen(cfg->video.full_screen);
                                     SeparatorText("Display");
                                     AlignTextToFramePadding();
                                     Text("Type");
@@ -251,6 +260,17 @@ namespace UI {
                                     SetCursorPosX(LEFT);
                                     if (Checkbox("V-Sync", &cfg->video.vsync))
                                         board->vsync(cfg->video.vsync);
+                                    SetCursorPos(ImVec2(GetWindowWidth()-btn_size.x-style->WindowPadding.x, GetCursorPosY()+style->ItemSpacing.y*3));
+                                    if (Button("Reset", btn_size)){
+                                        memcpy(&cfg->video, &Config::get_defaults()->video, sizeof(CFG::video));
+                                        if (cfg->video.full_screen)
+                                            board->viewport_resize(SCREEN_WIDTH*2, SCREEN_HEIGHT*2);
+                                        else
+                                            board->viewport_resize(SCREEN_WIDTH*cfg->video.scale, SCREEN_HEIGHT*cfg->video.scale);
+                                        board->full_screen(cfg->video.full_screen);
+                                        board->video_filter(VF_NEAREST);
+                                        board->vsync(cfg->video.vsync);
+                                    }
                                     EndTabItem();
                                 }
                                 if (BeginTabItem("Audio")){
@@ -318,6 +338,17 @@ namespace UI {
                                     SetNextItemWidth(width-(LEFT-style->ItemSpacing.x));
                                     if (SliderFloat("##ay_penetration", &cfg->audio.ay_interpenetration_level, 0.0, 1.0, "%.2f"))
                                         board->sound.set_mixer_levels(-1.0, -1.0, cfg->audio.ay_interpenetration_level);
+                                    SetCursorPos(ImVec2(GetWindowWidth()-btn_size.x-style->WindowPadding.x, GetCursorPosY()+style->ItemSpacing.y*3));
+                                    if (Button("Reset", btn_size)){
+                                        memcpy(&cfg->audio, &Config::get_defaults()->audio, sizeof(CFG::audio));
+                                        board->sound.init(cfg->audio.sample_rate, board->frame_clk);
+                                        board->sound.setup_lpf(cfg->audio.lpf_rate);
+                                        board->sound.set_ay_volume(cfg->audio.ay_volume);
+                                        board->sound.set_speaker_volume(cfg->audio.speaker_volume);
+                                        board->sound.set_tape_volume(cfg->audio.tape_volume);
+                                        board->sound.set_mixer_mode(cfg->audio.ay_mixer_mode);
+                                        board->sound.set_mixer_levels(cfg->audio.ay_side_level, cfg->audio.ay_center_level, cfg->audio.ay_interpenetration_level);
+                                    }
                                     EndTabItem();
                                 }
                                 /*
