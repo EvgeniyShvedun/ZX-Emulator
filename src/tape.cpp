@@ -1,4 +1,16 @@
-#include "base.h"
+#include <cstddef>
+#include <limits.h>
+#include <stdexcept>
+#include <stdio.h>
+#include <string.h>
+#include "types.h"
+#include "utils.h"
+#include "config.h"
+#include "device.h"
+#include "memory.h"
+#include "ula.h"
+#include "z80.h"
+#include "tape.h"
 
 Tape::Tape(){
     p_data = NULL;
@@ -53,7 +65,7 @@ void Tape::stop(){
     state = STOP;
 }
 
-void Tape::update(int clk){
+void Tape::update(s32 clk){
     clk -= last_clk;
     last_clk += clk;
     time += clk;
@@ -108,16 +120,15 @@ void Tape::update(int clk){
     }
 }
 
-void Tape::frame(int clk){
+void Tape::frame(s32 clk){
     update(clk);
     last_clk -= clk;
 }
 
-bool Tape::io_rd(unsigned short port, unsigned char *p_byte, int clk){
+void Tape::read(u16 port, u8 *byte, s32 clk){
     if (!(port & 0x01)){
         update(clk);
-        *p_byte &= pFE;
+        *byte &= pFE;
     }
-    return false;
 }
 

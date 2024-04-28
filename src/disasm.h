@@ -1,25 +1,21 @@
 
-#define LINE_WIDTH          36
-#define OPCODE_POS          24
-
 namespace Disasm {
-    enum OPCODE {
-        zADC,  zADD,  zAND,  zBIT,  zCALL, zCCF,  zCP,   zCPD,
-        zCPDR, zCPI,  zCPIR, zCPL,  zDAA,  zDB,   zDEC,  zDI,
-        zDJNZ, zEI,   zEX,   zEXX,  zHLT,  zIM,   zIN,   zINC,
-        zIND,  zINDR, zINI,  zINIR, zJP,   zJR,   zLD,   zLDD,
-        zLDDR, zLDI,  zLDIR, zNEG,  zNOP,  zOR,   zOTDR, zOTIR,
-        zOUT,  zOUTD, zOUTI, zPOP,  zPUSH, zRES,  zRET,  zRETI,
-        zRETN, zRL,   zRLA,  zRLC,  zRLCA, zRLD,  zRR,   zRRA,
-        zRRC,  zRRCA, zRRD,  zRST,  zSBC,  zSCF,  zSET,  zSLA,
-        zSLL,  zSRA,  zSRL,  zSUB,  zXOR
+    enum Opcode {
+        ADC, ADD, AND, BIT, CALL, CCF, CP, CPD,
+        CPDR, CPI, CPIR, CPL, DAA, DB, DEC, DI,
+        DJNZ, EI, EX, EXX, HLT, IM, IN, INC,
+        IND, INDR, INI, INIR, JP, JR, LD, LDD,
+        LDDR, LDI, LDIR, NEG, NOP, OR, OTDR, OTIR,
+        OUT, OUTD, OUTI, POP, PUSH, RES, RET, RETI,
+        RETN, RL, RLA, RLC, RLCA, RLD, RR, RRA,
+        RRC, RRCA, RRD, RST, SBC, SCF, SET, SLA,
+        SLL, SRA, SRL, SUB, XOR
     };
-    enum REG {
-        IX, IY
+    struct MM_Decode {
+        Opcode id;
+        const char *operand;
     };
-    struct Table {
-        OPCODE opcode_id;
-        const char *p_data;
-    };
-    unsigned short line(char *p_dst, unsigned short pointer, Z80 *p_cpu, Memory *p_memory, bool info);
+    char* hex(char *dst, u8 byte);
+    char* dec(char *dst, u16 word);
+    u16 decode(char *opcode, char *operand, char *info, u16 ptr, Memory *memory, Z80 *cpu);
 };

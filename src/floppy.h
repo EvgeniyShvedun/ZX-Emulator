@@ -57,8 +57,8 @@ public:
     void load_scl(int drive_num, const char *path);
     void save_trd(int drive_num, const char *path);
 
-    bool io_wr(unsigned short port, unsigned char byte, int clk);
-    bool io_rd(unsigned short port, unsigned char *p_byte, int clk);
+    void read(u16 port, u8 *byte, s32 clk);
+    void write(u16 port, u8 byte, s32 clk);
 
     void update(int clk);
     void frame(int clk);
@@ -72,8 +72,8 @@ private:
     unsigned char reg_status;
     unsigned char reg_system;
     int command_clk = 0;
-    int last_clk;
-    int delay_clk;
+    s32 last_clk;
+    s32 delay_clk;
     int data_idx;
     int step_time[4] = {
         6 * Z80_FREQ / 1000, 12 * Z80_FREQ / 1000,

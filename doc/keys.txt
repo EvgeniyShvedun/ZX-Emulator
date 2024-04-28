@@ -6,6 +6,5 @@ F4 - Settings
 F5 - Play/Stop tape switch
 F6 - Rewind tape to the beginning
 F9 - Maximal speed on/off switch
-
 F11 - Reset
 F12 - Reset to TRDOS

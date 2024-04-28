@@ -15,9 +15,12 @@
 
 class Keyboard : public Device {
     public:
+        Keyboard(){ clear(); };
+
         void button(unsigned short port, char mask, bool state);
-        bool io_rd(unsigned short port, unsigned char *byte, int clk);
         void clear(){ memset(kbd, 0xFF, sizeof(kbd)); };
+
+        void read(u16 port, u8 *byte, s32 clk);
     private:
-        unsigned char kbd[8] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
+        unsigned char kbd[8];
 };

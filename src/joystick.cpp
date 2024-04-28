@@ -1,4 +1,13 @@
-#include "base.h"
+#include <cstddef>
+#include <limits.h>
+#include <stdexcept>
+#include <stdio.h>
+#include <string.h>
+#include "types.h"
+#include "utils.h"
+#include "config.h"
+#include "device.h"
+#include "joystick.h"
 
 void Joystick::gamepad(int code, bool state){
     for (int i = 0; i <= 5; i++){
@@ -11,9 +20,9 @@ void Joystick::gamepad(int code, bool state){
 
 void Joystick::button(char mask, bool state){
     if (state)
-        p1F |= mask;
+        port_1F |= mask;
     else
-        p1F &= ~mask;
+        port_1F &= ~mask;
 }
 
 void Joystick::map(char mask, int code){
@@ -25,10 +34,7 @@ void Joystick::map(char mask, int code){
     }
 }
 
-bool Joystick::io_rd(unsigned short port, unsigned char *val, int clk){
-    if (!(port & 0x20)){
-        *val &= p1F;
-        return true;
-    }
-    return false;
+void Joystick::read(u16 port, u8 *byte, s32 clk){
+    if (port & 0x01)
+        *byte &= port_1F;
 }

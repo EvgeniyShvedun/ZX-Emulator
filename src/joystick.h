@@ -11,8 +11,8 @@ class Joystick : public Device {
         void map(char mask, int code);
         void gamepad(int code, bool state);
         void button(char mask, bool state);
-        bool io_rd(unsigned short port, unsigned char *val, int clk);
+        void read(u16, u8 *byte, s32 clk);
     private:
-        unsigned char p1F = 0xC0;
+        u8 port_1F = 0xC0;
         int gamepad_map[6];
 };

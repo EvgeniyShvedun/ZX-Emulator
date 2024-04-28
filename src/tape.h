@@ -19,9 +19,9 @@ class Tape : public Device {
         void play();
         void stop();
         bool is_play();
-        void update(int clk);
-        void frame(int clk);
-        bool io_rd(unsigned short port, unsigned char *p_byte, int clk);
+        void update(s32 clk);
+        void frame(s32 clk);
+        void read(u16 port, u8 *byte, s32 clk);
     private:
         FILE *p_file;
         STATE state;

@@ -1,5 +1,17 @@
-#include "base.h"
-#include <algorithm>
+#include <cstddef>
+#include <limits.h>
+#include <stdexcept>
+#include <stdio.h>
+#include <string.h>
+#include "types.h"
+#include "utils.h"
+#include "config.h"
+#include "device.h"
+#include "memory.h"
+#include "ula.h"
+#include "z80.h"
+#include "floppy.h"
+//#include <algorithm>
 
 //#define DEBUG
 using namespace std;
@@ -13,7 +25,7 @@ FDC::~FDC(){
         DELETE_ARRAY(fdd[i].data);
 }
 
-void FDC::update(int clk){
+void FDC::update(s32 clk){
     int steps, bytes;
     FDD &disk = fdd[reg_system & 0x03];
     clk -= last_clk;
@@ -184,38 +196,37 @@ void FDC::update(int clk){
     }
 }
 
-bool FDC::io_rd(unsigned short port, unsigned char *p_byte, int clk){
+void FDC::read(u16 port, u8 *byte, s32 clk){
     update(clk);
     if (!(port & 0x80)){                // System port decode only by A8.
         switch ((port >> 5) & 0x03){    // All other by A8-A6.
             case 0x00:
-                *p_byte = reg_status;
+                *byte = reg_status;
                 break;
             case 0x01:
-                *p_byte = reg_track;
+                *byte = reg_track;
                 break;
             case 0x02:
-                *p_byte = reg_sector;
+                *byte = reg_sector;
                 break;
             case 0x03:
-                *p_byte = reg_data;
+                *byte = reg_data;
                 reg_status &= ~STS_DRQ;
                 break;
         }
     }else{
-        *p_byte &= ~(SYS_INTRQ | SYS_DRQ);
+        *byte &= ~(SYS_INTRQ | SYS_DRQ);
         if ((reg_command & 0x80) && (reg_command & 0xF0) != 0xD0 && reg_status & STS_DRQ)
-            *p_byte |= SYS_DRQ;
+            *byte |= SYS_DRQ;
         if (!(reg_status & STS_BUSY))
-            *p_byte |= SYS_INTRQ;
+            *byte |= SYS_INTRQ;
     }
     #ifdef DEBUG
-       printf("WD read %02x -> %02x\n", port & 0xFF, *p_byte);
+       printf("WD read %02x -> %02x\n", port & 0xFF, *byte);
     #endif
-    return true;
 }
 
-bool FDC::io_wr(unsigned short port, unsigned char byte, int clk){
+void FDC::write(u16 port, u8 byte, s32 clk){
     #ifdef DEBUG
         printf("WD write %x -> %x\n", (port & 0xFF), byte);
     #endif
@@ -224,7 +235,6 @@ bool FDC::io_wr(unsigned short port, unsigned char byte, int clk){
         reg_system = byte;
         if (!(byte & SYS_RESET))
             reset();
-        return true;
     }
     FDD &disk = fdd[reg_system & 0x03];
     switch((port >> 5) & 0x03){
@@ -294,10 +304,9 @@ bool FDC::io_wr(unsigned short port, unsigned char byte, int clk){
             reg_status &= ~STS_DRQ;
             break;
     }
-    return true;
 }
 
-void FDC::frame(int clk){
+void FDC::frame(s32 clk){
     update(clk);
     last_clk -= clk;
 }

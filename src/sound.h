@@ -44,19 +44,17 @@ Register       Function                        Range
 		void set_ay_volume(float volume = 1.0);
 		void set_speaker_volume(float volume = 0.5);
 		void set_tape_volume(float volume = 0.3);
-		void update(int clk);
+		void update(s32 clk);
         void queue();
 
-		void frame(int frame_clk);
+        void read(u16 port, u8* byte, s32 clk);
+        void write(u16 port, u8 byte, s32 clk);
+		void frame(s32 frame_clk);
         void reset();
 
-        bool io_rd(unsigned short port, unsigned char *p_byte, int clk);
-        bool io_wr(unsigned short port, unsigned char byte, int clk);
-
-        int sample_rate;
-        short *buffer = NULL;
 	protected:
-		int frame_idx;
+        int sample_rate;
+		s32 frame_idx;
 		float increment, cpu_factor;
 		unsigned char tone_a, tone_b, tone_c, noise, envelope;
 		float tone_a_counter, tone_b_counter, tone_c_counter, noise_counter, envelope_counter;
@@ -116,16 +114,16 @@ Register       Function                        Range
         float speaker_amp, tape_in_amp, tape_out_amp;
         float lpf_alpha;
 		int mixer_mode;
-        float mixer[sizeof(AY_MODE)][sizeof(STEREO)][sizeof(CHANNEL)];
-		//unsigned int volume_table[0x10];
+        float mixer[sizeof(AY_Mixer)][sizeof(STEREO)][sizeof(CHANNEL)];
         // Posted to comp.sys.sinclair in Dec 2001 by Matthew Westcott.
         const float ay_volume_table[0x10] = {
             0.000000, 0.013748, 0.020462, 0.029053, 0.042343, 0.061844, 0.084718, 0.136903,
             0.169130, 0.264667, 0.352712, 0.449942, 0.570382, 0.687281, 0.848172, 1.000000
         };
 		unsigned char registers[0x10];
-		unsigned char pwFE, prFE, pwFFFD;
+		unsigned char port_wFE, port_rFE, port_wFFFD;
         SDL_AudioSpec audio_spec;
         SDL_AudioDeviceID audio_device_id = 0;
         unsigned int frame_samples = 0;
+        short *buffer = NULL;
 };

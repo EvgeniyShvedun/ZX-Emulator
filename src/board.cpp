@@ -1,9 +1,29 @@
-#include "base.h"
+#include <cstddef>
+#include <limits.h>
+#include <stdexcept>
+#include <stdio.h>
+#include <string.h>
+#include <SDL.h>
+#include <SDL_image.h>
+#include <GL/glew.h>
+#include <GL/gl.h>
+#include "types.h"
+#include "utils.h"
+#include "config.h"
+#include "device.h"
+#include "memory.h"
+#include "ula.h"
+#include "z80.h"
+#include "snapshot.h"
+#include "floppy.h"
+#include "keyboard.h"
+#include "joystick.h"
+#include "tape.h"
+#include "sound.h"
+#include "mouse.h"
+#include "board.h"
 
-Board::Board(CFG *cfg){
-    this->cfg = cfg;
-    set_hw((HW_Model)cfg->main.hw_model);
-
+Board::Board(CFG &cfg){
     glEnable(GL_TEXTURE_2D);
     glGenTextures(1, &screen_texture);
     glBindTexture(GL_TEXTURE_2D, screen_texture);
@@ -13,27 +33,30 @@ Board::Board(CFG *cfg){
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glBindTexture(GL_TEXTURE_2D, 0);
     glGenBuffers(1, &pbo);
-    video_filter((VF)cfg->video.filter);
-    vsync(cfg->video.vsync);
 
-    sound.set_ay_volume(cfg->audio.ay_volume);
-    sound.set_speaker_volume(cfg->audio.speaker_volume);
-    sound.set_tape_volume(cfg->audio.tape_volume);
-    sound.set_mixer_mode(cfg->audio.ay_mixer_mode);
-    sound.set_mixer_levels(cfg->audio.ay_side_level, cfg->audio.ay_center_level, cfg->audio.ay_interpenetration_level);
-    sound.init(cfg->audio.sample_rate, frame_clk);
-    sound.setup_lpf(cfg->audio.lpf_rate);
+    set_video_filter((VideoFilter)cfg.video.filter);
+    set_vsync(cfg.video.vsync);
 
-    joystick.map(JOY_LEFT, cfg->gamepad.left);
-    joystick.map(JOY_RIGHT, cfg->gamepad.right);
-    joystick.map(JOY_DOWN, cfg->gamepad.down);
-    joystick.map(JOY_UP, cfg->gamepad.up);
-    joystick.map(JOY_A, cfg->gamepad.button_a);
-    joystick.map(JOY_B, cfg->gamepad.button_b);
+    sound.set_ay_volume(cfg.audio.ay_volume);
+    sound.set_speaker_volume(cfg.audio.speaker_volume);
+    sound.set_tape_volume(cfg.audio.tape_volume);
+    sound.set_mixer_mode(cfg.audio.ay_mixer);
+    sound.set_mixer_levels(cfg.audio.ay_side, cfg.audio.ay_center, cfg.audio.ay_penetr);
 
-    ula.load_rom(ROM_TRDOS, cfg->main.rom_path[ROM_TRDOS]);
-    ula.load_rom(ROM_128, cfg->main.rom_path[ROM_128]);
-    ula.load_rom(ROM_48, cfg->main.rom_path[ROM_48]);
+    joystick.map(JOY_LEFT, cfg.gamepad.left);
+    joystick.map(JOY_RIGHT, cfg.gamepad.right);
+    joystick.map(JOY_DOWN, cfg.gamepad.down);
+    joystick.map(JOY_UP, cfg.gamepad.up);
+    joystick.map(JOY_A, cfg.gamepad.a);
+    joystick.map(JOY_B, cfg.gamepad.b);
+
+    ula.load_rom(ROM_Trdos, cfg.main.rom_path[ROM_Trdos]);
+    ula.load_rom(ROM_128, cfg.main.rom_path[ROM_128]);
+    ula.load_rom(ROM_48, cfg.main.rom_path[ROM_48]);
+    //ula.set_main_rom(ROM_48);
+    //ula.reset();
+    setup((Hardware)cfg.main.model);
+    ula.reset();
     reset();
 }
 
@@ -46,86 +69,40 @@ Board::~Board(){
     pbo = 0;
 }
 
-void Board::set_hw(HW_Model model){
-     switch(model){
-         case HW_SINCLAIR_48:
-             ula.set_rom(ROM_48);
-             frame_clk = 71680;
-             break;
-         case HW_SINCLAIR_128:
-             ula.set_rom(ROM_128);
-             frame_clk = 69888;
-             break;
-         case HW_PENTAGON_128:
-             ula.set_rom(ROM_128);
-             frame_clk = 70908;
-             break;
-     }
+void Board::setup(Hardware model){
+    static struct {
+        ROM_Bank rom;
+        s32 clk;
+    } profile[sizeof(Hardware)] = {
+        { ROM_128, 70908 }, 
+        { ROM_128, 69888 },
+        { ROM_48, 71680 }
+    };
+    frame_clk = profile[model].clk;
+    ula.set_main_rom(profile[model].rom);
+    sound.init(Config::get().audio.dsp_rate, frame_clk);
+    sound.setup_lpf(Config::get().audio.lpf_rate);
+}
+void Board::read(u16 port, u8 *byte, s32 clk){
+    *byte = 0xFF;
+    if (ula.is_trdos_active()){ ////
+        fdc.read(port, byte, clk);
+        return;
+    }
+    tape.read(port, byte, clk);
+    keyboard.read(port, byte, clk);
+    joystick.read(port, byte, clk);
+    mouse.read(port, byte, clk);
+    sound.read(port, byte, clk);
+    ula.read(port, byte, clk);
 }
 
-/*
-p_board->add_device(p_tape);
-    p_board->add_device(p_sound);
-    p_board->add_device(p_wd1793);
-    p_board->add_device(p_keyboard);
-    p_board->add_device(p_joystick);
-    p_board->add_device(p_mouse);
-    */
-
-unsigned char Board::read(unsigned short port, int clk){
-    unsigned char byte = 0xFF;
-    /*
-    if (tape.io_rd(port, &byte, clk))
-        return byte;
-    if (sound.io_rd(port, &byte, clk))
-        return byte;
-    if (ula.trdos_active())
-        if (fdc.io_rd(port, &byte, clk))
-            return byte;
-    if (keyboard.io_rd(port, &byte, clk))
-        return byte;
-    if (joystick.io_rd(port, &byte, clk))
-        return byte;
-    if (mouse.io_rd(port, &byte, clk))
-        return byte;
-    if (tape.io_rd(port, &byte, clk))
-        return byte;
-    */
-    if (ula.trdos_active())
-        if (fdc.io_rd(port, &byte, clk))
-            return byte;
-    if (keyboard.io_rd(port, &byte, clk))
-        return byte;
-    if (joystick.io_rd(port, &byte, clk))
-        return byte;
-    if (mouse.io_rd(port, &byte, clk))
-        return byte;
-    if (sound.io_rd(port, &byte, clk))
-        return byte;
-    if (tape.io_rd(port, &byte, clk))
-        return byte;
-    ula.io_rd(port, &byte, clk);
-    return byte;
-}
-
-void Board::write(unsigned short port, unsigned char byte, int clk){
-    /*
-    if (tape.io_wr(port, byte, clk))
-        return;
-    if (sound.io_wr(port, byte, clk))
-        return;
-    if (ula.trdos_active())
-        if (fdc.io_wr(port, byte, clk))
-            return;
-    */
-    if (ula.trdos_active())
-        if (fdc.io_wr(port, byte, clk))
-            return;
-    if (sound.io_wr(port, byte, clk))
-        return;
-    if (tape.io_wr(port, byte, clk))
-        return;
-    ula.io_wr(port, byte, clk);
+void Board::write(u16 port, u8 byte, s32 clk){
+    if (ula.is_trdos_active())
+        fdc.write(port, byte, clk);
+    sound.write(port, byte, clk);
+    tape.write(port, byte, clk);
+    ula.write(port, byte, clk);
 }
 
 void Board::frame(){
@@ -140,7 +117,7 @@ void Board::frame(){
     // Update the PBO and setup async byte-transfer to the screen texture.
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pbo);
     glBufferData(GL_PIXEL_UNPACK_BUFFER, SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(GLushort), NULL, GL_DYNAMIC_DRAW);
-    ula.buffer = (GLshort*)glMapBuffer(GL_PIXEL_UNPACK_BUFFER, GL_WRITE_ONLY);
+    ula.buffer = (u16*)glMapBuffer(GL_PIXEL_UNPACK_BUFFER, GL_WRITE_ONLY);
 
     cpu.frame(&ula, this, frame_clk);
     cpu.interrupt(&ula);
@@ -156,11 +133,11 @@ void Board::frame(){
     glBindTexture(GL_TEXTURE_2D, 0);
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 
-    if (!cfg->main.full_speed)
+    if (!Config::get().main.full_speed)
         sound.queue();
 }
 
-void Board::viewport_resize(int width, int height){
+void Board::set_viewport_size(int width, int height){
     viewport_width = width;
     viewport_height = height;
     SDL_SetWindowSize(SDL_GL_GetCurrentWindow(), width, height);
@@ -173,14 +150,14 @@ void Board::viewport_resize(int width, int height){
     glLoadIdentity();
 }
 
-void Board::video_filter(VF filter){
+void Board::set_video_filter(VideoFilter filter){
     glBindTexture(GL_TEXTURE_2D, screen_texture);
     switch (filter){
-        case VF_NEAREST:
+        case VF_Nearest:
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
             break;
-        case VF_LINEAR:
+        case VF_Linear:
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
             break;
@@ -188,12 +165,12 @@ void Board::video_filter(VF filter){
     glBindTexture(GL_TEXTURE_2D, 0);
 }
 
-void Board::full_screen(bool on){
-    SDL_SetWindowFullscreen(SDL_GL_GetCurrentWindow(), on ? SDL_WINDOW_FULLSCREEN : 0);
+void Board::set_full_screen(bool state){
+    SDL_SetWindowFullscreen(SDL_GL_GetCurrentWindow(), state ? SDL_WINDOW_FULLSCREEN : 0);
 }
 
-void Board::vsync(bool on){
-    SDL_GL_SetSwapInterval(on ? 1 : 0);
+void Board::set_vsync(bool state){
+    SDL_GL_SetSwapInterval(state ? 1 : 0);
 }
  
 void Board::reset(){
@@ -205,6 +182,7 @@ void Board::reset(){
 
 void Board::event(SDL_Event &event){
     // Functional keys
+    CFG &cfg = Config::get();
     if (event.type == SDL_KEYDOWN && !event.key.repeat){
         switch (event.key.keysym.sym){
             case SDLK_F5:
@@ -217,22 +195,22 @@ void Board::event(SDL_Event &event){
                 tape.rewind_begin();
                 break;
             case SDLK_F9:
-                if (Config::get()->main.full_speed ^= true)
-                    vsync(false);
+                if (cfg.main.full_speed ^= true)
+                    set_vsync(false);
                 else
-                    vsync(Config::get()->video.vsync);
+                    set_vsync(cfg.video.vsync);
                 break;
             case SDLK_F11:
-                ula.set_rom(Config::get()->main.hw_model != HW_SINCLAIR_48 ? ROM_128 : ROM_48);
+                ula.set_main_rom(cfg.main.model != HW_Sinclair_48 ? ROM_128 : ROM_48);
                 reset();
                 break;
             case SDLK_F12:
-                ula.set_rom(ROM_TRDOS);
+                ula.set_main_rom(ROM_Trdos);
                 reset();
                 break;
             case SDLK_RETURN:
                 if (event.key.keysym.mod & KMOD_CTRL)
-                    full_screen(Config::get()->video.full_screen ^= true);
+                    set_full_screen(cfg.video.full_screen ^= true);
                 break;
         }
     }
@@ -481,28 +459,28 @@ void Board::event(SDL_Event &event){
         }
 }
 
-void Board::load_file(const char *path){
+bool Board::load_file(const char *path){
     int len = strlen(path);
     if (len < 4)
-        return;
-    if (!strcmp(path+len-4, ".z80") || !strcmp(path+len-4, ".Z80")){
-        set_hw(Snapshot::load_z80(path, &cpu, &ula, this));
-        sound.init(sound.sample_rate, frame_clk);
-    }
+        return false;
+    if (!strcmp(path+len-4, ".z80") || !strcmp(path+len-4, ".Z80"))
+        setup(Snapshot::load_z80(path, &cpu, &ula, this));
     if (!strcmp(path+len-4, ".trd") || !strcmp(path+len-4, ".TRD"))
         fdc.load_trd(0, path);
     if (!strcmp(path+len-4, ".scl") || !strcmp(path+len-4, ".SCL"))
         fdc.load_scl(0, path);
     if (!strcmp(path+len-4, ".tap") || !strcmp(path+len-4, ".TAP"))
         tape.load_tap(path);
+    return true;
 }
 
-void Board::save_file(const char *path){
+bool Board::save_file(const char *path){
     int len = strlen(path);
     if (len < 4)
-        return;
+        return false;
     if (!strcmp(path+len-4, ".z80") || !strcmp(path+len-4, ".Z80"))
         Snapshot::save_z80(path, &cpu, &ula, this);
     if (!strcmp(path+len-4, ".trd") || !strcmp(path+len-4, ".TRD"))
         fdc.save_trd(0, path);
+    return true;
 }

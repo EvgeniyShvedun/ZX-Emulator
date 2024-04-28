@@ -1,7 +1,18 @@
-#include "base.h"
+#include <cstddef>
+#include <limits.h>
+#include <stdexcept>
+#include <stdio.h>
+#include <string.h>
+#include "types.h"
+#include "utils.h"
+#include "config.h"
+#include "device.h"
+#include "memory.h"
+#include "ula.h"
+#include "z80.h"
 
 Z80::Z80() {
-    for (int i = 0; i < 0x100; i++){
+    for (s32 i = 0; i < 0x100; i++){
         // INC
         flag_inc[i] = (i + 1) & (F3 | F5 | SF);
         if (((i + 1) & 0x0F) == 0x00)
@@ -19,8 +30,8 @@ Z80::Z80() {
         if (!(i - 1))
             flag_dec[i] |= ZF;
         // Parity
-        int j = i, p = 0x00;
-        for (int k = 0; k < 8; k++){
+        s32 j = i, p = 0x00;
+        for (s32 k = 0; k < 8; k++){
             p += j & 0x01;
             j >>= 1;
         }
@@ -32,39 +43,39 @@ Z80::Z80() {
         if (!i)
             flag_sz53p[i] |= ZF;
     }
-    for (int carry = 0; carry < 2; carry++){
-        for (int one = 0; one < 0x100; one++){
-            for (int two = 0; two < 0x100; two++){
+    for (s32 c = 0; c < 2; c++){
+        for (s32 i = 0; i < 0x100; i++){
+            for (s32 j = 0; j < 0x100; j++){
                 // ADD, ADC
-                int result = one + two + carry;
-                unsigned char flags = result & (F3 | F5 | SF);
-                if (result & 0x100)
-                    flags |= CF;
-                if (!(result & 0xFF))
-                    flags |= ZF;
-                if ((((one ^ two) & 0x80) == 0x00) && ((result ^ one) & 0x80))
-                    flags |= PF;
-                if (((one & 0xF) + (two & 0xF) + carry) & 0x10)
-                    flags |= HF;
-                flag_adc[one * 0x100 + two + carry * 0x10000] = flags;
+                s32 r = i + j + c;
+                u8 f = r & (F3 | F5 | SF);
+                if (r & 0x100)
+                    f |= CF;
+                if (!(r & 0xFF))
+                    f |= ZF;
+                if ((((i ^ j) & 0x80) == 0x00) && ((r ^ i) & 0x80))
+                    f |= PF;
+                if (((i & 0xF) + (j & 0xF) + c) & 0x10)
+                    f |= HF;
+                flag_adc[i * 0x100 + j + c * 0x10000] = f;
                 // SUB, SBC
-                result = one - two - carry;
-                flags = (result & (F3 | F5 | SF)) | NF;
-                if (result & 0x100)
-                    flags |= CF;
-                if (!(result & 0xFF))
-                    flags |= ZF;
-                if (((one ^ two) & 0x80) && ((result ^ one) & 0x80))
-                    flags |= PF;
-                if (((one & 0xF) - (two & 0xF) - carry) & 0x10)
-                    flags |= HF;
-                flag_sbc[one * 0x100 + two + carry * 0x10000] = flags;
+                r = i - j - c;
+                f = (r & (F3 | F5 | SF)) | NF;
+                if (r & 0x100)
+                    f |= CF;
+                if (!(r & 0xFF))
+                    f |= ZF;
+                if (((i ^ j) & 0x80) && ((r ^ i) & 0x80))
+                    f |= PF;
+                if (((i & 0xF) - (j & 0xF) - c) & 0x10)
+                    f |= HF;
+                flag_sbc[i * 0x100 + j + c * 0x10000] = f;
             }
         }
     }
-    for (int i = 0; i < 0x10000; i++){ // For CP instruction F3 and F5 taked from argument, not from register A. (check)
+    for (s32 i = 0; i < 0x10000; i++){ // For CP instruction F3 and F5 taked from argument, not from register A. (check)
         flag_cp[i] = (flag_sbc[i] & ~(F3 | F5)) | (i & (F3 | F5));
-        unsigned char byte = (i >> 8) - (i & 0xFF) - ((flag_sbc[i] & HF) >> 4);
+        u8 byte = (i >> 8) - (i & 0xFF) - ((flag_sbc[i] & HF) >> 4);
         flag_cpb[i] = (flag_sbc[i] & ~(F3 | F5 | PF | CF)) + (byte & F3) + ((byte << 4) & F5);
     }
     reset();
@@ -92,45 +103,45 @@ void Z80::reset(){
     clk = 0;
 }
 
-void Z80::interrupt(ULA *p_memory){
+void Z80::interrupt(ULA *memory){
     if (!iff1)
         return;
     iff1 = iff2 = 0x00;
     irl++;
-    if (p_memory->read_byte(pc) == 0x76) // HALT
+    if (memory->read_byte(pc) == 0x76) // HALT
         pc++;
     if (im < 2){
         memptr = 0x0038;
         time(13);
     }else{
-        unsigned short vector = ir | 0xFF;
-        memptrl = p_memory->read_byte(vector++);
-        memptrh = p_memory->read_byte(vector);
+        u16 vector = ir | 0xFF;
+        memptrl = memory->read_byte(vector++);
+        memptrh = memory->read_byte(vector);
         time(19);
     }
-    p_memory->write_byte(--sp, pch, clk);
-    p_memory->write_byte(--sp, pcl, clk);
+    memory->write_byte(--sp, pch, clk);
+    memory->write_byte(--sp, pcl, clk);
     pc = memptr;
 }
 
 void Z80::NMI(){
 }
 
-void Z80::step_over(ULA *p_memory, IO *p_io, int frame_clk){
+void Z80::step_over(ULA *memory, IO *io, s32 frame_clk){
 }
 
-void Z80::step_into(ULA *p_memory, IO *p_io, int frame_clk){
-    frame(p_memory, p_io, clk);
+void Z80::step_into(ULA *memory, IO *io, s32 frame_clk){
+    frame(memory, io, clk);
     if (clk > frame_clk){
-        interrupt(p_memory);
+        interrupt(memory);
         clk -= frame_clk;
     }
 }
 
-void Z80::frame(ULA *p_memory, IO *p_io, int frame_clk){
+void Z80::frame(ULA *memory, IO *io, s32 frame_clk){
     while (clk < frame_clk){
         irl++;
-        switch (p_memory->read_byte_ex(pc++)){
+        switch (memory->read_byte_ex(pc++)){
             case 0x00: // NOP
                 NOP;
                 break;
@@ -189,8 +200,7 @@ void Z80::frame(ULA *p_memory, IO *p_io, int frame_clk){
                 break;
             case 0x10: // DJNZ N
                 if (--b){
-                    pc += (signed char)p_memory->read_byte(pc) + 1;
-
+                    pc += (s8)memory->read_byte(pc) + 1;
                     memptr = pc;
                     time(13);
                 }else{
@@ -425,12 +435,11 @@ void Z80::frame(ULA *p_memory, IO *p_io, int frame_clk){
                 LD_R_R(e, d);
                 break;
             case 0x5B: // LD E, E
-                if (p_memory->exec_trap(pc - 1)){
+                if (memory->trap_trdos(pc - 1)){
                     pc--;
                     irl--;
-                }else{
+                }else
                     time(4);
-                }
                 break;
             case 0x5C: // LD E, H
                 LD_R_R(e, h);
@@ -768,7 +777,7 @@ void Z80::frame(ULA *p_memory, IO *p_io, int frame_clk){
                 break;
             case 0xCB: // CB PREFIX
                 irl++;
-                switch(p_memory->read_byte_ex(pc++)){
+                switch(memory->read_byte_ex(pc++)){
                     case 0x00: // RLC B
                         RLC(b);
                         break;
@@ -1602,7 +1611,7 @@ void Z80::frame(ULA *p_memory, IO *p_io, int frame_clk){
             case 0xDD: // PREFIX DD (IX)
                 irl++;
                 time(4);
-                switch(p_memory->read_byte_ex(pc++)){
+                switch(memory->read_byte_ex(pc++)){
                     case 0x00: // NOP
                         NOP;
                         break;
@@ -1661,7 +1670,7 @@ void Z80::frame(ULA *p_memory, IO *p_io, int frame_clk){
                         break;
                     case 0x10: // DJNZ N
                         if (--b){
-                            pc += (signed char)p_memory->read_byte(pc) + 1;
+                            pc += (s8)memory->read_byte(pc) + 1;
                             memptr = pc;
                             time(13);
                         }else{
@@ -2234,7 +2243,7 @@ void Z80::frame(ULA *p_memory, IO *p_io, int frame_clk){
                         break;
                     case 0xCB: // --------------- DDCB PREFIX -------------- time set without DD prefix
                         pc++;
-                        switch(p_memory->read_byte_ex(pc++)){
+                        switch(memory->read_byte_ex(pc++)){
                             case 0x00: // RLC (IX + s), B
                                 RLC_XS_R(ix, b);
                                 break;
@@ -3114,7 +3123,7 @@ void Z80::frame(ULA *p_memory, IO *p_io, int frame_clk){
             case 0xED: // --------------- ED prefix ---------------
                 irl++;
                 time(4);
-                switch(p_memory->read_byte_ex(pc++)){
+                switch(memory->read_byte_ex(pc++)){
                     case 0x40: // IN B, (C)
                         IN_R_RR(b, bc);
                         break;
@@ -3194,7 +3203,7 @@ void Z80::frame(ULA *p_memory, IO *p_io, int frame_clk){
                         a = irh;
                         f = (flag_sz53p[a] & (~PF)) | (f & CF);
                         // P/V contains contents of IFF2.
-                        // If an interrupt occurs during execution of this instruction, the Parity flag contains a 0.
+                        // If an s32errupt occurs during execution of this instruction, the Parity flag contains a 0.
                         if (iff2 && clk > LD_IR_PF_CLK)
                             f |= PF;
                         time(5);
@@ -3219,7 +3228,7 @@ void Z80::frame(ULA *p_memory, IO *p_io, int frame_clk){
                         a = (irl & 0x7F) | (r8bit & 0x80);
                         f = (flag_sz53p[a] & (~PF)) | (f & CF);
                         // P/V contains contents of IFF2.
-                        // If an interrupt occurs during execution of this instruction, the Parity flag contains a 0.
+                        // If an s32errupt occurs during execution of this instruction, the Parity flag contains a 0.
                         if (iff2 && clk > LD_IR_PF_CLK)
                             f |= PF;
                         time(5);
@@ -3256,7 +3265,7 @@ void Z80::frame(ULA *p_memory, IO *p_io, int frame_clk){
                         break;
                     case 0x70: // IN (C)
                         {
-                            unsigned char byte;
+                            u8 byte;
                             IN_R_RR(byte, bc);
                         }
                         break;
@@ -3392,7 +3401,7 @@ void Z80::frame(ULA *p_memory, IO *p_io, int frame_clk){
             case 0xFD: // PREFIY FD (IY)
                 irl++;
                 time(4);
-                switch(p_memory->read_byte_ex(pc++)){
+                switch(memory->read_byte_ex(pc++)){
                     case 0x00: // NOP
                         NOP;
                         break;
@@ -3451,7 +3460,7 @@ void Z80::frame(ULA *p_memory, IO *p_io, int frame_clk){
                         break;
                     case 0x10: // DJNZ N
                         if (--b){
-                            pc += (signed char)p_memory->read_byte(pc) + 1;
+                            pc += (s8)memory->read_byte(pc) + 1;
                             memptr = pc;
                             time(13);
                         }else{
@@ -4024,7 +4033,7 @@ void Z80::frame(ULA *p_memory, IO *p_io, int frame_clk){
                         break;
                     case 0xCB: // --------------- FDCB PREFIY -------------- time set without DD prefiy
                         pc++;
-                        switch(p_memory->read_byte_ex(pc++)){
+                        switch(memory->read_byte_ex(pc++)){
                             case 0x00: // RLC (IY + s), B
                                 RLC_XS_R(iy, b);
                                 break;

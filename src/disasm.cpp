@@ -1,432 +1,448 @@
-#include "base.h"
-
-
+#include <cstddef>
+#include <limits.h>
+#include <stdexcept>
+#include <stdio.h>
+#include <string.h>
+#include "types.h"
+#include "utils.h"
+#include "config.h"
+#include "device.h"
+#include "memory.h"
+#include "ula.h"
+#include "z80.h"
 #include "disasm.h"
 
 namespace Disasm {
-        const char *p_opcode[] = {
-            "ADC", "ADD", "AND", "BIT", "CALL", "CCF", "CP", "CPD",
-            "CPDR", "CPI", "CPIR", "CPL", "DAA",  "DB",  "DEC", "DI",
-            "DJNZ", "EI",  "EX",  "EXX", "HALT", "IM",  "IN", "INC",
-            "IND", "INDR", "INI", "INIR", "JP",   "JR",  "LD", "LDD",
-            "LDDR", "LDI", "LDIR", "NEG", "NOP",  "OR",  "OUTDR", "OTIR",
-            "OUT", "OUTD", "OUTI", "POP", "PUSH", "RES", "RET", "RETI",
-            "RETN", "RL",  "RLA", "RLC", "RLCA", "RLD", "RR", "RRA",
-            "RRC", "RRCA", "RRD", "RST", "SBC",  "SCF", "SET", "SLA",
-            "SLL", "SRA", "SRL", "SUB", "XOR"
-        };
-        const char *p_op16_1[4]    = { "BC", "DE", "HL", "SP" };
-        const char *p_op16_2[4]    = { "BC", "DE", "HL", "AF" };
-        const char *p_op8[8]       = { "B", "C", "D", "E", "H", "L", "(HL)", "A" };
-        const char *p_flag[8]      = { "NZ", "Z", "NC", "C", "PO", "PE", "P", "M" };
-        const char *p_idx_reg[2]   = {  "IX", "IY" };
+    const char *flags[] = { "NZ", "Z", "NC", "C", "PO", "PE", "P", "M" };
+    const char *opr_8[] = { "B", "C", "D", "E", "H", "L", "(HL)", "A" };
+    const char *reg_16a[] = { "BC", "DE", "HL", "SP" };
+    const char *reg_16b[] = { "BC", "DE", "HL", "AF" };
+    const char *reg_16i[] = { "IX", "IY" };
+    const char *name[] = {
+        "ADC", "ADD", "AND", "BIT", "CALL", "CCF", "CP", "CPD",
+        "CPDR", "CPI", "CPIR", "CPL", "DAA", "DB", "DEC", "DI",
+        "DJNZ", "EI", "EX", "EXX", "HALT", "IM", "IN", "INC",
+        "IND", "INDR", "INI", "INIR", "JP", "JR", "LD", "LDD",
+        "LDDR", "LDI", "LDIR", "NEG", "NOP", "OR", "OUTDR", "OTIR",
+        "OUT", "OUTD", "OUTI", "POP", "PUSH", "RES", "RET", "RETI",
+        "RETN", "RL", "RLA", "RLC", "RLCA", "RLD", "RR", "RRA",
+        "RRC", "RRCA", "RRD", "RST", "SBC", "SCF", "SET", "SLA",
+        "SLL", "SRA", "SRL", "SUB", "XOR"
+    };
 
-        Table no_prefix[0x100] = {
-            {zNOP, NULL},       {zLD, "p, w"},      {zLD, "(BC), A"},    {zINC, "p"},        {zINC, "y"},        {zDEC, "y"},        {zLD, "B, b"},      {zRLCA, NULL},  // 0x00
-            {zEX, "AF, AF'"},   {zADD, "HL, p"},    {zLD, "A, (BC)"},    {zDEC, "p"},        {zINC, "y"},        {zDEC, "y"},        {zLD, "C, b"},      {zRRCA, NULL},  // 0x08
-            {zDJNZ, "l"},       {zLD, "p, w"},      {zLD, "(DE), A"},    {zINC, "p"},        {zINC, "y"},        {zDEC, "y"},        {zLD, "D, b"},      {zRLA, NULL},   // 0x10
-            {zJR, "c, l"},      {zADD, "HL, p"},    {zLD, "A, (DE)"},    {zDEC, "p"},        {zINC, "y"},        {zDEC, "y"},        {zLD, "E, b"},      {zRRA, NULL},   // 0x18
-            {zJR, "c, l"},      {zLD, "p, w"},      {zLD, "(w), HL"},    {zINC, "p"},        {zINC, "y"},        {zDEC, "y"},        {zLD, "H, b"},      {zDAA, NULL},   // 0x20
-            {zJR, "c, l"},      {zADD, "HL, p"},    {zLD, "HL, (w)"},    {zDEC, "p"},        {zINC, "y"},        {zDEC, "y"},        {zLD, "L, b"},      {zCPL, NULL},   // 0x08
-            {zJR, "c, l"},      {zLD, "p, w"},      {zLD, "(w), A"},     {zINC, "p"},        {zINC, "y"},        {zDEC, "y"},        {zLD, "(HL), b"},   {zSCF, NULL},   // 0x30
-            {zJR, "c, l"},      {zADD, "HL, p"},    {zLD, "A, (w)"},     {zDEC, "p"},        {zINC, "y"},        {zDEC, "y"},        {zLD, "A, b"},      {zCCF, NULL},   // 0x38
-            {zLD, "y, z"},      {zLD, "y, z"},      {zLD, "y, z"},       {zLD, "y, z"},      {zLD, "y, z"},      {zLD, "y, z"},      {zLD, "y, z"},      {zLD, "y, z"},  // 0x40
-            {zLD, "y, z"},      {zLD, "y, z"},      {zLD, "y, z"},       {zLD, "y, z"},      {zLD, "y, z"},      {zLD, "y, z"},      {zLD, "y, z"},      {zLD, "y, z"},  // 0x48
-            {zLD, "y, z"},      {zLD, "y, z"},      {zLD, "y, z"},       {zLD, "y, z"},      {zLD, "y, z"},      {zLD, "y, z"},      {zLD, "y, z"},      {zLD, "y, z"},  // 0x50
-            {zLD, "y, z"},      {zLD, "y, z"},      {zLD, "y, z"},       {zLD, "y, z"},      {zLD, "y, z"},      {zLD, "y, z"},      {zLD, "y, z"},      {zLD, "y, z"},  // 0x58
-            {zLD, "y, z"},      {zLD, "y, z"},      {zLD, "y, z"},       {zLD, "y, z"},      {zLD, "y, z"},      {zLD, "y, z"},      {zLD, "y, z"},      {zLD, "y, z"},  // 0x60
-            {zLD, "y, z"},      {zLD, "y, z"},      {zLD, "y, z"},       {zLD, "y, z"},      {zLD, "y, z"},      {zLD, "y, z"},      {zLD, "y, z"},      {zLD, "y, z"},  // 0x68
-            {zLD, "y, z"},      {zLD, "y, z"},      {zLD, "y, z"},       {zLD, "y, z"},      {zLD, "y, z"},      {zLD, "y, z"},      {zHLT, NULL},       {zLD, "y, z"},  // 0x70
-            {zLD, "y, z"},      {zLD, "y, z"},      {zLD, "y, z"},       {zLD, "y, z"},      {zLD, "y, z"},      {zLD, "y, z"},      {zLD, "y, z"},      {zLD, "y, z"},
-            {zADD, "A, z"},     {zADD, "A, z"},     {zADD, "A, z"},      {zADD, "A, z"},     {zADD, "A, z"},     {zADD, "A, z"},     {zADD, "A, z"},     {zADD, "A, z"},
-            {zADC, "A, z"},     {zADC, "A, z"},     {zADC, "A, z"},      {zADC, "A, z"},     {zADC, "A, z"},     {zADC, "A, z"},     {zADC, "A, z"},     {zADC, "A, z"},
-            {zSUB, "z"},        {zSUB, "z"},        {zSUB, "z"},         {zSUB, "z"},        {zSUB, "z"},        {zSUB, "z"},        {zSUB, "z"},        {zSUB, "z"},
-            {zSBC, "A, z"},     {zSBC, "A, z"},     {zSBC, "A, z"},      {zSBC, "A, z"},     {zSBC, "A, z"},     {zSBC, "A, z"},     {zSBC, "A, z"},     {zSBC, "A, z"},
-            {zAND, "z"},        {zAND, "z"},        {zAND, "z"},         {zAND, "z"},        {zAND, "z"},        {zAND, "z"},        {zAND, "z"},        {zAND, "z"},
-            {zXOR, "z"},        {zXOR, "z"},        {zXOR, "z"},         {zXOR, "z"},        {zXOR, "z"},        {zXOR, "z"},        {zXOR, "z"},        {zXOR, "z"},
-            {zOR, "z"},         {zOR, "z"},         {zOR, "z"},          {zOR, "z"},         {zOR, "z"},         {zOR, "z"},         {zOR, "z"},         {zOR, "z"},
-            {zCP, "z"},         {zCP, "z"},         {zCP, "z"},          {zCP, "z"},         {zCP, "z"},         {zCP, "z"},         {zCP, "z"},         {zCP, "z"},
-            {zRET, "f"},        {zPOP, "i"},        {zJP, "f, w"},       {zJP, "w"},         {zCALL, "f, w"},    {zPUSH, "i"},       {zADD, "A, b"},     {zRST, "t"},
-            {zRET, "f"},        {zRET, NULL},       {zJP, "f, w"},       {zDB, NULL},        {zCALL, "f, w"},    {zCALL, "w"},       {zADC, "A, b"},     {zRST, "t"},
-            {zRET, "f"},        {zPOP, "i"},        {zJP, "f, w"},       {zOUT, "(b), A"},   {zCALL, "f, w"},    {zPUSH, "i"},       {zSUB, "b"},        {zRST, "t"},
-            {zRET, "f"},        {zEXX, NULL},       {zJP, "f, w"},       {zIN, "A, (b)"},    {zCALL, "f, w"},    {zDB, NULL},        {zSBC, "A, b"},     {zRST, "t"},
-            {zRET, "f"},        {zPOP, "i"},        {zJP, "f, w"},       {zEX, "(SP), HL"},  {zCALL, "f, w"},    {zPUSH, "i"},       {zAND, "b"},        {zRST, "t"},
-            {zRET, "f"},        {zJP, "(HL)"},      {zJP, "f, w"},       {zEX, "DE, HL"},    {zCALL, "f, w"},    {zDB, NULL},        {zXOR, "b"},        {zRST, "t"},
-            {zRET, "f"},        {zPOP, "i"},        {zJP, "f, w"},       {zDI, NULL},        {zCALL, "f, w"},    {zPUSH, "i"},       {zOR, "b"},         {zRST, "t"},
-            {zRET, "f"},        {zLD, "SP, HL"},    {zJP, "f, w"},       {zEI, NULL},        {zCALL, "f, w"},    {zDB, NULL},        {zCP, "b"},         {zRST, "t"}
-        };
-        Table cb_prefix[0x100] = {
-            {zRLC, "z"},     {zRLC, "z"},     {zRLC, "z"},     {zRLC, "z"}, 
-            {zRLC, "z"},     {zRLC, "z"},     {zRLC, "z"},     {zRLC, "z"},
-            {zRRC, "z"},     {zRRC, "z"},     {zRRC, "z"},     {zRRC, "z"},
-            {zRRC, "z"},     {zRRC, "z"},     {zRRC, "z"},     {zRRC, "z"},
-            {zRL, "z"},      {zRL, "z"},      {zRL, "z"},      {zRL, "z"},
-            {zRL, "z"},      {zRL, "z"},      {zRL, "z"},      {zRL, "z"},
-            {zRR, "z"},      {zRR, "z"},      {zRR, "z"},      {zRR, "z"},
-            {zRR, "z"},      {zRR, "z"},      {zRR, "z"},      {zRR, "z"},
-            {zSLA, "z"},     {zSLA, "z"},     {zSLA, "z"},     {zSLA, "z"},
-            {zSLA, "z"},     {zSLA, "z"},     {zSLA, "z"},     {zSLA, "z"},
-            {zSRA, "z"},     {zSRA, "z"},     {zSRA, "z"},     {zSRA, "z"},
-            {zSRA, "z"},     {zSRA, "z"},     {zSRA, "z"},     {zSRA, "z"},
-            {zSLL, "z"},     {zSLL, "z"},     {zSLL, "z"},     {zSLL, "z"},
-            {zSLL, "z"},     {zSLL, "z"},     {zSLL, "z"},     {zSLL, "z"},
-            {zSRL, "z"},     {zSRL, "z"},     {zSRL, "z"},     {zSRL, "z"},
-            {zSRL, "z"},     {zSRL, "z"},     {zSRL, "z"},     {zSRL, "z"},
-            {zBIT, "s, z"},  {zBIT, "s, z"},  {zBIT, "s, z"},  {zBIT, "s, z"},
-            {zBIT, "s, z"},  {zBIT, "s, z"},  {zBIT, "s, z"},  {zBIT, "s, z"},
-            {zBIT, "s, z"},  {zBIT, "s, z"},  {zBIT, "s, z"},  {zBIT, "s, z"},
-            {zBIT, "s, z"},  {zBIT, "s, z"},  {zBIT, "s, z"},  {zBIT, "s, z"},
-            {zBIT, "s, z"},  {zBIT, "s, z"},  {zBIT, "s, z"},  {zBIT, "s, z"},
-            {zBIT, "s, z"},  {zBIT, "s, z"},  {zBIT, "s, z"},  {zBIT, "s, z"},
-            {zBIT, "s, z"},  {zBIT, "s, z"},  {zBIT, "s, z"},  {zBIT, "s, z"},
-            {zBIT, "s, z"},  {zBIT, "s, z"},  {zBIT, "s, z"},  {zBIT, "s, z"},
-            {zBIT, "s, z"},  {zBIT, "s, z"},  {zBIT, "s, z"},  {zBIT, "s, z"},
-            {zBIT, "s, z"},  {zBIT, "s, z"},  {zBIT, "s, z"},  {zBIT, "s, z"},
-            {zBIT, "s, z"},  {zBIT, "s, z"},  {zBIT, "s, z"},  {zBIT, "s, z"},
-            {zBIT, "s, z"},  {zBIT, "s, z"},  {zBIT, "s, z"},  {zBIT, "s, z"},
-            {zBIT, "s, z"},  {zBIT, "s, z"},  {zBIT, "s, z"},  {zBIT, "s, z"},
-            {zBIT, "s, z"},  {zBIT, "s, z"},  {zBIT, "s, z"},  {zBIT, "s, z"},
-            {zBIT, "s, z"},  {zBIT, "s, z"},  {zBIT, "s, z"},  {zBIT, "s, z"},
-            {zBIT, "s, z"},  {zBIT, "s, z"},  {zBIT, "s, z"},  {zBIT, "s, z"},
-            {zRES, "s, z"},  {zRES, "s, z"},  {zRES, "s, z"},  {zRES, "s, z"},
-            {zRES, "s, z"},  {zRES, "s, z"},  {zRES, "s, z"},  {zRES, "s, z"},
-            {zRES, "s, z"},  {zRES, "s, z"},  {zRES, "s, z"},  {zRES, "s, z"},
-            {zRES, "s, z"},  {zRES, "s, z"},  {zRES, "s, z"},  {zRES, "s, z"},
-            {zRES, "s, z"},  {zRES, "s, z"},  {zRES, "s, z"},  {zRES, "s, z"},
-            {zRES, "s, z"},  {zRES, "s, z"},  {zRES, "s, z"},  {zRES, "s, z"},
-            {zRES, "s, z"},  {zRES, "s, z"},  {zRES, "s, z"},  {zRES, "s, z"},
-            {zRES, "s, z"},  {zRES, "s, z"},  {zRES, "s, z"},  {zRES, "s, z"},
-            {zRES, "s, z"},  {zRES, "s, z"},  {zRES, "s, z"},  {zRES, "s, z"},
-            {zRES, "s, z"},  {zRES, "s, z"},  {zRES, "s, z"},  {zRES, "s, z"},
-            {zRES, "s, z"},  {zRES, "s, z"},  {zRES, "s, z"},  {zRES, "s, z"},
-            {zRES, "s, z"},  {zRES, "s, z"},  {zRES, "s, z"},  {zRES, "s, z"},
-            {zRES, "s, z"},  {zRES, "s, z"},  {zRES, "s, z"},  {zRES, "s, z"},
-            {zRES, "s, z"},  {zRES, "s, z"},  {zRES, "s, z"},  {zRES, "s, z"},
-            {zRES, "s, z"},  {zRES, "s, z"},  {zRES, "s, z"},  {zRES, "s, z"},
-            {zRES, "s, z"},  {zRES, "s, z"},  {zRES, "s, z"},  {zRES, "s, z"},
-            {zSET, "s, z"},  {zSET, "s, z"},  {zSET, "s, z"},  {zSET, "s, z"},
-            {zSET, "s, z"},  {zSET, "s, z"},  {zSET, "s, z"},  {zSET, "s, z"},
-            {zSET, "s, z"},  {zSET, "s, z"},  {zSET, "s, z"},  {zSET, "s, z"},
-            {zSET, "s, z"},  {zSET, "s, z"},  {zSET, "s, z"},  {zSET, "s, z"},
-            {zSET, "s, z"},  {zSET, "s, z"},  {zSET, "s, z"},  {zSET, "s, z"},
-            {zSET, "s, z"},  {zSET, "s, z"},  {zSET, "s, z"},  {zSET, "s, z"},
-            {zSET, "s, z"},  {zSET, "s, z"},  {zSET, "s, z"},  {zSET, "s, z"},
-            {zSET, "s, z"},  {zSET, "s, z"},  {zSET, "s, z"},  {zSET, "s, z"},
-            {zSET, "s, z"},  {zSET, "s, z"},  {zSET, "s, z"},  {zSET, "s, z"},
-            {zSET, "s, z"},  {zSET, "s, z"},  {zSET, "s, z"},  {zSET, "s, z"},
-            {zSET, "s, z"},  {zSET, "s, z"},  {zSET, "s, z"},  {zSET, "s, z"},
-            {zSET, "s, z"},  {zSET, "s, z"},  {zSET, "s, z"},  {zSET, "s, z"},
-            {zSET, "s, z"},  {zSET, "s, z"},  {zSET, "s, z"},  {zSET, "s, z"},
-            {zSET, "s, z"},  {zSET, "s, z"},  {zSET, "s, z"},  {zSET, "s, z"},
-            {zSET, "s, z"},  {zSET, "s, z"},  {zSET, "s, z"},  {zSET, "s, z"},
-            {zSET, "s, z"},  {zSET, "s, z"},  {zSET, "s, z"},  {zSET, "s, z"}
-        };
-        Table ddfd_prefix[0x100] = {
-            {zDB, "?"},      {zDB, "?"},      {zDB, "?"},      {zDB, "?"},
-            {zDB, "?"},      {zDB, "?"},      {zDB, "?"},      {zDB, "?"},
-            {zDB, "?"},      {zADD, "x, p"},  {zDB, "?"},      {zDB, "?"},
-            {zDB, "?"},      {zDB, "?"},      {zDB, "?"},      {zDB, "?"},
-            {zDB, "?"},      {zDB, "?"},      {zDB, "?"},      {zDB, "?"},
-            {zDB, "?"},      {zDB, "?"},      {zDB, "?"},      {zDB, "?"},
-            {zDB, "?"},      {zADD, "x, p"},  {zDB, "?"},      {zDB, "?"},
-            {zDB, "?"},      {zDB, "?"},      {zDB, "?"},      {zDB, "?"},
-            {zDB, "?"},      {zLD, "x, w"},   {zLD, "(w), x"}, {zINC, "x"},
-            {zINC, "xh"},    {zDEC, "xh"},    {zLD, "xh, b"},  {zDB, "?"},
-            {zDB, "?"},      {zADD, "x, x"},  {zLD, "x, (w)"}, {zDEC, "x"},
-            {zINC, "xl"},    {zDEC, "xl"},    {zLD, "xl, b"},  {zDB, "?"},
-            {zDB, "?"},      {zDB, "?"},      {zDB, "?"},      {zDB, "?"},
-            {zINC, "X"},     {zDEC, "X"},     {zLD, "X, b"},   {zDB, "?"},
-            {zDB, "?"},      {zADD, "x, p"},  {zDB, "?"},      {zDB, "?"},
-            {zDB, "?"},      {zDB, "?"},      {zDB, "?"},      {zDB, "?"},
-            {zDB, "?"},      {zDB, "?"},      {zDB, "?"},      {zDB, "?"},
-            {zLD, "y, xh"},  {zLD, "y, xl"},  {zLD, "y, X"},   {zDB, "?"},
-            {zDB, "?"},      {zDB, "?"},      {zDB, "?"},      {zDB, "?"},
-            {zLD, "y, xh"},  {zLD, "y, xl"},  {zLD, "y, X"},   {zDB, "?"},
-            {zDB, "?"},      {zDB, "?"},      {zDB, "?"},      {zDB, "?"},
-            {zLD, "y, xh"},  {zLD, "y, xl"},  {zLD, "y, X"},   {zDB, "?"},
-            {zDB, "?"},      {zDB, "?"},      {zDB, "?"},      {zDB, "?"},
-            {zLD, "y, xh"},  {zLD, "y, xl"},  {zLD, "y, X"},   {zDB, "?"},
-            {zLD, "xh, z"},  {zLD, "xh, z"},  {zLD, "xh, z"},  {zLD, "xh, z"},
-            {zLD, "xh, xh"}, {zLD, "xh, xl"}, {zLD, "y, X"},   {zLD, "xh, z"},
-            {zLD, "xl, z"},  {zLD, "xl, z"},  {zLD, "xl, z"},  {zLD, "xl, z"},
-            {zLD, "xl, xh"}, {zLD, "xl, xl"}, {zLD, "y, X"},   {zLD, "xl, z"},
-            {zLD, "X, z"},   {zLD, "X, z"},   {zLD, "X, z"},   {zLD, "X, z"},
-            {zLD, "X, z"},   {zLD, "X, z"},   {zDB, "?"},      {zLD, "X, z"},
-            {zDB, "?"},      {zDB, "?"},      {zDB, "?"},      {zDB, "?"},
-            {zLD, "y, xh"},  {zLD, "y, xl"},  {zLD, "y, X"},   {zDB, "?"},
-            {zDB, "?"},      {zDB, "?"},      {zDB, "?"},      {zDB, "?"},
-            {zADD, "A, xh"}, {zADD, "A, xl"}, {zADD, "A, X"},  {zDB, "?"},
-            {zDB, "?"},      {zDB, "?"},      {zDB, "?"},      {zDB, "?"},
-            {zADC, "A, xh"}, {zADC, "A, xl"}, {zADC, "A, X"},  {zDB, "?"},
-            {zDB, "?"},      {zDB, "?"},      {zDB, "?"},      {zDB, "?"},
-            {zSUB, "xh"},    {zSUB, "xl"},    {zSUB, "X"},     {zDB, "?"},
-            {zDB, "?"},      {zDB, "?"},      {zDB, "?"},      {zDB, "?"},
-            {zSBC, "A, xh"}, {zSBC, "A, xl"}, {zSBC, "A, X"},  {zDB, "?"},
-            {zDB, "?"},      {zDB, "?"},      {zDB, "?"},      {zDB, "?"},
-            {zAND, "xh"},    {zAND, "xl"},    {zAND, "X"},     {zDB, "?"},
-            {zDB, "?"},      {zDB, "?"},      {zDB, "?"},      {zDB, "?"},
-            {zXOR, "xh"},    {zXOR, "xl"},    {zXOR, "X"},     {zDB, "?"},
-            {zDB, "?"},      {zDB, "?"},      {zDB, "?"},      {zDB, "?"},
-            {zOR, "xh"},     {zOR, "xl"},     {zOR, "X"},      {zDB, "?"},
-            {zDB, "?"},      {zDB, "?"},      {zDB, "?"},      {zDB, "?"},
-            {zCP, "xh"},     {zCP, "xl"},     {zCP, "X"},      {zDB, "?"},
-            {zDB, "?"},      {zDB, "?"},      {zDB, "?"},      {zDB, "?"},
-            {zDB, "?"},      {zDB, "?"},      {zDB, "?"},      {zDB, "?"},
-            {zDB, "?"},      {zDB, "?"},      {zDB, "?"},      {zDB, NULL},
-            {zDB, "?"},      {zDB, "?"},      {zDB, "?"},      {zDB, "?"},
-            {zDB, "?"},      {zDB, "?"},      {zDB, "?"},      {zDB, "?"},
-            {zDB, "?"},      {zDB, "?"},      {zDB, "?"},      {zDB, "?"},
-            {zDB, "?"},      {zDB, "?"},      {zDB, "?"},      {zDB, "?"},
-            {zDB, "?"},      {zDB, "?"},      {zDB, "?"},      {zDB, "?"},
-            {zDB, "?"},      {zPOP, "x"},     {zDB, "?"},      {zEX, "(SP), x"},
-            {zDB, "?"},      {zPUSH, "x"},    {zDB, "?"},      {zDB, "?"},
-            {zDB, "?"},      {zJP, "(x)"},    {zDB, "?"},      {zDB, "?"},
-            {zDB, "?"},      {zDB, "?"},      {zDB, "?"},      {zDB, "?"},
-            {zDB, "?"},      {zDB, "?"},      {zDB, "?"},      {zDB, "?"},
-            {zDB, "?"},      {zDB, "?"},      {zDB, "?"},      {zDB, "?"},
-            {zDB, "?"},      {zLD, "SP, x"},  {zDB, "?"},      {zDB, "?"},
-            {zDB, "?"},      {zDB, "?"},      {zDB, "?"},      {zDB, "?"}
-        };
-        Table ed_prefix[0x100] = {
-            {zDB, "?"},       {zDB, "?"},       {zDB, "?"},       {zDB, "?"},
-            {zDB, "?"},       {zDB, "?"},       {zDB, "?"},       {zDB, "?"},
-            {zDB, "?"},       {zDB, "?"},       {zDB, "?"},       {zDB, "?"},
-            {zDB, "?"},       {zDB, "?"},       {zDB, "?"},       {zDB, "?"},
-            {zDB, "?"},       {zDB, "?"},       {zDB, "?"},       {zDB, "?"},
-            {zDB, "?"},       {zDB, "?"},       {zDB, "?"},       {zDB, "?"},
-            {zDB, "?"},       {zDB, "?"},       {zDB, "?"},       {zDB, "?"},
-            {zDB, "?"},       {zDB, "?"},       {zDB, "?"},       {zDB, "?"},
-            {zDB, "?"},       {zDB, "?"},       {zDB, "?"},       {zDB, "?"},
-            {zDB, "?"},       {zDB, "?"},       {zDB, "?"},       {zDB, "?"},
-            {zDB, "?"},       {zDB, "?"},       {zDB, "?"},       {zDB, "?"},
-            {zDB, "?"},       {zDB, "?"},       {zDB, "?"},       {zDB, "?"},
-            {zDB, "?"},       {zDB, "?"},       {zDB, "?"},       {zDB, "?"},
-            {zDB, "?"},       {zDB, "?"},       {zDB, "?"},       {zDB, "?"},
-            {zDB, "?"},       {zDB, "?"},       {zDB, "?"},       {zDB, "?"},
-            {zDB, "?"},       {zDB, "?"},       {zDB, "?"},       {zDB, "?"},
-            {zIN, "y, (C)"},  {zOUT, "(C), y"}, {zSBC, "HL, p"},  {zLD, "(w), p"},
-            {zNEG, NULL},     {zRETN, NULL},    {zIM, "0"},       {zLD, "I, A"},
-            {zIN, "y, (C)"},  {zOUT, "(C), y"}, {zADC, "HL, p"},  {zLD, "p, (w)"},
-            {zNEG, NULL},     {zRETI, NULL},    {zIM, "0"},       {zLD, "R, A"},
-            {zIN, "y, (C)"},  {zOUT, "(C), y"}, {zSBC, "HL, p"},  {zLD, "(w), p"},
-            {zNEG, NULL},     {zRETN, NULL},    {zIM, "1"},       {zLD, "A, I"},
-            {zIN, "y, (C)"},  {zOUT, "(C), y"}, {zADC, "HL, p"},  {zLD, "p, (w)"},
-            {zNEG, NULL},     {zRETI, NULL},    {zIM, "2"},       {zLD, "A, R"},
-            {zIN, "y, (C)"},  {zOUT, "(C), y"}, {zSBC, "HL, p"},  {zLD, "(w), p"},
-            {zNEG, NULL},     {zRETN, NULL},    {zIM, "0"},       {zRRD, "A, (HL)"},
-            {zIN, "y, (V)"},  {zOUT, "(C), y"}, {zADC, "HL, p"},  {zLD, "p, (w)"},
-            {zNEG, NULL},     {zRETI, NULL},    {zIM, "0"},       {zRLD, "A, (HL)"},
-            {zIN, "0, (C)"},  {zOUT, "(C), 0"}, {zSBC, "HL, p"},  {zLD, "(w), p"},
-            {zNEG, NULL},     {zRETN, NULL},    {zIM, "1"},       {zDB, "?"},
-            {zIN, "y, (C)"},  {zOUT, "(C), y"}, {zADC, "HL, p"},  {zLD, "p, (w)"},
-            {zNEG, NULL},     {zRETI, NULL},    {zIM, "2"},       {zDB, "?"},
-            {zDB, "?"},       {zDB, "?"},       {zDB, "?"},       {zDB, "?"},
-            {zDB, "?"},       {zDB, "?"},       {zDB, "?"},       {zDB, "?"},
-            {zDB, "?"},       {zDB, "?"},       {zDB, "?"},       {zDB, "?"},
-            {zDB, "?"},       {zDB, "?"},       {zDB, "?"},       {zDB, "?"},
-            {zDB, "?"},       {zDB, "?"},       {zDB, "?"},       {zDB, "?"},
-            {zDB, "?"},       {zDB, "?"},       {zDB, "?"},       {zDB, "?"},
-            {zDB, "?"},       {zDB, "?"},       {zDB, "?"},       {zDB, "?"},
-            {zDB, "?"},       {zDB, "?"},       {zDB, "?"},       {zDB, "?"},
-            {zLDI, NULL},     {zCPI, NULL},     {zINI, NULL},     {zOUTI, NULL},
-            {zDB, "?"},       {zDB, "?"},       {zDB, "?"},       {zDB, "?"},
-            {zLDD, NULL},     {zCPD, NULL},     {zIND, NULL},     {zOUTD, NULL},
-            {zDB, "?"},       {zDB, "?"},       {zDB, "?"},       {zDB, "?"},
-            {zLDIR, NULL},    {zCPIR, NULL},    {zINIR, NULL},    {zOTIR, NULL},
-            {zDB, "?"},       {zDB, "?"},       {zDB, "?"},       {zDB, "?"},
-            {zLDDR, NULL},    {zCPDR, NULL},    {zINDR, NULL},    {zOTDR, NULL},
-            {zDB, "?"},       {zDB, "?"},       {zDB, "?"},       {zDB, "?"},
-            {zDB, "?"},       {zDB, "?"},       {zDB, "?"},       {zDB, "?"},
-            {zDB, "?"},       {zDB, "?"},       {zDB, "?"},       {zDB, "?"},
-            {zDB, "?"},       {zDB, "?"},       {zDB, "?"},       {zDB, "?"},
-            {zDB, "?"},       {zDB, "?"},       {zDB, "?"},       {zDB, "?"},
-            {zDB, "?"},       {zDB, "?"},       {zDB, "?"},       {zDB, "?"},
-            {zDB, "?"},       {zDB, "?"},       {zDB, "?"},       {zDB, "?"},
-            {zDB, "?"},       {zDB, "?"},       {zDB, "?"},       {zDB, "?"},
-            {zDB, "?"},       {zDB, "?"},       {zDB, "?"},       {zDB, "?"},
-            {zDB, "?"},       {zDB, "?"},       {zDB, "?"},       {zDB, "?"},
-            {zDB, "?"},       {zDB, "?"},       {zDB, "?"},       {zDB, "?"},
-            {zDB, "?"},       {zDB, "?"},       {zDB, "?"},       {zDB, "?"},
-            {zDB, "?"},       {zDB, "?"},       {zDB, "?"},       {zDB, "?"},
-            {zDB, "?"},       {zDB, "?"},       {zDB, "?"},       {zDB, "?"},
-            {zDB, "?"},       {zDB, "?"},       {zDB, "?"},       {zDB, "?"},
-            {zDB, "?"},       {zDB, "?"},       {zDB, "?"},       {zDB, "?"},
-            {zDB, "?"},       {zDB, "?"},       {zDB, "?"},       {zDB, "?"}
-        };
-        Table ddfdcb_prefix[0x100] = {
-            {zRLC,"Y, z"},    {zRLC,"Y, z"},    {zRLC,"Y, z"},    {zRLC,"Y, z"},
-            {zRLC,"Y, z"},    {zRLC,"Y, z"},    {zRLC,"Y"},       {zRLC,"Y, z"},
-            {zRRC,"Y, z"},    {zRRC,"Y, z"},    {zRRC,"Y, z"},    {zRRC,"Y, z"},
-            {zRRC,"Y, z"},    {zRRC,"Y, z"},    {zRRC,"Y"},       {zRRC,"Y, z"},
-            {zRL,"Y, z"},     {zRL,"Y, z"},     {zRL,"Y, z"},     {zRL,"Y, z"},
-            {zRL,"Y, z"},     {zRL,"Y, z"},     {zRL,"Y"},        {zRL,"Y, z"},
-            {zRR,"Y, z"},     {zRR,"Y, z"},     {zRR,"Y, z"},     {zRR,"Y, z"},
-            {zRR,"Y, z"},     {zRR,"Y, z"},     {zRR,"Y"},        {zRR,"Y, z"},
-            {zSLA,"Y, z"},    {zSLA,"Y, z"},    {zSLA,"Y, z"},    {zSLA,"Y, z"},
-            {zSLA,"Y, z"},    {zSLA,"Y, z"},    {zSLA,"Y"},       {zSLA,"Y, z"},
-            {zSRA,"Y, z"},    {zSRA,"Y, z"},    {zSRA,"Y, z"},    {zSRA,"Y, z"},
-            {zSRA,"Y, z"},    {zSRA,"Y, z"},    {zSRA,"Y"},       {zSRA,"Y, z"},
-            {zSLL,"Y, z"},    {zSLL,"Y, z"},    {zSLL,"Y, z"},    {zSLL,"Y, z"},
-            {zSLL,"Y, z"},    {zSLL,"Y, z"},    {zSLL,"Y"},       {zSLL,"Y, z"},
-            {zSRL,"Y, z"},    {zSRL,"Y, z"},    {zSRL,"Y, z"},    {zSRL,"Y, z"},
-            {zSRL,"Y, z"},    {zSRL,"Y, z"},    {zSRL,"Y"},       {zSRL,"Y, z"},
-            {zBIT,"s, Y, z"}, {zBIT,"s, Y, z"}, {zBIT,"s, Y, z"}, {zBIT,"s, Y, z"},
-            {zBIT,"s, Y, z"}, {zBIT,"s, Y, z"}, {zBIT,"s, Y"},    {zBIT,"s, Y, z"},
-            {zBIT,"s, Y, z"}, {zBIT,"s, Y, z"}, {zBIT,"s, Y, z"}, {zBIT,"s, Y, z"},
-            {zBIT,"s, Y, z"}, {zBIT,"s, Y, z"}, {zBIT,"s, Y"},    {zBIT,"s, Y, z"},
-            {zBIT,"s, Y, z"}, {zBIT,"s, Y, z"}, {zBIT,"s, Y, z"}, {zBIT,"s, Y, z"},
-            {zBIT,"s, Y, z"}, {zBIT,"s, Y, z"}, {zBIT,"s, Y"},    {zBIT,"s, Y, z"},
-            {zBIT,"s, Y, z"}, {zBIT,"s, Y, z"}, {zBIT,"s, Y, z"}, {zBIT,"s, Y, z"},
-            {zBIT,"s, Y, z"}, {zBIT,"s, Y, z"}, {zBIT,"s, Y"},    {zBIT,"s, Y, z"},
-            {zBIT,"s, Y, z"}, {zBIT,"s, Y, z"}, {zBIT,"s, Y, z"}, {zBIT,"s, Y, z"},
-            {zBIT,"s, Y, z"}, {zBIT,"s, Y, z"}, {zBIT,"s, Y"},    {zBIT,"s, Y, z"},
-            {zBIT,"s, Y, z"}, {zBIT,"s, Y, z"}, {zBIT,"s, Y, z"}, {zBIT,"s, Y, z"},
-            {zBIT,"s, Y, z"}, {zBIT,"s, Y, z"}, {zBIT,"s, Y"},    {zBIT,"s, Y, z"},
-            {zBIT,"s, Y, z"}, {zBIT,"s, Y, z"}, {zBIT,"s, Y, z"}, {zBIT,"s, Y, z"},
-            {zBIT,"s, Y, z"}, {zBIT,"s, Y, z"}, {zBIT,"s, Y"},    {zBIT,"s, Y, z"},
-            {zBIT,"s, Y, z"}, {zBIT,"s, Y, z"}, {zBIT,"s, Y, z"}, {zBIT,"s, Y, z"},
-            {zBIT,"s, Y, z"}, {zBIT,"s, Y, z"}, {zBIT,"s, Y"},    {zBIT,"s, Y, z"},
-            {zRES,"s, Y, z"}, {zRES,"s, Y, z"}, {zRES,"s, Y, z"}, {zRES,"s, Y, z"},
-            {zRES,"s, Y, z"}, {zRES,"s, Y, z"}, {zRES,"s, Y"},    {zRES,"s, Y, z"},
-            {zRES,"s, Y, z"}, {zRES,"s, Y, z"}, {zRES,"s, Y, z"}, {zRES,"s, Y, z"},
-            {zRES,"s, Y, z"}, {zRES,"s, Y, z"}, {zRES,"s, Y"},    {zRES,"s, Y, z"},
-            {zRES,"s, Y, z"}, {zRES,"s, Y, z"}, {zRES,"s, Y, z"}, {zRES,"s, Y, z"},
-            {zRES,"s, Y, z"}, {zRES,"s, Y, z"}, {zRES,"s, Y"},    {zRES,"s, Y, z"},
-            {zRES,"s, Y, z"}, {zRES,"s, Y, z"}, {zRES,"s, Y, z"}, {zRES,"s, Y, z"},
-            {zRES,"s, Y, z"}, {zRES,"s, Y, z"}, {zRES,"s, Y"},    {zRES,"s, Y, z"},
-            {zRES,"s, Y, z"}, {zRES,"s, Y, z"}, {zRES,"s, Y, z"}, {zRES,"s, Y, z"},
-            {zRES,"s, Y, z"}, {zRES,"s, Y, z"}, {zRES,"s, Y"},    {zRES,"s, Y, z"},
-            {zRES,"s, Y, z"}, {zRES,"s, Y, z"}, {zRES,"s, Y, z"}, {zRES,"s, Y, z"},
-            {zRES,"s, Y, z"}, {zRES,"s, Y, z"}, {zRES,"s, Y"},    {zRES,"s, Y, z"},
-            {zRES,"s, Y, z"}, {zRES,"s, Y, z"}, {zRES,"s, Y, z"}, {zRES,"s, Y, z"},
-            {zRES,"s, Y, z"}, {zRES,"s, Y, z"}, {zRES,"s, Y"},    {zRES,"s, Y, z"},
-            {zRES,"s, Y, z"}, {zRES,"s, Y, z"}, {zRES,"s, Y, z"}, {zRES,"s, Y, z"},
-            {zRES,"s, Y, z"}, {zRES,"s, Y, z"}, {zRES,"s, Y"},    {zRES,"s, Y, z"},
-            {zSET,"s, Y, z"}, {zSET,"s, Y, z"}, {zSET,"s, Y, z"}, {zSET,"s, Y, z"},
-            {zSET,"s, Y, z"}, {zSET,"s, Y, z"}, {zSET,"s, Y"},    {zSET,"s, Y, z"},
-            {zSET,"s, Y, z"}, {zSET,"s, Y, z"}, {zSET,"s, Y, z"}, {zSET,"s, Y, z"},
-            {zSET,"s, Y, z"}, {zSET,"s, Y, z"}, {zSET,"s, Y"},    {zSET,"s, Y, z"},
-            {zSET,"s, Y, z"}, {zSET,"s, Y, z"}, {zSET,"s, Y, z"}, {zSET,"s, Y, z"},
-            {zSET,"s, Y, z"}, {zSET,"s, Y, z"}, {zSET,"s, Y"},    {zSET,"s, Y, z"},
-            {zSET,"s, Y, z"}, {zSET,"s, Y, z"}, {zSET,"s, Y, z"}, {zSET,"s, Y, z"},
-            {zSET,"s, Y, z"}, {zSET,"s, Y, z"}, {zSET,"s, Y"},    {zSET,"s, Y, z"},
-            {zSET,"s, Y, z"}, {zSET,"s, Y, z"}, {zSET,"s, Y, z"}, {zSET,"s, Y, z"},
-            {zSET,"s, Y, z"}, {zSET,"s, Y, z"}, {zSET,"s, Y"},    {zSET,"s, Y, z"},
-            {zSET,"s, Y, z"}, {zSET,"s, Y, z"}, {zSET,"s, Y, z"}, {zSET,"s, Y, z"},
-            {zSET,"s, Y, z"}, {zSET,"s, Y, z"}, {zSET,"s, Y"},    {zSET,"s, Y, z"},
-            {zSET,"s, Y, z"}, {zSET,"s, Y, z"}, {zSET,"s, Y, z"}, {zSET,"s, Y, z"},
-            {zSET,"s, Y, z"}, {zSET,"s, Y, z"}, {zSET,"s, Y"},    {zSET,"s, Y, z"},
-            {zSET,"s, Y, z"}, {zSET,"s, Y, z"}, {zSET,"s, Y, z"}, {zSET,"s, Y, z"},
-            {zSET,"s, Y, z"}, {zSET,"s, Y, z"}, {zSET,"s, Y"},    {zSET,"s, Y, z"}
-        };
+    struct MM_Decode no_prefix[0x100] = {
+        { NOP, NULL }, { LD, "p, w" }, { LD, "(BC), A" }, { INC, "p" }, { INC, "y" }, { DEC, "y" }, { LD, "B, b" }, { RLCA, NULL },
+        { EX, "AF, AF'" }, { ADD, "HL, p" }, { LD, "A, (BC)" }, { DEC, "p" }, { INC, "y" }, { DEC, "y" }, { LD, "C, b" }, { RRCA, NULL },
+        { DJNZ, "l" }, { LD, "p, w" }, { LD, "(DE), A" }, { INC, "p" }, { INC, "y" }, { DEC, "y" }, { LD, "D, b" }, { RLA, NULL },
+        { JR, "c, l" }, { ADD, "HL, p" }, { LD, "A, (DE)" }, { DEC, "p" }, { INC, "y" }, { DEC, "y" }, { LD, "E, b" }, { RRA, NULL },
+        { JR, "c, l" }, { LD, "p, w" }, { LD, "(w), HL" }, { INC, "p" }, { INC, "y" }, { DEC, "y" }, { LD, "H, b" }, { DAA, NULL },
+        { JR, "c, l" }, { ADD, "HL, p" }, { LD, "HL, (w)" }, { DEC, "p" }, { INC, "y" }, { DEC, "y" }, { LD, "L, b" }, { CPL, NULL },
+        { JR, "c, l" }, { LD, "p, w" }, { LD, "(w), A" }, { INC, "p" }, { INC, "y" }, { DEC, "y" }, { LD, "(HL), b" }, { SCF, NULL },
+        { JR, "c, l" }, { ADD, "HL, p" }, { LD, "A, (w)" }, { DEC, "p" }, { INC, "y" }, { DEC, "y" }, { LD, "A, b" }, { CCF, NULL },
+        { LD, "y, z" }, { LD, "y, z" }, { LD, "y, z" }, { LD, "y, z" }, { LD, "y, z" }, { LD, "y, z" }, { LD, "y, z" }, { LD, "y, z" },
+        { LD, "y, z" }, { LD, "y, z" }, { LD, "y, z" }, { LD, "y, z" }, { LD, "y, z" }, { LD, "y, z" }, { LD, "y, z" }, { LD, "y, z" },
+        { LD, "y, z" }, { LD, "y, z" }, { LD, "y, z" }, { LD, "y, z" }, { LD, "y, z" }, { LD, "y, z" }, { LD, "y, z" }, { LD, "y, z" },
+        { LD, "y, z" }, { LD, "y, z" }, { LD, "y, z" }, { LD, "y, z" }, { LD, "y, z" }, { LD, "y, z" }, { LD, "y, z" }, { LD, "y, z" },
+        { LD, "y, z" }, { LD, "y, z" }, { LD, "y, z" }, { LD, "y, z" }, { LD, "y, z" }, { LD, "y, z" }, { LD, "y, z" }, { LD, "y, z" },
+        { LD, "y, z" }, { LD, "y, z" }, { LD, "y, z" }, { LD, "y, z" }, { LD, "y, z" }, { LD, "y, z" }, { LD, "y, z" }, { LD, "y, z" },
+        { LD, "y, z" }, { LD, "y, z" }, { LD, "y, z" }, { LD, "y, z" }, { LD, "y, z" }, { LD, "y, z" }, { HLT, NULL }, { LD, "y, z" },
+        { LD, "y, z" }, { LD, "y, z" }, { LD, "y, z" }, { LD, "y, z" }, { LD, "y, z" }, { LD, "y, z" }, { LD, "y, z" }, { LD, "y, z" },
+        { ADD, "A, z" }, { ADD, "A, z" }, { ADD, "A, z" }, { ADD, "A, z" }, { ADD, "A, z" }, { ADD, "A, z" }, { ADD, "A, z" }, { ADD, "A, z" },
+        { ADC, "A, z" }, { ADC, "A, z" }, { ADC, "A, z" }, { ADC, "A, z" }, { ADC, "A, z" }, { ADC, "A, z" }, { ADC, "A, z" }, { ADC, "A, z" },
+        { SUB, "z" }, { SUB, "z" }, { SUB, "z" }, { SUB, "z" }, { SUB, "z" }, { SUB, "z" }, { SUB, "z" }, { SUB, "z" },
+        { SBC, "A, z" }, { SBC, "A, z" }, { SBC, "A, z" }, { SBC, "A, z" }, { SBC, "A, z" }, { SBC, "A, z" }, { SBC, "A, z" }, { SBC, "A, z" },
+        { AND, "z" }, { AND, "z" }, { AND, "z" }, { AND, "z" }, { AND, "z" }, { AND, "z" }, { AND, "z" }, { AND, "z" },
+        { XOR, "z" }, { XOR, "z" }, { XOR, "z" }, { XOR, "z" }, { XOR, "z" }, { XOR, "z" }, { XOR, "z" }, { XOR, "z" },
+        { OR, "z" }, { OR, "z" }, { OR, "z" }, { OR, "z" }, { OR, "z" }, { OR, "z" }, { OR, "z" }, { OR, "z" },
+        { CP, "z" }, { CP, "z" }, { CP, "z" }, { CP, "z" }, { CP, "z" }, { CP, "z" }, { CP, "z" }, { CP, "z" },
+        { RET, "f" }, { POP, "i" }, { JP, "f, w" }, { JP, "w" }, { CALL, "f, w" }, { PUSH, "i" }, { ADD, "A, b" }, { RST, "t" },
+        { RET, "f" }, { RET, NULL }, { JP, "f, w" }, { DB, NULL }, { CALL, "f, w" }, { CALL, "w" }, { ADC, "A, b" }, { RST, "t" },
+        { RET, "f" }, { POP, "i" }, { JP, "f, w" }, { OUT, "(b), A" }, { CALL, "f, w" }, { PUSH, "i" }, { SUB, "b" }, { RST, "t" },
+        { RET, "f" }, { EXX, NULL }, { JP, "f, w" }, { IN, "A, (b)" }, { CALL, "f, w" }, { DB, NULL }, { SBC, "A, b" }, { RST, "t" },
+        { RET, "f" }, { POP, "i" }, { JP, "f, w" }, { EX, "(SP), HL" }, { CALL, "f, w" }, { PUSH, "i" }, { AND, "b" }, { RST, "t" },
+        { RET, "f" }, { JP, "(HL)" }, { JP, "f, w" }, { EX, "DE, HL" }, { CALL, "f, w" }, { DB, NULL }, { XOR, "b" }, { RST, "t" },
+        { RET, "f" }, { POP, "i" }, { JP, "f, w" }, { DI, NULL }, { CALL, "f, w" }, { PUSH, "i" }, { OR, "b" }, { RST, "t" },
+        { RET, "f" }, { LD, "SP, HL" }, { JP, "f, w" }, { EI, NULL }, { CALL, "f, w" }, { DB, NULL }, { CP, "b" }, { RST, "t" }
+    };
+    struct MM_Decode cb_prefix[0x100] = {
+        { RLC, "z" }, { RLC, "z" }, { RLC, "z" }, { RLC, "z" }, 
+        { RLC, "z" }, { RLC, "z" }, { RLC, "z" }, { RLC, "z" },
+        { RRC, "z" }, { RRC, "z" }, { RRC, "z" }, { RRC, "z" },
+        { RRC, "z" }, { RRC, "z" }, { RRC, "z" }, { RRC, "z" },
+        { RL, "z" }, { RL, "z" }, { RL, "z" }, { RL, "z" },
+        { RL, "z" }, { RL, "z" }, { RL, "z" }, { RL, "z" },
+        { RR, "z" }, { RR, "z" }, { RR, "z" }, { RR, "z" },
+        { RR, "z" }, { RR, "z" }, { RR, "z" }, { RR, "z" },
+        { SLA, "z" }, { SLA, "z" }, { SLA, "z" }, { SLA, "z" },
+        { SLA, "z" }, { SLA, "z" }, { SLA, "z" }, { SLA, "z" },
+        { SRA, "z" }, { SRA, "z" }, { SRA, "z" }, { SRA, "z" },
+        { SRA, "z" }, { SRA, "z" }, { SRA, "z" }, { SRA, "z" },
+        { SLL, "z" }, { SLL, "z" }, { SLL, "z" }, { SLL, "z" },
+        { SLL, "z" }, { SLL, "z" }, { SLL, "z" }, { SLL, "z" },
+        { SRL, "z" }, { SRL, "z" }, { SRL, "z" }, { SRL, "z" },
+        { SRL, "z" }, { SRL, "z" }, { SRL, "z" }, { SRL, "z" },
+        { BIT, "s, z" }, { BIT, "s, z" }, { BIT, "s, z" }, { BIT, "s, z" },
+        { BIT, "s, z" }, { BIT, "s, z" }, { BIT, "s, z" }, { BIT, "s, z" },
+        { BIT, "s, z" }, { BIT, "s, z" }, { BIT, "s, z" }, { BIT, "s, z" },
+        { BIT, "s, z" }, { BIT, "s, z" }, { BIT, "s, z" }, { BIT, "s, z" },
+        { BIT, "s, z" }, { BIT, "s, z" }, { BIT, "s, z" }, { BIT, "s, z" },
+        { BIT, "s, z" }, { BIT, "s, z" }, { BIT, "s, z" }, { BIT, "s, z" },
+        { BIT, "s, z" }, { BIT, "s, z" }, { BIT, "s, z" }, { BIT, "s, z" },
+        { BIT, "s, z" }, { BIT, "s, z" }, { BIT, "s, z" }, { BIT, "s, z" },
+        { BIT, "s, z" }, { BIT, "s, z" }, { BIT, "s, z" }, { BIT, "s, z" },
+        { BIT, "s, z" }, { BIT, "s, z" }, { BIT, "s, z" }, { BIT, "s, z" },
+        { BIT, "s, z" }, { BIT, "s, z" }, { BIT, "s, z" }, { BIT, "s, z" },
+        { BIT, "s, z" }, { BIT, "s, z" }, { BIT, "s, z" }, { BIT, "s, z" },
+        { BIT, "s, z" }, { BIT, "s, z" }, { BIT, "s, z" }, { BIT, "s, z" },
+        { BIT, "s, z" }, { BIT, "s, z" }, { BIT, "s, z" }, { BIT, "s, z" },
+        { BIT, "s, z" }, { BIT, "s, z" }, { BIT, "s, z" }, { BIT, "s, z" },
+        { BIT, "s, z" }, { BIT, "s, z" }, { BIT, "s, z" }, { BIT, "s, z" },
+        { RES, "s, z" }, { RES, "s, z" }, { RES, "s, z" }, { RES, "s, z" },
+        { RES, "s, z" }, { RES, "s, z" }, { RES, "s, z" }, { RES, "s, z" },
+        { RES, "s, z" }, { RES, "s, z" }, { RES, "s, z" }, { RES, "s, z" },
+        { RES, "s, z" }, { RES, "s, z" }, { RES, "s, z" }, { RES, "s, z" },
+        { RES, "s, z" }, { RES, "s, z" }, { RES, "s, z" }, { RES, "s, z" },
+        { RES, "s, z" }, { RES, "s, z" }, { RES, "s, z" }, { RES, "s, z" },
+        { RES, "s, z" }, { RES, "s, z" }, { RES, "s, z" }, { RES, "s, z" },
+        { RES, "s, z" }, { RES, "s, z" }, { RES, "s, z" }, { RES, "s, z" },
+        { RES, "s, z" }, { RES, "s, z" }, { RES, "s, z" }, { RES, "s, z" },
+        { RES, "s, z" }, { RES, "s, z" }, { RES, "s, z" }, { RES, "s, z" },
+        { RES, "s, z" }, { RES, "s, z" }, { RES, "s, z" }, { RES, "s, z" },
+        { RES, "s, z" }, { RES, "s, z" }, { RES, "s, z" }, { RES, "s, z" },
+        { RES, "s, z" }, { RES, "s, z" }, { RES, "s, z" }, { RES, "s, z" },
+        { RES, "s, z" }, { RES, "s, z" }, { RES, "s, z" }, { RES, "s, z" },
+        { RES, "s, z" }, { RES, "s, z" }, { RES, "s, z" }, { RES, "s, z" },
+        { RES, "s, z" }, { RES, "s, z" }, { RES, "s, z" }, { RES, "s, z" },
+        { SET, "s, z" }, { SET, "s, z" }, { SET, "s, z" }, { SET, "s, z" },
+        { SET, "s, z" }, { SET, "s, z" }, { SET, "s, z" }, { SET, "s, z" },
+        { SET, "s, z" }, { SET, "s, z" }, { SET, "s, z" }, { SET, "s, z" },
+        { SET, "s, z" }, { SET, "s, z" }, { SET, "s, z" }, { SET, "s, z" },
+        { SET, "s, z" }, { SET, "s, z" }, { SET, "s, z" }, { SET, "s, z" },
+        { SET, "s, z" }, { SET, "s, z" }, { SET, "s, z" }, { SET, "s, z" },
+        { SET, "s, z" }, { SET, "s, z" }, { SET, "s, z" }, { SET, "s, z" },
+        { SET, "s, z" }, { SET, "s, z" }, { SET, "s, z" }, { SET, "s, z" },
+        { SET, "s, z" }, { SET, "s, z" }, { SET, "s, z" }, { SET, "s, z" },
+        { SET, "s, z" }, { SET, "s, z" }, { SET, "s, z" }, { SET, "s, z" },
+        { SET, "s, z" }, { SET, "s, z" }, { SET, "s, z" }, { SET, "s, z" },
+        { SET, "s, z" }, { SET, "s, z" }, { SET, "s, z" }, { SET, "s, z" },
+        { SET, "s, z" }, { SET, "s, z" }, { SET, "s, z" }, { SET, "s, z" },
+        { SET, "s, z" }, { SET, "s, z" }, { SET, "s, z" }, { SET, "s, z" },
+        { SET, "s, z" }, { SET, "s, z" }, { SET, "s, z" }, { SET, "s, z" },
+        { SET, "s, z" }, { SET, "s, z" }, { SET, "s, z" }, { SET, "s, z" }
+    };
+    struct MM_Decode ddfd_prefix[0x100] = {
+        { DB, "?" }, { DB, "?" }, { DB, "?" }, { DB, "?" },
+        { DB, "?" }, { DB, "?" }, { DB, "?" }, { DB, "?" },
+        { DB, "?" }, { ADD, "x, p" }, { DB, "?" }, { DB, "?" },
+        { DB, "?" }, { DB, "?" }, { DB, "?" }, { DB, "?" },
+        { DB, "?" }, { DB, "?" }, { DB, "?" }, { DB, "?" },
+        { DB, "?" }, { DB, "?" }, { DB, "?" }, { DB, "?" },
+        { DB, "?" }, { ADD, "x, p" }, { DB, "?" }, { DB, "?" },
+        { DB, "?" }, { DB, "?" }, { DB, "?" }, { DB, "?" },
+        { DB, "?" }, { LD, "x, w" }, { LD, "(w), x" }, { INC, "x" },
+        { INC, "xh" }, { DEC, "xh" }, { LD, "xh, b" }, { DB, "?" },
+        { DB, "?" }, { ADD, "x, x" }, { LD, "x, (w)" }, { DEC, "x" },
+        { INC, "xl" }, { DEC, "xl" }, { LD, "xl, b" }, { DB, "?" },
+        { DB, "?" }, { DB, "?" }, { DB, "?" }, { DB, "?" },
+        { INC, "X" }, { DEC, "X" }, { LD, "X, b" }, { DB, "?" },
+        { DB, "?" }, { ADD, "x, p" }, { DB, "?" }, { DB, "?" },
+        { DB, "?" }, { DB, "?" }, { DB, "?" }, { DB, "?" },
+        { DB, "?" }, { DB, "?" }, { DB, "?" }, { DB, "?" },
+        { LD, "y, xh" }, { LD, "y, xl" }, { LD, "y, X" }, { DB, "?" },
+        { DB, "?" }, { DB, "?" }, { DB, "?" }, { DB, "?" },
+        { LD, "y, xh" }, { LD, "y, xl" }, { LD, "y, X" }, { DB, "?" },
+        { DB, "?" }, { DB, "?" }, { DB, "?" }, { DB, "?" },
+        { LD, "y, xh" }, { LD, "y, xl" }, { LD, "y, X" }, { DB, "?" },
+        { DB, "?" }, { DB, "?" }, { DB, "?" }, { DB, "?" },
+        { LD, "y, xh" }, { LD, "y, xl" }, { LD, "y, X" }, { DB, "?" },
+        { LD, "xh, z" }, { LD, "xh, z" }, { LD, "xh, z" }, { LD, "xh, z" },
+        { LD, "xh, xh" }, { LD, "xh, xl" }, { LD, "y, X" }, { LD, "xh, z" },
+        { LD, "xl, z" }, { LD, "xl, z" }, { LD, "xl, z" }, { LD, "xl, z" },
+        { LD, "xl, xh" }, { LD, "xl, xl" }, { LD, "y, X" }, { LD, "xl, z" },
+        { LD, "X, z" }, { LD, "X, z" }, { LD, "X, z" }, { LD, "X, z" },
+        { LD, "X, z" }, { LD, "X, z" }, { DB, "?" }, { LD, "X, z" },
+        { DB, "?" }, { DB, "?" }, { DB, "?" }, { DB, "?" },
+        { LD, "y, xh" }, { LD, "y, xl" }, { LD, "y, X" }, { DB, "?" },
+        { DB, "?" }, { DB, "?" }, { DB, "?" }, { DB, "?" },
+        { ADD, "A, xh" }, { ADD, "A, xl" }, { ADD, "A, X" }, { DB, "?" },
+        { DB, "?" }, { DB, "?" }, { DB, "?" }, { DB, "?" },
+        { ADC, "A, xh" }, { ADC, "A, xl" }, { ADC, "A, X" }, { DB, "?" },
+        { DB, "?" }, { DB, "?" }, { DB, "?" }, { DB, "?" },
+        { SUB, "xh" }, { SUB, "xl" }, { SUB, "X" }, { DB, "?" },
+        { DB, "?" }, { DB, "?" }, { DB, "?" }, { DB, "?" },
+        { SBC, "A, xh" }, { SBC, "A, xl" }, { SBC, "A, X" }, { DB, "?" },
+        { DB, "?" }, { DB, "?" }, { DB, "?" }, { DB, "?" },
+        { AND, "xh" }, { AND, "xl" }, { AND, "X" }, { DB, "?" },
+        { DB, "?" }, { DB, "?" }, { DB, "?" }, { DB, "?" },
+        { XOR, "xh" }, { XOR, "xl" }, { XOR, "X" }, { DB, "?" },
+        { DB, "?" }, { DB, "?" }, { DB, "?" }, { DB, "?" },
+        { OR, "xh" }, { OR, "xl" }, { OR, "X" }, { DB, "?" },
+        { DB, "?" }, { DB, "?" }, { DB, "?" }, { DB, "?" },
+        { CP, "xh" }, { CP, "xl" }, { CP, "X" }, { DB, "?" },
+        { DB, "?" }, { DB, "?" }, { DB, "?" }, { DB, "?" },
+        { DB, "?" }, { DB, "?" }, { DB, "?" }, { DB, "?" },
+        { DB, "?" }, { DB, "?" }, { DB, "?" }, { DB, NULL },
+        { DB, "?" }, { DB, "?" }, { DB, "?" }, { DB, "?" },
+        { DB, "?" }, { DB, "?" }, { DB, "?" }, { DB, "?" },
+        { DB, "?" }, { DB, "?" }, { DB, "?" }, { DB, "?" },
+        { DB, "?" }, { DB, "?" }, { DB, "?" }, { DB, "?" },
+        { DB, "?" }, { DB, "?" }, { DB, "?" }, { DB, "?" },
+        { DB, "?" }, { POP, "x" }, { DB, "?" }, { EX, "(SP), x" },
+        { DB, "?" }, { PUSH, "x" }, { DB, "?" }, { DB, "?" },
+        { DB, "?" }, { JP, "(x)" }, { DB, "?" }, { DB, "?" },
+        { DB, "?" }, { DB, "?" }, { DB, "?" }, { DB, "?" },
+        { DB, "?" }, { DB, "?" }, { DB, "?" }, { DB, "?" },
+        { DB, "?" }, { DB, "?" }, { DB, "?" }, { DB, "?" },
+        { DB, "?" }, { LD, "SP, x" }, { DB, "?" }, { DB, "?" },
+        { DB, "?" }, { DB, "?" }, { DB, "?" }, { DB, "?" }
+    };
+    struct MM_Decode ed_prefix[0x100] = {
+        { DB, "?" }, { DB, "?" }, { DB, "?" }, { DB, "?" },
+        { DB, "?" }, { DB, "?" }, { DB, "?" }, { DB, "?" },
+        { DB, "?" }, { DB, "?" }, { DB, "?" }, { DB, "?" },
+        { DB, "?" }, { DB, "?" }, { DB, "?" }, { DB, "?" },
+        { DB, "?" }, { DB, "?" }, { DB, "?" }, { DB, "?" },
+        { DB, "?" }, { DB, "?" }, { DB, "?" }, { DB, "?" },
+        { DB, "?" }, { DB, "?" }, { DB, "?" }, { DB, "?" },
+        { DB, "?" }, { DB, "?" }, { DB, "?" }, { DB, "?" },
+        { DB, "?" }, { DB, "?" }, { DB, "?" }, { DB, "?" },
+        { DB, "?" }, { DB, "?" }, { DB, "?" }, { DB, "?" },
+        { DB, "?" }, { DB, "?" }, { DB, "?" }, { DB, "?" },
+        { DB, "?" }, { DB, "?" }, { DB, "?" }, { DB, "?" },
+        { DB, "?" }, { DB, "?" }, { DB, "?" }, { DB, "?" },
+        { DB, "?" }, { DB, "?" }, { DB, "?" }, { DB, "?" },
+        { DB, "?" }, { DB, "?" }, { DB, "?" }, { DB, "?" },
+        { DB, "?" }, { DB, "?" }, { DB, "?" }, { DB, "?" },
+        { IN, "y, (C)" }, { OUT, "(C), y" }, { SBC, "HL, p" }, { LD, "(w), p" },
+        { NEG, NULL }, { RETN, NULL }, { IM, "0" }, { LD, "I, A" },
+        { IN, "y, (C)" }, { OUT, "(C), y" }, { ADC, "HL, p" }, { LD, "p, (w)" },
+        { NEG, NULL }, { RETI, NULL }, { IM, "0" }, { LD, "R, A" },
+        { IN, "y, (C)" }, { OUT, "(C), y" }, { SBC, "HL, p" }, { LD, "(w), p" },
+        { NEG, NULL }, { RETN, NULL }, { IM, "1" }, { LD, "A, I" },
+        { IN, "y, (C)" }, { OUT, "(C), y" }, { ADC, "HL, p" }, { LD, "p, (w)" },
+        { NEG, NULL }, { RETI, NULL }, { IM, "2" }, { LD, "A, R" },
+        { IN, "y, (C)" }, { OUT, "(C), y" }, { SBC, "HL, p" }, { LD, "(w), p" },
+        { NEG, NULL }, { RETN, NULL }, { IM, "0" }, { RRD, "A, (HL)" },
+        { IN, "y, (V)" }, { OUT, "(C), y" }, { ADC, "HL, p" }, { LD, "p, (w)" },
+        { NEG, NULL }, { RETI, NULL }, { IM, "0" }, { RLD, "A, (HL)" },
+        { IN, "0, (C)" }, { OUT, "(C), 0" }, { SBC, "HL, p" }, { LD, "(w), p" },
+        { NEG, NULL }, { RETN, NULL }, { IM, "1" }, { DB, "?" },
+        { IN, "y, (C)" }, { OUT, "(C), y" }, { ADC, "HL, p" }, { LD, "p, (w)" },
+        { NEG, NULL }, { RETI, NULL }, { IM, "2" }, { DB, "?" },
+        { DB, "?" }, { DB, "?" }, { DB, "?" }, { DB, "?" },
+        { DB, "?" }, { DB, "?" }, { DB, "?" }, { DB, "?" },
+        { DB, "?" }, { DB, "?" }, { DB, "?" }, { DB, "?" },
+        { DB, "?" }, { DB, "?" }, { DB, "?" }, { DB, "?" },
+        { DB, "?" }, { DB, "?" }, { DB, "?" }, { DB, "?" },
+        { DB, "?" }, { DB, "?" }, { DB, "?" }, { DB, "?" },
+        { DB, "?" }, { DB, "?" }, { DB, "?" }, { DB, "?" },
+        { DB, "?" }, { DB, "?" }, { DB, "?" }, { DB, "?" },
+        { LDI, NULL }, { CPI, NULL }, { INI, NULL }, { OUTI, NULL },
+        { DB, "?" }, { DB, "?" }, { DB, "?" }, { DB, "?" },
+        { LDD, NULL }, { CPD, NULL }, { IND, NULL }, { OUTD, NULL },
+        { DB, "?" }, { DB, "?" }, { DB, "?" }, { DB, "?" },
+        { LDIR, NULL }, { CPIR, NULL }, { INIR, NULL }, { OTIR, NULL },
+        { DB, "?" }, { DB, "?" }, { DB, "?" }, { DB, "?" },
+        { LDDR, NULL }, { CPDR, NULL }, { INDR, NULL }, { OTDR, NULL },
+        { DB, "?" }, { DB, "?" }, { DB, "?" }, { DB, "?" },
+        { DB, "?" }, { DB, "?" }, { DB, "?" }, { DB, "?" },
+        { DB, "?" }, { DB, "?" }, { DB, "?" }, { DB, "?" },
+        { DB, "?" }, { DB, "?" }, { DB, "?" }, { DB, "?" },
+        { DB, "?" }, { DB, "?" }, { DB, "?" }, { DB, "?" },
+        { DB, "?" }, { DB, "?" }, { DB, "?" }, { DB, "?" },
+        { DB, "?" }, { DB, "?" }, { DB, "?" }, { DB, "?" },
+        { DB, "?" }, { DB, "?" }, { DB, "?" }, { DB, "?" },
+        { DB, "?" }, { DB, "?" }, { DB, "?" }, { DB, "?" },
+        { DB, "?" }, { DB, "?" }, { DB, "?" }, { DB, "?" },
+        { DB, "?" }, { DB, "?" }, { DB, "?" }, { DB, "?" },
+        { DB, "?" }, { DB, "?" }, { DB, "?" }, { DB, "?" },
+        { DB, "?" }, { DB, "?" }, { DB, "?" }, { DB, "?" },
+        { DB, "?" }, { DB, "?" }, { DB, "?" }, { DB, "?" },
+        { DB, "?" }, { DB, "?" }, { DB, "?" }, { DB, "?" },
+        { DB, "?" }, { DB, "?" }, { DB, "?" }, { DB, "?" },
+        { DB, "?" }, { DB, "?" }, { DB, "?" }, { DB, "?" }
+    };
+    struct MM_Decode ddfdcb_prefix[0x100] = {
+        { RLC,"Y, z" }, { RLC,"Y, z" }, { RLC,"Y, z" }, { RLC,"Y, z" },
+        { RLC,"Y, z" }, { RLC,"Y, z" }, { RLC,"Y" }, { RLC,"Y, z" },
+        { RRC,"Y, z" }, { RRC,"Y, z" }, { RRC,"Y, z" }, { RRC,"Y, z" },
+        { RRC,"Y, z" }, { RRC,"Y, z" }, { RRC,"Y" }, { RRC,"Y, z" },
+        { RL,"Y, z" }, { RL,"Y, z" }, { RL,"Y, z" }, { RL,"Y, z" },
+        { RL,"Y, z" }, { RL,"Y, z" }, { RL,"Y" }, { RL,"Y, z" },
+        { RR,"Y, z" }, { RR,"Y, z" }, { RR,"Y, z" }, { RR,"Y, z" },
+        { RR,"Y, z" }, { RR,"Y, z" }, { RR,"Y" }, { RR,"Y, z" },
+        { SLA,"Y, z" }, { SLA,"Y, z" }, { SLA,"Y, z" }, { SLA,"Y, z" },
+        { SLA,"Y, z" }, { SLA,"Y, z" }, { SLA,"Y" }, { SLA,"Y, z" },
+        { SRA,"Y, z" }, { SRA,"Y, z" }, { SRA,"Y, z" }, { SRA,"Y, z" },
+        { SRA,"Y, z" }, { SRA,"Y, z" }, { SRA,"Y" }, { SRA,"Y, z" },
+        { SLL,"Y, z" }, { SLL,"Y, z" }, { SLL,"Y, z" }, { SLL,"Y, z" },
+        { SLL,"Y, z" }, { SLL,"Y, z" }, { SLL,"Y" }, { SLL,"Y, z" },
+        { SRL,"Y, z" }, { SRL,"Y, z" }, { SRL,"Y, z" }, { SRL,"Y, z" },
+        { SRL,"Y, z" }, { SRL,"Y, z" }, { SRL,"Y" }, { SRL,"Y, z" },
+        { BIT,"s, Y, z" }, { BIT,"s, Y, z" }, { BIT,"s, Y, z" }, { BIT,"s, Y, z" },
+        { BIT,"s, Y, z" }, { BIT,"s, Y, z" }, { BIT,"s, Y" }, { BIT,"s, Y, z" },
+        { BIT,"s, Y, z" }, { BIT,"s, Y, z" }, { BIT,"s, Y, z" }, { BIT,"s, Y, z" },
+        { BIT,"s, Y, z" }, { BIT,"s, Y, z" }, { BIT,"s, Y" }, { BIT,"s, Y, z" },
+        { BIT,"s, Y, z" }, { BIT,"s, Y, z" }, { BIT,"s, Y, z" }, { BIT,"s, Y, z" },
+        { BIT,"s, Y, z" }, { BIT,"s, Y, z" }, { BIT,"s, Y" }, { BIT,"s, Y, z" },
+        { BIT,"s, Y, z" }, { BIT,"s, Y, z" }, { BIT,"s, Y, z" }, { BIT,"s, Y, z" },
+        { BIT,"s, Y, z" }, { BIT,"s, Y, z" }, { BIT,"s, Y" }, { BIT,"s, Y, z" },
+        { BIT,"s, Y, z" }, { BIT,"s, Y, z" }, { BIT,"s, Y, z" }, { BIT,"s, Y, z" },
+        { BIT,"s, Y, z" }, { BIT,"s, Y, z" }, { BIT,"s, Y" }, { BIT,"s, Y, z" },
+        { BIT,"s, Y, z" }, { BIT,"s, Y, z" }, { BIT,"s, Y, z" }, { BIT,"s, Y, z" },
+        { BIT,"s, Y, z" }, { BIT,"s, Y, z" }, { BIT,"s, Y" }, { BIT,"s, Y, z" },
+        { BIT,"s, Y, z" }, { BIT,"s, Y, z" }, { BIT,"s, Y, z" }, { BIT,"s, Y, z" },
+        { BIT,"s, Y, z" }, { BIT,"s, Y, z" }, { BIT,"s, Y" }, { BIT,"s, Y, z" },
+        { BIT,"s, Y, z" }, { BIT,"s, Y, z" }, { BIT,"s, Y, z" }, { BIT,"s, Y, z" },
+        { BIT,"s, Y, z" }, { BIT,"s, Y, z" }, { BIT,"s, Y" }, { BIT,"s, Y, z" },
+        { RES,"s, Y, z" }, { RES,"s, Y, z" }, { RES,"s, Y, z" }, { RES,"s, Y, z" },
+        { RES,"s, Y, z" }, { RES,"s, Y, z" }, { RES,"s, Y" }, { RES,"s, Y, z" },
+        { RES,"s, Y, z" }, { RES,"s, Y, z" }, { RES,"s, Y, z" }, { RES,"s, Y, z" },
+        { RES,"s, Y, z" }, { RES,"s, Y, z" }, { RES,"s, Y" }, { RES,"s, Y, z" },
+        { RES,"s, Y, z" }, { RES,"s, Y, z" }, { RES,"s, Y, z" }, { RES,"s, Y, z" },
+        { RES,"s, Y, z" }, { RES,"s, Y, z" }, { RES,"s, Y" }, { RES,"s, Y, z" },
+        { RES,"s, Y, z" }, { RES,"s, Y, z" }, { RES,"s, Y, z" }, { RES,"s, Y, z" },
+        { RES,"s, Y, z" }, { RES,"s, Y, z" }, { RES,"s, Y" }, { RES,"s, Y, z" },
+        { RES,"s, Y, z" }, { RES,"s, Y, z" }, { RES,"s, Y, z" }, { RES,"s, Y, z" },
+        { RES,"s, Y, z" }, { RES,"s, Y, z" }, { RES,"s, Y" }, { RES,"s, Y, z" },
+        { RES,"s, Y, z" }, { RES,"s, Y, z" }, { RES,"s, Y, z" }, { RES,"s, Y, z" },
+        { RES,"s, Y, z" }, { RES,"s, Y, z" }, { RES,"s, Y" }, { RES,"s, Y, z" },
+        { RES,"s, Y, z" }, { RES,"s, Y, z" }, { RES,"s, Y, z" }, { RES,"s, Y, z" },
+        { RES,"s, Y, z" }, { RES,"s, Y, z" }, { RES,"s, Y" }, { RES,"s, Y, z" },
+        { RES,"s, Y, z" }, { RES,"s, Y, z" }, { RES,"s, Y, z" }, { RES,"s, Y, z" },
+        { RES,"s, Y, z" }, { RES,"s, Y, z" }, { RES,"s, Y" }, { RES,"s, Y, z" },
+        { SET,"s, Y, z" }, { SET,"s, Y, z" }, { SET,"s, Y, z" }, { SET,"s, Y, z" },
+        { SET,"s, Y, z" }, { SET,"s, Y, z" }, { SET,"s, Y" }, { SET,"s, Y, z" },
+        { SET,"s, Y, z" }, { SET,"s, Y, z" }, { SET,"s, Y, z" }, { SET,"s, Y, z" },
+        { SET,"s, Y, z" }, { SET,"s, Y, z" }, { SET,"s, Y" }, { SET,"s, Y, z" },
+        { SET,"s, Y, z" }, { SET,"s, Y, z" }, { SET,"s, Y, z" }, { SET,"s, Y, z" },
+        { SET,"s, Y, z" }, { SET,"s, Y, z" }, { SET,"s, Y" }, { SET,"s, Y, z" },
+        { SET,"s, Y, z" }, { SET,"s, Y, z" }, { SET,"s, Y, z" }, { SET,"s, Y, z" },
+        { SET,"s, Y, z" }, { SET,"s, Y, z" }, { SET,"s, Y" }, { SET,"s, Y, z" },
+        { SET,"s, Y, z" }, { SET,"s, Y, z" }, { SET,"s, Y, z" }, { SET,"s, Y, z" },
+        { SET,"s, Y, z" }, { SET,"s, Y, z" }, { SET,"s, Y" }, { SET,"s, Y, z" },
+        { SET,"s, Y, z" }, { SET,"s, Y, z" }, { SET,"s, Y, z" }, { SET,"s, Y, z" },
+        { SET,"s, Y, z" }, { SET,"s, Y, z" }, { SET,"s, Y" }, { SET,"s, Y, z" },
+        { SET,"s, Y, z" }, { SET,"s, Y, z" }, { SET,"s, Y, z" }, { SET,"s, Y, z" },
+        { SET,"s, Y, z" }, { SET,"s, Y, z" }, { SET,"s, Y" }, { SET,"s, Y, z" },
+        { SET,"s, Y, z" }, { SET,"s, Y, z" }, { SET,"s, Y, z" }, { SET,"s, Y, z" },
+        { SET,"s, Y, z" }, { SET,"s, Y, z" }, { SET,"s, Y" }, { SET,"s, Y, z" }
+    };
 
-unsigned short line(char *p_dst, unsigned short pointer, Z80 *p_cpu, Memory *p_memory, bool info){
-    int offset = 0, idx_reg = 0;
-    unsigned short start = pointer;
-    char *p_op = p_dst + OPCODE_POS;
-    char *p_bt = p_dst;
-    Table *p_decode;
-/*
-c - condition
-p - register pair
-y - 8 bit operand
-b - byte value
-w - word value
-l - relative address
-z - src 8 bit ( z 2-0 bit)
-i - reg pair1 (y 5 -3 POP)
-f - flags (CALL NZ)
-s - bit on bit mnemonic (y bits)
-x - IX or IY
-X - (IX + s),
-Y - (IX + s)
-*/
-    unsigned char byte = p_memory->read_byte_ex(pointer++);
-    switch(byte){
-        case 0xCB:
-            byte = p_memory->read_byte_ex(pointer++);
-            p_decode = &cb_prefix[byte];
-            break;
-        case 0xDD:
-        case 0xFD:
-            idx_reg = byte == 0xDD ? REG::IX : REG::IY;
-            byte = p_memory->read_byte_ex(pointer++);
-            if (byte == 0xCB){
-                offset = (signed char)p_memory->read_byte_ex(pointer++);
-                byte = p_memory->read_byte_ex(pointer++);
-                p_decode = &ddfdcb_prefix[byte];
-            }else
-                p_decode = ddfd_prefix[byte].opcode_id == OPCODE::zDB ? &no_prefix[byte] : &ddfd_prefix[byte];
-            break;
-        case 0xED:
-            byte = p_memory->read_byte_ex(pointer++);
-            p_decode = &ed_prefix[byte];
-            break;
-       default:
-            p_decode = &no_prefix[byte];
-            break;
+    char* hex(char *dst, u8 byte){
+        byte = (byte >> 4) ^ (byte << 4) ^ (byte >> 4);
+        do {
+            *dst++ = byte % 0x10 < 0x0A ? byte % 0x10 + '0' : byte % 0x10 + 'A';
+        }while (byte /= 0x10);
+        return dst;
     }
-    p_op += sprintf(p_op, "%s ", p_opcode[p_decode->opcode_id]);
-    if (p_decode->p_data){
-        for (int i = 0; p_decode->p_data[i]; i++){
-            switch (p_decode->p_data[i]){
-                case 'p': // Register pair.
-                    p_op += sprintf(p_op, "%s", p_op16_1[((byte >> 4) & 0x03)]);
-                    break;
-                case 'i':
-                    p_op += sprintf(p_op, "%s", p_op16_2[((byte >> 4) & 0x03)]);
-                    break;
-                case 'b': // LD B, #NN
-                    p_op += sprintf(p_op, "#%02x", p_memory->read_byte_ex(pointer++));
-                    break;
-                case 'w': // LD BC, #NNNN
-                    byte = p_memory->read_byte_ex(pointer++);
-                    p_op += sprintf(p_op, "#%02x%02x", p_memory->read_byte_ex(pointer++), byte);
-                    break;
-               case 'l': // Relative ptr.  DJNZ, JR.
-                    offset = (signed char)p_memory->read_byte_ex(pointer++);
-                    p_op += sprintf(p_op, "#%04x", pointer + offset);
-                    break;
-               case 'y': // Operand 8 bit 5-3.
-                    p_op += sprintf(p_op, "%s", p_op8[(byte >> 3) & 0x07]);
-                    break;
-               case 'z': // Operand 8 bit 2-0.
-                    p_op += sprintf(p_op, "%s", p_op8[byte & 0x07]);
-                    break;
-               case 'f': // Condition flags, bit 5-3.
-                    p_op += sprintf(p_op, "%s", p_flag[(byte >> 3) & 0x07]);
-                    break;
-               case 'c': // Condition flags, bit 5-3.
-                    p_op += sprintf(p_op, "%s", p_flag[((byte >> 3) & 0x07) - 4]); //!!!!!!!!!!!!
-                    break;
-               case 't': // RST
-                    p_op += sprintf(p_op, "#%02x", byte & (0x07 << 3));
-                    break;
-               case 's': // RES 1, B
-                    p_op += sprintf(p_op, "%d", (byte >> 3) & 0x07);
-                    break;
-               case 'x': // IX / IY
-                    p_op += sprintf(p_op, "%s", p_idx_reg[idx_reg]);
-                    break;
-               case 'X': // Read relative pointer.
-                    offset = (signed char)p_memory->read_byte_ex(pointer++);
-                    break;
-               case 'Y': // Out IX+S pointer.
-                    p_op += sprintf(p_op, "(%s %c#%02x)", p_idx_reg[idx_reg], offset >=0 ? '+' : '-', offset & 0x7F);
-                    break;
-               default:
-                    *p_op++ = p_decode->p_data[i];
-                    break;
+
+    char* dec(char *dst, u16 num){
+        char *src = dst;
+        int idx = 0;
+        do {
+            src[idx++] = '0' + num % 10;
+        }while (num /= 10);
+        while (--idx > 0)
+            *dst++ = src[idx];
+        return dst;
+    }
+
+    u16 decode(char *opcode, char *operand, char *info, u16 ptr, Memory *memory, Z80 *cpu){
+        const char *reg_ix = NULL;
+        MM_Decode *decode = NULL;
+        s8 offset = 0;
+        u8 byte = memory->read_byte_ex(ptr++);
+        switch (byte){
+            case 0xCB:
+                decode = &cb_prefix[byte];
+                break;
+            case 0xDD:
+            case 0xFD:
+                reg_ix = byte == 0xDD ? reg_16i[0] : reg_16i[1];
+                byte = memory->read_byte_ex(ptr++);
+                if (byte == 0xCB){
+                    offset = (s8)memory->read_byte_ex(ptr++);
+                    byte = memory->read_byte_ex(ptr++);
+                    decode = &ddfdcb_prefix[byte];
+                }else
+                    decode = ddfd_prefix[byte].id == Opcode::DB ? &no_prefix[byte] : &ddfd_prefix[byte];
+                break;
+            case 0xED:
+                byte = memory->read_byte_ex(ptr++);
+                decode = &ed_prefix[byte];
+                break;
+            default:
+                decode = &no_prefix[byte];
+                break;
+        }
+        opcode = strcpy(opcode, name[decode->id]);
+        if (decode->operand){
+            for (int i = 0; decode->operand[i]; i++){
+                switch (decode->operand[i]){
+                    case 'p':
+                        operand = strcpy(operand, reg_16a[((byte >> 4) & 0x03)]);
+                        break;
+                    case 'i':
+                        operand = strcpy(operand, reg_16b[((byte >> 4) & 0x03)]);
+                        break;
+                    case 'b': // LD B, #NN
+                        *operand++ = '#';
+                        operand = hex(operand, memory->read_byte_ex(ptr++));
+                        break;
+                    case 'w': // LD BC, #NNNN
+                        *operand++ = '#';
+                        operand = hex(operand, memory->read_byte_ex(ptr + 1));
+                        operand = hex(operand, memory->read_byte_ex(ptr));
+                        ptr += 2;
+                        break;
+                   case 'l': // DJNZ, JR.
+                        *operand++ = '#';
+                        offset = (s8)memory->read_byte_ex(ptr++);
+                        operand = hex(operand, (ptr + offset) >> 8);
+                        operand = hex(operand, (ptr + offset) & 0xFF);
+                        break;
+                   case 'y':
+                        operand = strcpy(operand, opr_8[(byte >> 3) & 0x07]);
+                        break;
+                   case 'z':
+                        operand = strcpy(operand, opr_8[byte & 0x07]);
+                        break;
+                   case 'f':
+                        operand = strcpy(operand, flags[(byte >> 3) & 0x07]);
+                        break;
+                   case 'c':
+                        operand = strcpy(operand, flags[((byte >> 3) & 0x07) - 4]); // ?
+                        break;
+                   case 't':
+                        *operand++ = '#';
+                        operand = hex(operand, byte & (0x07 << 3));
+                        break;
+                   case 's':
+                        operand = dec(operand, (byte >> 3) & 0x07);
+                        break;
+                   case 'x':
+                        operand = strcpy(operand, reg_ix);
+                        break;
+                   case 'X': // Read offset
+                        offset = (s8)memory->read_byte_ex(ptr++);
+                        break;
+                   case 'Y': // (IX + s)
+                        *operand++ = '(';
+                        operand = strcpy(operand, reg_ix);
+                        *operand++ = ' ';
+                        *operand++ = offset < 0 ? '-' : '+';
+                        *operand++ = '#';
+                        operand = hex(operand, offset & 0x7F);
+                        *operand++ = ')';
+                        break;
+                   default:
+                        *operand++ = decode->operand[i];
+                        break;
+                }
             }
         }
+        *opcode = 0x00;
+        return ptr;
     }
-    *p_op = 0x00;
-    p_bt += sprintf(p_bt, "%04X ", start);
-    for (int i = 0; i < pointer - start; i++)
-        p_bt += sprintf(p_bt, " %02x", p_memory->read_byte_ex(start + i));
-    if (p_bt - p_dst < OPCODE_POS)
-        memset(p_bt, ' ', OPCODE_POS - (p_bt - p_dst));
-    return pointer;
-}
-
 };

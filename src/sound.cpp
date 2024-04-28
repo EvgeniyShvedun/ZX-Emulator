@@ -1,5 +1,18 @@
-#include <math.h>
-#include "base.h"
+#include <cstddef>
+#include <limits.h>
+#include <stdexcept>
+#include <stdio.h>
+#include <string.h>
+#include <SDL.h>
+#include "types.h"
+#include "utils.h"
+#include "config.h"
+#include "device.h"
+#include "memory.h"
+#include "ula.h"
+#include "z80.h"
+#include "sound.h"
+//#include <math.h>
 
 #define BUFFER_TIME_SEC 4
 
@@ -33,16 +46,16 @@ void Sound::set_mixer_levels(float side, float center, float opposite){
     switch(mixer_mode){
         case AY_ABC:
             if (side >= 0.0){
-	            mixer[mixer_mode][LEFT][A] = side;
-	            mixer[mixer_mode][RIGHT][C] = side;
+                mixer[mixer_mode][LEFT][A] = side;
+                mixer[mixer_mode][RIGHT][C] = side;
             }
             if (center >= 0.0){
-	            mixer[mixer_mode][LEFT][B] = center;
-	            mixer[mixer_mode][RIGHT][B] = center;
+                mixer[mixer_mode][LEFT][B] = center;
+                mixer[mixer_mode][RIGHT][B] = center;
             }
             if (opposite >= 0.0){
-	            mixer[mixer_mode][LEFT][C] = opposite;
-    	        mixer[mixer_mode][RIGHT][A] = opposite;
+                mixer[mixer_mode][LEFT][C] = opposite;
+                mixer[mixer_mode][RIGHT][A] = opposite;
             }
             break;
         case AY_ACB:
@@ -60,18 +73,18 @@ void Sound::set_mixer_levels(float side, float center, float opposite){
             }
             break;
         case AY_MONO:
-	        mixer[mixer_mode][LEFT][A] = 1.0;
-	        mixer[mixer_mode][LEFT][B] = 1.0;
-	        mixer[mixer_mode][LEFT][C] = 1.0;
-	        mixer[mixer_mode][RIGHT][A] = 1.0;
-	        mixer[mixer_mode][RIGHT][B] = 1.0;
-	        mixer[mixer_mode][RIGHT][C] = 1.0;
+            mixer[mixer_mode][LEFT][A] = 1.0;
+            mixer[mixer_mode][LEFT][B] = 1.0;
+            mixer[mixer_mode][LEFT][C] = 1.0;
+            mixer[mixer_mode][RIGHT][A] = 1.0;
+            mixer[mixer_mode][RIGHT][B] = 1.0;
+            mixer[mixer_mode][RIGHT][C] = 1.0;
             break;
     }
 }
 
 Sound::~Sound(){
-	DELETE_ARRAY(buffer);
+    DELETE_ARRAY(buffer);
     if (audio_device_id)
         SDL_CloseAudioDevice(audio_device_id);
 }
@@ -81,7 +94,7 @@ void Sound::set_ay_volume(float volume){
 }
 
 void Sound::set_speaker_volume(float volume){
-	speaker_volume = volume;
+    speaker_volume = volume;
 }
 
 void Sound::set_tape_volume(float volume){
@@ -95,182 +108,176 @@ void Sound::setup_lpf(int rate){
 }
 
 void Sound::update(int clk){
-	for (int now = clk * cpu_factor; frame_idx < now; frame_idx++){
-		tone_a_counter += increment;
-		if (tone_a_counter >= tone_a_limit){
-			tone_a_counter -= tone_a_limit;
-			tone_a ^= -1;
-		}
-		tone_b_counter += increment;
-		if (tone_b_counter >= tone_b_limit){
-			tone_b_counter -= tone_b_limit;
-			tone_b ^= -1;
-		}
-		tone_c_counter += increment;
-		if (tone_c_counter >= tone_c_limit){
-			tone_c_counter -= tone_c_limit;
-			tone_c ^= -1;
-		}
-		noise_counter += increment;
-		if (noise_counter >= noise_limit){
-			noise_counter -= noise_limit;
-			/* The input to the shift registersister is bit0 XOR bit3 (bit0 is the output).
- 			This was verified on AY-3-8910 and YM2149 chips.*/
-			/*
+    //if (!buffer)
+    //    return;
+    for (int now = clk * cpu_factor; frame_idx < now; frame_idx++){
+        tone_a_counter += increment;
+        if (tone_a_counter >= tone_a_limit){
+            tone_a_counter -= tone_a_limit;
+            tone_a ^= -1;
+        }
+        tone_b_counter += increment;
+        if (tone_b_counter >= tone_b_limit){
+            tone_b_counter -= tone_b_limit;
+            tone_b ^= -1;
+        }
+        tone_c_counter += increment;
+        if (tone_c_counter >= tone_c_limit){
+            tone_c_counter -= tone_c_limit;
+            tone_c ^= -1;
+        }
+        noise_counter += increment;
+        if (noise_counter >= noise_limit){
+            noise_counter -= noise_limit;
+            /* The input to the shift registersister is bit0 XOR bit3 (bit0 is the output).
+             This was verified on AY-3-8910 and YM2149 chips.*/
+            /*
             noise_seed >>= 1;
-			noise = noise_seed & 0x01 ? 0x00 : 0xFF;
+            noise = noise_seed & 0x01 ? 0x00 : 0xFF;
             */
-			/* The Random Number Generator of the 8910 is a 17-bit shift registersister.
-			 Hacker KAY & Sergey Bulba*/
-			/*
+            /* The Random Number Generator of the 8910 is a 17-bit shift registersister.
+             Hacker KAY & Sergey Bulba*/
+            /*
             noise_seed = ((noise_seed << 1) + 1) ^ (((noise_seed >> 16) ^ (noise_seed >> 13)) & 0x01);
-			noise = (noise_seed >> 16) & 0x01 ? 0x00 : 0xFF;
+            noise = (noise_seed >> 16) & 0x01 ? 0x00 : 0xFF;
             */
-			if ((noise_seed & 0x01) ^ ((noise_seed & 0x02) >> 1))
-				noise ^= -1;
-			if (noise_seed & 0x01)
-				noise_seed ^= 0x24000;
-			noise_seed >>= 1;
-		}
-		envelope_counter += increment;
-		if (envelope_counter >= envelope_limit){
-			envelope_counter -= envelope_limit;
-			if (envelope_idx < 0x1F)
-            	envelope_idx++;
+            if ((noise_seed & 0x01) ^ ((noise_seed & 0x02) >> 1))
+                noise ^= -1;
+            if (noise_seed & 0x01)
+                noise_seed ^= 0x24000;
+            noise_seed >>= 1;
+        }
+        envelope_counter += increment;
+        if (envelope_counter >= envelope_limit){
+            envelope_counter -= envelope_limit;
+            if (envelope_idx < 0x1F)
+                envelope_idx++;
             else{
-				if (registers[ENV_SHAPE] < 4 || registers[ENV_SHAPE] & 0x01)
-                	envelope_idx = 0x10;
-            	else
-                	envelope_idx = 0x00;
+                if (registers[ENV_SHAPE] < 4 || registers[ENV_SHAPE] & 0x01)
+                    envelope_idx = 0x10;
+                else
+                    envelope_idx = 0x00;
             }
-			envelope = envelope_shape[registers[ENV_SHAPE] * 0x20 + envelope_idx];
-		}
+            envelope = envelope_shape[registers[ENV_SHAPE] * 0x20 + envelope_idx];
+        }
 
         float left = 0.0f, right = 0.0f;
-		if ((tone_a | (registers[MIX] & 0x01)) && (noise | (registers[MIX] & 0x08))){
-        	float vol = registers[A_VOL] & 0x10 ? ay_volume_table[envelope] : ay_volume_table[registers[A_VOL] & 0x0F];
-        	left += vol * mixer[mixer_mode][LEFT][A];
-        	right += vol * mixer[mixer_mode][RIGHT][A];
-		}
-		if ((tone_b | (registers[MIX] & 0x02)) && (noise | (registers[MIX] & 0x10))){
-        	float vol = registers[B_VOL] & 0x10 ? ay_volume_table[envelope] : ay_volume_table[registers[B_VOL] & 0x0F];
-        	left += vol * mixer[mixer_mode][LEFT][B];
-        	right += vol * mixer[mixer_mode][RIGHT][B];
-		}
-		if ((tone_c | (registers[MIX] & 0x04)) && (noise | (registers[MIX] & 0x20))){
-        	float vol = registers[C_VOL] & 0x10 ? ay_volume_table[envelope] : ay_volume_table[registers[C_VOL] & 0x0F];
-        	left += vol * mixer[mixer_mode][LEFT][C];
-        	right += vol * mixer[mixer_mode][RIGHT][C];
-		}
+        if ((tone_a | (registers[MIX] & 0x01)) && (noise | (registers[MIX] & 0x08))){
+            float vol = registers[A_VOL] & 0x10 ? ay_volume_table[envelope] : ay_volume_table[registers[A_VOL] & 0x0F];
+            left += vol * mixer[mixer_mode][LEFT][A];
+            right += vol * mixer[mixer_mode][RIGHT][A];
+        }
+        if ((tone_b | (registers[MIX] & 0x02)) && (noise | (registers[MIX] & 0x10))){
+            float vol = registers[B_VOL] & 0x10 ? ay_volume_table[envelope] : ay_volume_table[registers[B_VOL] & 0x0F];
+            left += vol * mixer[mixer_mode][LEFT][B];
+            right += vol * mixer[mixer_mode][RIGHT][B];
+        }
+        if ((tone_c | (registers[MIX] & 0x04)) && (noise | (registers[MIX] & 0x20))){
+            float vol = registers[C_VOL] & 0x10 ? ay_volume_table[envelope] : ay_volume_table[registers[C_VOL] & 0x0F];
+            left += vol * mixer[mixer_mode][LEFT][C];
+            right += vol * mixer[mixer_mode][RIGHT][C];
+        }
         left_amp += lpf_alpha * ((left * ay_volume + speaker_amp + tape_in_amp + tape_out_amp) / 5.0f - left_amp);
         right_amp += lpf_alpha * ((right * ay_volume + speaker_amp + tape_in_amp + tape_out_amp) / 5.0f - right_amp);
         buffer[frame_idx * 2] = 0x8000 * left_amp;
         buffer[frame_idx * 2 + 1] = 0x8000 * right_amp;
-	}
+    }
 }
 
-bool Sound::io_wr(unsigned short port, unsigned char byte, int clk){
-	if (!(port & 0x01)){
-        if ((pwFE ^ byte) & (SPEAKER | TAPE_OUT)){
+void Sound::write(u16 port, u8 byte, s32 clk){
+    if (!(port & 0x01)){
+        if ((port_wFE ^ byte) & (SPEAKER | TAPE_OUT)){
             update(clk);
-            if ((pwFE ^ byte) & SPEAKER)
+            if ((port_wFE ^ byte) & SPEAKER)
                 speaker_amp = speaker_amp ? 0.0f : speaker_volume;
-            if ((pwFE ^ byte) & TAPE_OUT)
+            if ((port_wFE ^ byte) & TAPE_OUT)
                 tape_out_amp = tape_out_amp ? 0.0f : tape_volume;
-            pwFE = byte;
-            return true;
-		}
+            port_wFE = byte;
+        }
     }else{
         if ((port & 0xC002) == 0xC000){
-            pwFFFD = byte & 0x0F;
-            return true;
+            port_wFFFD = byte & 0x0F;
         }else{
             if ((port & 0xC002) == 0x8000){
                 update(clk);
-                registers[pwFFFD] = byte;
-				switch(pwFFFD){
-					case A_PCH_H:
+                registers[port_wFFFD] = byte;
+                switch(port_wFFFD){
+                    case A_PCH_H:
                         registers[A_PCH_H] &= 0x0F;
-					case A_PCH_L:
-						tone_a_limit = registers[A_PCH_H] << 0x08 | registers[A_PCH_L];
-						break;
-					case B_PCH_H:
+                    case A_PCH_L:
+                        tone_a_limit = registers[A_PCH_H] << 0x08 | registers[A_PCH_L];
+                        break;
+                    case B_PCH_H:
                         registers[B_PCH_H] &= 0x0F;
                     case B_PCH_L:
-						tone_b_limit = registers[B_PCH_H] << 0x08 | registers[B_PCH_L];
-						break;
-					case C_PCH_H:
-                        registers[C_PCH_H] &= 0x0F;
-					case C_PCH_L:
-						tone_c_limit = registers[C_PCH_H] << 0x08 | registers[C_PCH_L];
-						break;
-					case N_PCH:
-						noise_limit = registers[N_PCH] & 0x1F;// * 2;
-						break;
-                    case MIX: // bit (0 - 7/5?)
-						break;
-					case A_VOL:
-						registers[A_VOL] &= 0x1F;
-						break;
-					case B_VOL:
-						registers[B_VOL] &= 0x1F;
-						break;
-					case C_VOL:
-						registers[C_VOL] &= 0x1F;
-						break;
-					case ENV_L:
-					case ENV_H:
-						envelope_limit = registers[ENV_H] << 0x8 | registers[ENV_L];
-						break;
-					case ENV_SHAPE:
-						registers[ENV_SHAPE] &= 0x0F;
-						envelope = envelope_shape[registers[ENV_SHAPE] * 0x20];
-						envelope_idx = 0x00;
-						break;
-					case PORT_A:
+                        tone_b_limit = registers[B_PCH_H] << 0x08 | registers[B_PCH_L];
                         break;
-					case PORT_B:
-						break;
-				}
-                return true;
-			}
-		}
-	}
-    return false;
-}
-
-bool Sound::io_rd(unsigned short port, unsigned char *p_byte, int clk){
-    if (!(port & 0x01)){
-        if ((prFE ^ *p_byte) & TAPE_IN){
-            update(clk);
-            tape_in_amp = tape_in_amp ? 0.0f : tape_volume;
-            prFE = *p_byte;
-            return true;
+                    case C_PCH_H:
+                        registers[C_PCH_H] &= 0x0F;
+                    case C_PCH_L:
+                        tone_c_limit = registers[C_PCH_H] << 0x08 | registers[C_PCH_L];
+                        break;
+                    case N_PCH:
+                        noise_limit = registers[N_PCH] & 0x1F;// * 2;
+                        break;
+                    case MIX: // bit (0 - 7/5?)
+                        break;
+                    case A_VOL:
+                        registers[A_VOL] &= 0x1F;
+                        break;
+                    case B_VOL:
+                        registers[B_VOL] &= 0x1F;
+                        break;
+                    case C_VOL:
+                        registers[C_VOL] &= 0x1F;
+                        break;
+                    case ENV_L:
+                    case ENV_H:
+                        envelope_limit = registers[ENV_H] << 0x8 | registers[ENV_L];
+                        break;
+                    case ENV_SHAPE:
+                        registers[ENV_SHAPE] &= 0x0F;
+                        envelope = envelope_shape[registers[ENV_SHAPE] * 0x20];
+                        envelope_idx = 0x00;
+                        break;
+                    case PORT_A:
+                        break;
+                    case PORT_B:
+                        break;
+                }
+            }
         }
     }
-    if ((port & 0xC003) == 0xC001){
-		*p_byte &= registers[pwFFFD];
-        return true;
+}
+
+void Sound::read(u16 port, u8 *byte, s32 clk){
+    if (!(port & 0x01)){
+        if ((port_rFE ^ *byte) & TAPE_IN){
+            update(clk);
+            tape_in_amp = tape_in_amp ? 0.0f : tape_volume;
+            port_rFE = *byte;
+        }
     }
-    return false;
+    if ((port & 0xC003) == 0xC001)
+        *byte &= registers[port_wFFFD];
 }
 
 void Sound::reset(){
-	tone_a = tone_b = tone_c = noise = envelope = 0;
+    tone_a = tone_b = tone_c = noise = envelope = 0;
     tone_a_counter = tone_b_counter = tone_c_counter = noise_counter = envelope_counter = 0;
     tone_a_limit = tone_b_limit = tone_c_limit = noise_limit = envelope_limit = 0xFFF;
-	noise_seed = 12345;
+    noise_seed = 12345;
     envelope_idx = 0;
-    for (pwFFFD = 0; pwFFFD < 0x10; pwFFFD++)
-        registers[pwFFFD] = 0x00;
-    pwFFFD = prFE = pwFE = 0x00;
-	left_amp = right_amp = speaker_amp = tape_in_amp = tape_out_amp = 0.0f;
-	frame_idx = 0;
+    for (port_wFFFD = 0; port_wFFFD < 0x10; port_wFFFD++)
+        registers[port_wFFFD] = 0x00;
+    port_wFFFD = port_rFE = port_wFE = 0x00;
+    left_amp = right_amp = speaker_amp = tape_in_amp = tape_out_amp = 0.0f;
+    frame_idx = 0;
 }
 
 void Sound::frame(int frame_clk){
-	update(frame_clk);
-	frame_idx = 0;
+    update(frame_clk);
+    frame_idx = 0;
 }
 
 void Sound::queue(){

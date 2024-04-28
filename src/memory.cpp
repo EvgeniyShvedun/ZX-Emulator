@@ -1,99 +1,107 @@
-#include "base.h"
+#include <cstddef>
+#include <limits.h>
+#include <stdexcept>
+#include <stdio.h>
+#include <string.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include "types.h"
+#include "utils.h"
+#include "config.h"
+#include "device.h"
+#include "memory.h"
 
 Memory::Memory(){
-    for (int i = 0; i < ROM_PAGES; i++){
-        p_rom[i] = new unsigned char [PAGE_SIZE]();
-        p_trap[i] = new unsigned char [PAGE_SIZE]();
+    for (unsigned int i = 0; i < sizeof(ROM_Bank); i++){
+        rom[i] = new u8[PAGE_SIZE]();
+        trap[i] = new u8[PAGE_SIZE]();
     }
     for (int i = 0; i < RAM_PAGES; i++)
-        p_ram[i] = new unsigned char [PAGE_SIZE]();
-    p_page_wr_null = new unsigned char [PAGE_SIZE]();
-    set_rom(ROM_128);
+        ram[i] = new u8[PAGE_SIZE]();
+    page_wr_null = new u8[PAGE_SIZE]();
     reset();
 }
 
 Memory::~Memory(){
-    for (int i = 0; i < ROM_PAGES; i++){
-        DELETE_ARRAY(p_rom[i]);
-        DELETE_ARRAY(p_trap[i]);
+    for (unsigned int i = 0; i < sizeof(ROM_Bank); i++){
+        DELETE_ARRAY(rom[i]);
+        DELETE_ARRAY(trap[i]);
     }
     for (int i = 0; i < RAM_PAGES; i++)
-        DELETE_ARRAY(p_ram[i]);
-    DELETE_ARRAY(p_page_wr_null);
+        DELETE_ARRAY(ram[i]);
+    DELETE_ARRAY(page_wr_null);
+}
+
+void Memory::set_main_rom(ROM_Bank bank){
+    main_rom = bank;
 }
 
 void Memory::reset(){
-    p7FFD = 0x00;
-    p_page_wr[0] = p_page_wr_null;
-    p_page_rd[1] = p_page_wr[1] = p_page_ex[1] = p_ram[5] - PAGE_SIZE*1;                    // RAM5 0x4000 - 0x7FFF
-    p_page_rd[2] = p_page_wr[2] = p_page_ex[2] = p_ram[2] - PAGE_SIZE*2;                    // RAM2 0x8000 - 0xBFFF
-    p_page_rd[3] = p_page_wr[3] = p_page_ex[3] = p_ram[p7FFD & P7FFD_PAGE] - PAGE_SIZE*3;   // RAM  0xC000 - 0xFFFF
-    if (reset_rom != ROM_TRDOS){
-        p_page_rd[0] = p_rom[reset_rom];
-        p_page_ex[0] = p_trap[reset_rom];
+    port_7FFD = 0x00;
+    page_wr[0] = page_wr_null;
+    page_rd[1] = page_wr[1] = page_ex[1] = ram[5] - PAGE_SIZE*1;                        // RAM5 0x4000 - 0x7FFF
+    page_rd[2] = page_wr[2] = page_ex[2] = ram[2] - PAGE_SIZE*2;                        // RAM2 0x8000 - 0xBFFF
+    page_rd[3] = page_wr[3] = page_ex[3] = ram[port_7FFD & PAGE_MASK] - PAGE_SIZE*3;    // USER 0xC000 - 0xFFFF
+    if (main_rom != ROM_Trdos){
+        page_rd[0] = rom[main_rom];
+        page_ex[0] = trap[main_rom];
     }else{
-        p_page_rd[0] = p_page_ex[0] = p_rom[reset_rom];
-        p_page_ex[1] = p_trap[reset_rom] - PAGE_SIZE*1;
-        p_page_ex[2] = p_trap[reset_rom] - PAGE_SIZE*2;
-        p_page_ex[3] = p_trap[reset_rom] - PAGE_SIZE*3;
+        page_rd[0] = page_ex[0] = rom[main_rom];
+        page_ex[1] = trap[main_rom] - PAGE_SIZE*1;
+        page_ex[2] = trap[main_rom] - PAGE_SIZE*2;
+        page_ex[3] = trap[main_rom] - PAGE_SIZE*3;
     }
 }
 
-bool Memory::io_wr(unsigned short port, unsigned char byte, int clk){
+void Memory::write(u16 port, u8 byte, s32 clk){
     if (!(port & 0x8002)){ // 7FFD decoded if A2 and A15 is zero.
-        if (p7FFD & P7FFD_LOCK)
-            return true;
-        if (byte & P7FFD_ROM48){
-            p_page_rd[0] = p_rom[ROM_48];
-            p_page_ex[0] = p_trap[ROM_48];
+        //if (port_7FFD & PORT_LOCKED)
+        //    return;
+        if (byte & BANK0_ROM48){
+            page_rd[0] = rom[ROM_48];
+            page_ex[0] = trap[ROM_48];
         }else{
-            p_page_rd[0] = p_rom[ROM_128];
-            p_page_ex[0] = p_trap[ROM_128];
+            page_rd[0] = rom[ROM_128];
+            page_ex[0] = trap[ROM_128];
         }
-        p_page_wr[0] = p_page_wr_null;
-        p_page_rd[1] = p_page_wr[1] = p_page_ex[1] = p_ram[5] - PAGE_SIZE*1;                    // RAM5 0x4000 - 0x7FFF
-        p_page_rd[2] = p_page_wr[2] = p_page_ex[2] = p_ram[2] - PAGE_SIZE*2;                    // RAM2 0x8000 - 0xBFFF
-        p_page_rd[3] = p_page_wr[3] = p_page_ex[3] = p_ram[byte & P7FFD_PAGE] - PAGE_SIZE*3;    // RAM  0xC000 - 0xFFFF
-        p7FFD = byte;
+        page_wr[0] = page_wr_null;
+        page_rd[1] = page_wr[1] = page_ex[1] = ram[5] - PAGE_SIZE*1;                    // RAM5 0x4000 - 0x7FFF
+        page_rd[2] = page_wr[2] = page_ex[2] = ram[2] - PAGE_SIZE*2;                    // RAM2 0x8000 - 0xBFFF
+        page_rd[3] = page_wr[3] = page_ex[3] = ram[byte & PAGE_MASK] - PAGE_SIZE*3;     // USER 0xC000 - 0xFFFF
+        port_7FFD = byte;
     }
-    return false;
 }
 
-bool Memory::exec_trap(unsigned short pc){
-    if (p_page_rd[0] == p_rom[ROM_48] && pc >> 8 == 0x3D){
-        p_page_rd[0] = p_page_ex[0] = p_rom[ROM_TRDOS];
-        p_page_ex[1] = p_trap[ROM_TRDOS] - PAGE_SIZE*1;
-        p_page_ex[2] = p_trap[ROM_TRDOS] - PAGE_SIZE*2;
-        p_page_ex[3] = p_trap[ROM_TRDOS] - PAGE_SIZE*3;
+bool Memory::trap_trdos(u16 pc){
+    if (page_rd[0] == rom[ROM_48] && pc >> 8 == 0x3D){/////
+        page_rd[0] = page_ex[0] = rom[ROM_Trdos];
+        page_ex[1] = trap[ROM_Trdos] - PAGE_SIZE*1;
+        page_ex[2] = trap[ROM_Trdos] - PAGE_SIZE*2;
+        page_ex[3] = trap[ROM_Trdos] - PAGE_SIZE*3;
         return true;
-    }else{
-        if (p_page_rd[0] == p_rom[ROM_TRDOS] && pc >= 0x4000){
-            p_page_rd[0] = p_rom[ROM_48];
-            p_page_ex[0] = p_trap[ROM_48];
-            p_page_ex[1] = p_ram[5] - PAGE_SIZE*1;
-            p_page_ex[2] = p_ram[2] - PAGE_SIZE*2;
-            p_page_ex[3] = p_ram[p7FFD & P7FFD_PAGE] - PAGE_SIZE*3;
+    }else
+        if (page_rd[0] == rom[ROM_Trdos] && pc >= 0x4000){
+            page_rd[0] = rom[ROM_48];
+            page_ex[0] = trap[ROM_48];
+            page_ex[1] = ram[5] - PAGE_SIZE*1;
+            page_ex[2] = ram[2] - PAGE_SIZE*2;
+            page_ex[3] = ram[port_7FFD & PAGE_MASK] - PAGE_SIZE*3;
             return true;
         }
-    }
     return false;
 }
 
-void Memory::load_rom(ROM_BANK id, const char *path){
-    FILE *fp = fopen(path, "rb");
-    if (!fp)
-        throw std::runtime_error(std::string("Open file: ") + std::string(path));
-    fseek(fp, 0, SEEK_END);
-    size_t size = ftell(fp);
-    fseek(fp, 0, SEEK_SET);
-    if (size != PAGE_SIZE)
-        throw std::runtime_error(std::string("ROM file: ") + std::string(path) + std::string(" has wring format"));
-    fread(p_rom[id], 1, PAGE_SIZE, fp);
-    if (id != ROM_TRDOS){
-        memcpy(p_trap[id], p_rom[id], PAGE_SIZE);
-        if (id == ROM_48)
-            memset(p_trap[id] + 0x3D00, Z80_TRAP_OPCODE, 0x100);
+void Memory::load_rom(ROM_Bank bank, const char *path){
+    int fd = open(path, O_RDONLY);
+    if (fd < 0)
+        throw;
+    if (::read(fd, rom[bank], PAGE_SIZE) != PAGE_SIZE)
+        throw;
+    close(fd);
+    if (bank != ROM_Trdos){
+        memcpy(trap[bank], rom[bank], PAGE_SIZE);
+        if (bank == ROM_48)
+            memset(trap[bank] + 0x3D00, TRAP_TRDOS_BYTE, 0x100);
     }else
-        memset(p_trap[id], Z80_TRAP_OPCODE, PAGE_SIZE);
-    fclose(fp);
+        memset(trap[bank], TRAP_TRDOS_BYTE, PAGE_SIZE);
 }

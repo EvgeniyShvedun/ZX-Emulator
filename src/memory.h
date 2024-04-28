@@ -1,36 +1,46 @@
 #define PAGE_SIZE           0x4000
-#define ROM_PAGES           3
 #define RAM_PAGES           8
+#define TRAP_TRDOS_BYTE     0x5B
 
-// Port 7FFD
-#define P7FFD_PAGE          0b00000111
-#define P7FFD_SCR7          0b00001000
-#define P7FFD_ROM48         0b00010000
-#define P7FFD_LOCK          0b00100000
+// Port 7FFD bits
+#define PAGE_MASK       0b00000111
+#define SCREEN_PAGE7    0b00001000
+#define BANK0_ROM48     0b00010000
+#define PORT_LOCKED     0b00100000
 
 class Memory : public Device {
     public:
         Memory();
         ~Memory();
-        inline unsigned char read_byte(unsigned short ptr){ return p_page_rd[ptr >> 0x0E][ptr]; };
-        inline unsigned char read_byte_ex(unsigned short ptr){ return p_page_ex[ptr >> 0x0E][ptr]; };
-        inline void write_byte(unsigned short ptr, unsigned char byte, int clk=0){ p_page_wr[ptr >> 0x0E][ptr] = byte; };
-        bool exec_trap(unsigned short pc);
-        bool trdos_active(){ return p_page_ex[0] == p_rom[ROM_TRDOS]; };
-        unsigned char* page(int n) { return (n < RAM_PAGES and n >= 0) ? p_ram[n] : NULL; };
-        void load_rom(ROM_BANK id, const char *path);
-        bool io_wr(unsigned short port, unsigned char byte, int clk);
+
+        inline u8 read_byte(u16 ptr){
+            return page_rd[ptr >> 0x0E][ptr];
+        };
+        inline u8 read_byte_ex(u16 ptr){
+            return page_ex[ptr >> 0x0E][ptr];
+        };
+        inline void write_byte(u16 ptr, u8 byte, s32 clk){
+            page_wr[ptr >> 0x0E][ptr] = byte;
+        };
+
+        void load_rom(ROM_Bank bank, const char *path);
+        void set_main_rom(ROM_Bank bank);
+        bool trap_trdos(u16 pc);
+        bool is_trdos_active(){ return page_ex[0] == rom[ROM_Trdos]; };
+        u8* page(int page_num) { return ram[page_num]; };
+        u8 read_7FFD(){ return port_7FFD; };
+
+        void write(u16 port, u8 byte, s32 clk);
         void reset();
-        void set_rom(ROM_BANK id){ reset_rom = id; };
-        unsigned char read_7FFD(){ return p7FFD; };
+
     protected:
-        ROM_BANK reset_rom = ROM_TRDOS;
-        unsigned char *p_page_wr_null;
-        unsigned char *p_rom[ROM_PAGES];
-        unsigned char *p_trap[ROM_PAGES];
-        unsigned char *p_ram[RAM_PAGES];
-        unsigned char *p_page_rd[4];
-        unsigned char *p_page_wr[4];
-        unsigned char *p_page_ex[4];
-        unsigned char p7FFD;
+        ROM_Bank main_rom = ROM_Trdos;
+        u8 *page_wr_null;
+        u8 *rom[sizeof(ROM_Bank)];
+        u8 *trap[sizeof(ROM_Bank)];
+        u8 *ram[RAM_PAGES];
+        u8 *page_rd[4];
+        u8 *page_wr[4];
+        u8 *page_ex[4];
+        u8 port_7FFD;
 };

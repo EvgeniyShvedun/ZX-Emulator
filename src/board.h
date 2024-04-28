@@ -1,39 +1,39 @@
-
 class Board : public IO {
     public:
-        Board(CFG *cfg);
+        Board(CFG &cfg);
         ~Board();
-        void set_hw(HW_Model hw);
-        void event(SDL_Event &event);
-        void viewport_resize(int width, int height);
-        void video_filter(VF filter);
-        void full_speed(bool on);
-        void full_screen(bool on);
-        void vsync(bool on);
-
-        void load_file(const char *path);
-        void save_file(const char *path);
-
+        void setup(Hardware model);
         void frame();
         void reset();
 
-        unsigned char read(unsigned short port, int clk = 0);
-        void write(unsigned short port, unsigned char byte, int clk = 0);
+        bool load_file(const char *path);
+        bool save_file(const char *path);
 
-        int frame_clk;
+        void set_viewport_size(int width, int height);
+        void set_video_filter(VideoFilter filter);
+        void set_full_speed(bool state);
+        void set_full_screen(bool state);
+        void set_vsync(bool state);
+
+        void event(SDL_Event &event);
+
+        void read(u16 port, u8 *byte, s32 clk=0);
+        void write(u16 port, u8 byte, s32 clk=0);
+
+        s32 frame_clk;
         Z80 cpu;
         ULA ula;
         Sound sound;
         Keyboard keyboard;
     private:
-        CFG *cfg = NULL;
-        GLuint screen_texture = 0;
-        GLuint pbo = 0;
+        // Display
         int viewport_width = -1;
         int viewport_height = -1;
+        GLuint screen_texture = 0;
+        GLuint pbo = 0;
+        // Devices
+        FDC fdc;
         Tape tape;
         Joystick joystick;
         Mouse mouse;
-        FDC fdc;
-        int hw;
 };
