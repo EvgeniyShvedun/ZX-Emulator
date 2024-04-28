@@ -3776,7 +3776,7 @@ void Z80::frame(ULA *memory, IO *io, s32 frame_clk){
                         LD_XS_R(iy, l);
                         break;
                     case 0x76: // HALT
-                        pc--; // Next HALT without prefiy.
+                        pc--; // Next HALT without prefix.
                         time(4);
                         break;
                     case 0x77: // LD (IY + s), A
@@ -4031,7 +4031,7 @@ void Z80::frame(ULA *memory, IO *io, s32 frame_clk){
                     case 0xCA: // JP Z, NN
                         JP_CND_NN(f & ZF);
                         break;
-                    case 0xCB: // --------------- FDCB PREFIY -------------- time set without DD prefiy
+                    case 0xCB: // --------------- FDCB PREFIY -------------- time set without DD prefix
                         pc++;
                         switch(memory->read_byte_ex(pc++)){
                             case 0x00: // RLC (IY + s), B
@@ -4752,7 +4752,7 @@ void Z80::frame(ULA *memory, IO *io, s32 frame_clk){
                     case 0xDC: // CALL C, NN
                         CALL_CND_NN(f & CF);
                         break;
-                    case 0xDD: // DD DD combination. Return to first DD prefiy.
+                    case 0xDD: // DD DD combination. Return to first DD prefix.
                         irl--;
                         pc--;
                         break;
