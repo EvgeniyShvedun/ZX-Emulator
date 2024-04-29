@@ -175,10 +175,12 @@ void Sound::update(int clk){
             left += vol * mixer[mixer_mode][LEFT][C];
             right += vol * mixer[mixer_mode][RIGHT][C];
         }
-        left_amp += lpf_alpha * ((left * ay_volume + speaker_amp + tape_in_amp + tape_out_amp) / 5.0f - left_amp);
-        right_amp += lpf_alpha * ((right * ay_volume + speaker_amp + tape_in_amp + tape_out_amp) / 5.0f - right_amp);
-        buffer[frame_idx * 2] = 0x8000 * left_amp;
-        buffer[frame_idx * 2 + 1] = 0x8000 * right_amp;
+        left = (left / 3.0f * ay_volume + speaker_amp + tape_in_amp + tape_out_amp) / 4.0f;
+        right = (right / 3.0f * ay_volume + speaker_amp + tape_in_amp + tape_out_amp) / 4.0f;
+        left_out += lpf_alpha * (left - left_out);
+        right_out += lpf_alpha * (right - right_out);
+        buffer[frame_idx * 2] = 0x8000 * left_out;
+        buffer[frame_idx * 2 + 1] = 0x8000 * right_out;
     }
 }
 
@@ -269,7 +271,8 @@ void Sound::reset(){
     for (port_wFFFD = 0; port_wFFFD < 0x10; port_wFFFD++)
         registers[port_wFFFD] = 0x00;
     port_wFFFD = port_rFE = port_wFE = 0x00;
-    left_amp = right_amp = speaker_amp = tape_in_amp = tape_out_amp = 0.0f;
+    left_out = right_out = 0.0f;
+    speaker_amp = tape_in_amp = tape_out_amp = 0.0f;
     frame_idx = 0;
 }
 

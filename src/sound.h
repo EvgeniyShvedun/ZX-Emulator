@@ -111,7 +111,7 @@ Register       Function                        Range
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
         };
 		float ay_volume, speaker_volume, tape_volume;
-	    float left_amp, right_amp;
+	    float left_out, right_out;
         float speaker_amp, tape_in_amp, tape_out_amp;
         float lpf_alpha;
 		int mixer_mode;
