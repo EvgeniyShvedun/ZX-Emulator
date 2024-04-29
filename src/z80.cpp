@@ -4865,7 +4865,7 @@ void Z80::frame(ULA *memory, IO *io, s32 frame_clk){
                         break;
                 }
 		        break;
-            // Not prefixed.
+            // no-prefex.
             case 0xFE: // CP N
                 CP_XR(pc++);
                 break;
