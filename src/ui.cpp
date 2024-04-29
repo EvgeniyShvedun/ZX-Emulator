@@ -133,11 +133,11 @@ namespace UI {
         NewFrame();
         ImGuiIO &io = GetIO();
         ImGuiStyle &style = GetStyle();
-        SetNextWindowPos(ImVec2(io.DisplaySize.x*0.5f, io.DisplaySize.y*0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
         switch (mode){
             case UI_Hidden:
                 break;
             case UI_Exit:
+                SetNextWindowPos(ImVec2(io.DisplaySize.x*0.5f, io.DisplaySize.y*0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
                 if (Begin("Exit", NULL, UI_WindowFlags | ImGuiWindowFlags_AlwaysAutoResize)){
                     SetCursorPosX((GetWindowSize().x - CalcTextSize("Do you exit ?").x) * 0.5);
                     Text("Do you exit ?");
@@ -153,13 +153,15 @@ namespace UI {
                 }
                 break;
             case UI_KbdLayout:
+                SetNextWindowPos(ImVec2(io.DisplaySize.x*0.5f, io.DisplaySize.y*0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
                 SetNextWindowSize(ImVec2(io.DisplaySize.x * 0.8f, io.DisplaySize.y * 0.5f), ImGuiCond_Always);
-                if (Begin("Keyboard", NULL, UI_WindowFlags)){
+                if (Begin("Keyboard", NULL, UI_WindowFlags | ImGuiWindowFlags_NoDecoration)){
                     Image((ImTextureID)kbd_texture, GetContentRegionAvail());
                     End();
                 }
                 break;
             case UI_OpenFile:
+                SetNextWindowPos(ImVec2(io.DisplaySize.x*0.5f, io.DisplaySize.y*0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
                 SetNextWindowSize(ImVec2(SCREEN_WIDTH*2*0.87f, SCREEN_HEIGHT*2*0.65f), ImGuiCond_Always);
                 //file_config.flags &= ~ImGuiFileDialogFlags_ConfirmOverwrite;
                 ImGuiFileDialog::Instance()->OpenDialog("##file_open", "Open file", ".z80;.tap;.trd;.scl {(([.]z80|Z80|trd|TRD|scl|SCL|tap|TAP))}", file_config);
@@ -171,6 +173,7 @@ namespace UI {
                 }
                 break;
             case UI_SaveFile:
+                SetNextWindowPos(ImVec2(io.DisplaySize.x*0.5f, io.DisplaySize.y*0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
                 SetNextWindowSize(ImVec2(SCREEN_WIDTH*2*0.87f, SCREEN_HEIGHT*2*0.65f), ImGuiCond_Always);
                 //file_config.flags |= ImGuiFileDialogFlags_ConfirmOverwrite;
                 ImGuiFileDialog::Instance()->OpenDialog("##file_save", "Save file", ".z80;.trd; {(([.]z80|Z80|trd|TRD))}", file_config);
@@ -182,6 +185,7 @@ namespace UI {
                 }
                 break;
             case UI_Settings:
+                SetNextWindowPos(ImVec2(io.DisplaySize.x*0.5f, io.DisplaySize.y/2-HEIGHT/2), ImGuiCond_Always, ImVec2(0.5f, 0.0f));
                 SetNextWindowSize(ImVec2(WIDTH, 0), ImGuiCond_Always);
                 if (Begin("Settings", NULL, UI_WindowFlags | ImGuiWindowFlags_AlwaysAutoResize)){
                     if (BeginTabBar("tabs")){
