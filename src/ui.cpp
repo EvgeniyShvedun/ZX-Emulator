@@ -386,7 +386,7 @@ namespace UI {
                             EndTabItem();
                         }
                         if (BeginTabItem("Gamepad")){
-                            static struct Gamepad {
+                            static struct {
                                 const char *name;
                                 int *code;
                             } gamepad[6] = {
@@ -398,7 +398,7 @@ namespace UI {
                                 {"B", &cfg.gamepad.b }
                             };
                             static int gamepad_idx = 6;
-                            static int gamepad_log_offset = 0;
+                            static int gamepad_log_pos = 0;
                             static char gamepad_log[1024];
                             SeparatorText("Configure");
                             InputTextMultiline("##gamepad_log", gamepad_log, IM_ARRAYSIZE(gamepad_log), ImVec2(-FLT_MIN, ImGui::GetTextLineHeight()*7 + style.FramePadding.y*2));
@@ -407,16 +407,15 @@ namespace UI {
                             if (Button("Start", btn_size)){
                                 gamepad_idx = 0;
                                 gamepad_code = 0;
-                                gamepad_log_offset = sprintf(gamepad_log, "Press the %s", gamepad[gamepad_idx].name);
+                                gamepad_log_pos = sprintf(&gamepad_log[gamepad_log_pos], "Press %s button", gamepad[gamepad_idx].name);
                             }
-                            if (gamepad_idx <= 5 && gamepad_code){
-                                gamepad_log_offset += sprintf(&gamepad_log[gamepad_log_offset], " %d Ok", gamepad_code);
+                            if (gamepad_idx < 6 && gamepad_code){
                                 *gamepad[gamepad_idx].code = gamepad_code;
                                 gamepad_code = 0;
-                                if (++gamepad_idx < 6)
-                                   gamepad_log_offset += sprintf(&gamepad_log[gamepad_log_offset], "\nPress the %s", gamepad[gamepad_idx].name);
+                                if (++gamepad_idx < 6 )
+                                   gamepad_log_pos += sprintf(&gamepad_log[gamepad_log_pos], " Ok\nPress %s button", gamepad[gamepad_idx].name);
                                 else
-                                   gamepad_log_offset += sprintf(&gamepad_log[gamepad_log_offset], "\nConfig done.");
+                                   gamepad_log_pos += sprintf(&gamepad_log[gamepad_log_pos], " Ok\nDone.");
                             }
                             EndTabItem();
                         }
