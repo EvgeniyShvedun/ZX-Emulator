@@ -2963,7 +2963,7 @@ void Z80::frame(ULA *memory, IO *io, s32 frame_clk){
                     case 0xDC: // CALL C, NN
                         CALL_CND_NN(f & CF);
                         break;
-                    case 0xDD: // --------------- DD DD combination ---------------
+                    case 0xDD: // --------------- DD DD---------------
                         irl--;
                         pc--;
                         break;
@@ -3075,7 +3075,7 @@ void Z80::frame(ULA *memory, IO *io, s32 frame_clk){
                         break;
 		        }
 		        break;
-            // No prefix.
+            // no-prefix.
             case 0xDE: // SBC A, N
                 SBC_XR(pc++);
                 break;
@@ -3121,7 +3121,7 @@ void Z80::frame(ULA *memory, IO *io, s32 frame_clk){
             case 0xEC: // CALL PE, NN
                 CALL_CND_NN(f & PF);
                 break;
-            case 0xED: // --------------- ED prefix ---------------
+            case 0xED: // --------------- ED prefix ----------------
                 irl++;
                 time(4);
                 switch(memory->read_byte_ex(pc++)){
@@ -3351,7 +3351,7 @@ void Z80::frame(ULA *memory, IO *io, s32 frame_clk){
                         break;
                 }
                 break;
-            // No prefix
+            // no-prefix.
             case 0xEE: // XOR A, N
                 XOR_XR(pc++);
                 break;
@@ -3777,7 +3777,7 @@ void Z80::frame(ULA *memory, IO *io, s32 frame_clk){
                         LD_XS_R(iy, l);
                         break;
                     case 0x76: // HALT
-                        pc--; // Next HALT without prefix.
+                        pc--;
                         time(4);
                         break;
                     case 0x77: // LD (IY + s), A
@@ -4032,7 +4032,7 @@ void Z80::frame(ULA *memory, IO *io, s32 frame_clk){
                     case 0xCA: // JP Z, NN
                         JP_CND_NN(f & ZF);
                         break;
-                    case 0xCB: // --------------- FDCB --------------
+                    case 0xCB: // --------------- FDCB prefix --------------
                         pc++;
                         switch(memory->read_byte_ex(pc++)){
                             case 0x00: // RLC (IY + s), B
@@ -4753,7 +4753,7 @@ void Z80::frame(ULA *memory, IO *io, s32 frame_clk){
                     case 0xDC: // CALL C, NN
                         CALL_CND_NN(f & CF);
                         break;
-                    case 0xDD: // --------------- FDDD ---------------
+                    case 0xDD: // --------------- FD DD ---------------
                         irl--;
                         pc--;
                         break;
@@ -4802,7 +4802,7 @@ void Z80::frame(ULA *memory, IO *io, s32 frame_clk){
                     case 0xEC: // CALL PE, NN
                         CALL_CND_NN(f & PF);
                         break;
-                    case 0xED: // --------------- FDED ---------------
+                    case 0xED: // --------------- FD ED ---------------
                         irl--;
                         pc--;
                         break;
@@ -4853,7 +4853,7 @@ void Z80::frame(ULA *memory, IO *io, s32 frame_clk){
                     case 0xFC: // CALL M, NN
                         CALL_CND_NN(f & SF);
                         break;
-                    case 0xFD: // --------------- FDFD ---------------
+                    case 0xFD: // --------------- FD FD ---------------
                         irl--;
                         pc--;
                         break;
@@ -4865,7 +4865,7 @@ void Z80::frame(ULA *memory, IO *io, s32 frame_clk){
                         break;
                 }
 		        break;
-            // Continue not prefixed opcodes.
+            // Not prefixed.
             case 0xFE: // CP N
                 CP_XR(pc++);
                 break;
