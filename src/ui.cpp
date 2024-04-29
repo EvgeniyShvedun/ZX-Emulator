@@ -7,6 +7,8 @@
 #include <SDL_image.h>
 #include <GL/glew.h>
 #include <GL/gl.h>
+#include <sys/stat.h>
+#include <unistd.h>
 #include "imgui.h"
 #include "imgui_impl_sdl2.h"
 #include "imgui_impl_opengl3.h"
@@ -89,41 +91,37 @@ namespace UI {
     }
 
     bool event(SDL_Event &event){
-        if (mode != UI_Hidden){
-            ImGui_ImplSDL2_ProcessEvent(&event);
-            if (event.type == SDL_KEYDOWN){
-                if (event.key.keysym.sym == SDLK_ESCAPE){
-                    if (IsPopupOpen(NULL, ImGuiPopupFlags_AnyPopup)){
-                        ImGuiFileDialog::Instance()->Close();
-                        if (mode == UI_OpenFile || mode == UI_SaveFile)
-                            mode = UI_Hidden;
-                    }else
-                        mode = UI_Hidden;
-                }
-            }else
-                gamepad_code = event.type == SDL_JOYBUTTONDOWN ? event.jbutton.button : 0;
-            return true;
-        }
         if (event.type == SDL_KEYDOWN){
-            switch (event.key.keysym.sym){
-                case SDLK_ESCAPE:
-                    mode = UI_Exit;
-                    break;
-                case SDLK_F1:
-                    mode = UI_KbdLayout;
-                    break;
-                case SDLK_F2:
-                    mode = UI_OpenFile;
-                    break;
-                case SDLK_F3:
-                    mode = UI_SaveFile;
-                    break;
-                case SDLK_F4:
-                    mode = UI_Settings;
-                    break;
+            if (event.key.repeat)
+                return false;
+            if (mode == UI_Hidden){
+                switch (event.key.keysym.sym){
+                    case SDLK_ESCAPE:
+                        mode = UI_Exit;
+                        break;
+                    case SDLK_F1:
+                        mode = UI_KbdLayout;
+                        break;
+                    case SDLK_F2:
+                        mode = UI_OpenFile;
+                        break;
+                    case SDLK_F3:
+                        mode = UI_SaveFile;
+                        break;
+                    case SDLK_F4:
+                        mode = UI_Settings;
+                        break;
+                }
+            }else{
+                if (event.key.keysym.sym == SDLK_ESCAPE && !IsPopupOpen(NULL, ImGuiPopupFlags_AnyPopup)){
+                    mode = UI_Hidden;
+                    return true;
+                }
             }
-        }
-        return false;
+        }else
+            gamepad_code = event.type == SDL_JOYBUTTONDOWN ? event.jbutton.button : 0;
+        ImGui_ImplSDL2_ProcessEvent(&event);
+        return mode != UI_Hidden;
     }
 
     bool frame(CFG &cfg, Board *board){
@@ -135,11 +133,11 @@ namespace UI {
         NewFrame();
         ImGuiIO &io = GetIO();
         ImGuiStyle &style = GetStyle();
+        SetNextWindowPos(ImVec2(io.DisplaySize.x*0.5f, io.DisplaySize.y*0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
         switch (mode){
             case UI_Hidden:
                 break;
             case UI_Exit:
-                SetNextWindowPos(ImVec2(io.DisplaySize.x*0.5f, io.DisplaySize.y*0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
                 if (Begin("Exit", NULL, UI_WindowFlags | ImGuiWindowFlags_AlwaysAutoResize)){
                     SetCursorPosX((GetWindowSize().x - CalcTextSize("Do you exit ?").x) * 0.5);
                     Text("Do you exit ?");
@@ -155,7 +153,6 @@ namespace UI {
                 }
                 break;
             case UI_KbdLayout:
-                SetNextWindowPos(ImVec2(io.DisplaySize.x*0.5f, io.DisplaySize.y*0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
                 SetNextWindowSize(ImVec2(io.DisplaySize.x * 0.8f, io.DisplaySize.y * 0.5f), ImGuiCond_Always);
                 if (Begin("Keyboard", NULL, UI_WindowFlags)){
                     Image((ImTextureID)kbd_texture, GetContentRegionAvail());
@@ -163,9 +160,8 @@ namespace UI {
                 }
                 break;
             case UI_OpenFile:
-                SetNextWindowPos(ImVec2(io.DisplaySize.x*0.5f, io.DisplaySize.y*0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
                 SetNextWindowSize(ImVec2(SCREEN_WIDTH*2*0.87f, SCREEN_HEIGHT*2*0.65f), ImGuiCond_Always);
-                file_config.flags &= ~ImGuiFileDialogFlags_ConfirmOverwrite;
+                //file_config.flags &= ~ImGuiFileDialogFlags_ConfirmOverwrite;
                 ImGuiFileDialog::Instance()->OpenDialog("##file_open", "Open file", ".z80;.tap;.trd;.scl {(([.]z80|Z80|trd|TRD|scl|SCL|tap|TAP))}", file_config);
                 if (ImGuiFileDialog::Instance()->Display("##file_open", UI_WindowFlags)){
                     if (ImGuiFileDialog::Instance()->IsOk())
@@ -175,9 +171,8 @@ namespace UI {
                 }
                 break;
             case UI_SaveFile:
-                SetNextWindowPos(ImVec2(io.DisplaySize.x*0.5f, io.DisplaySize.y*0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
                 SetNextWindowSize(ImVec2(SCREEN_WIDTH*2*0.87f, SCREEN_HEIGHT*2*0.65f), ImGuiCond_Always);
-                file_config.flags |= ImGuiFileDialogFlags_ConfirmOverwrite;
+                //file_config.flags |= ImGuiFileDialogFlags_ConfirmOverwrite;
                 ImGuiFileDialog::Instance()->OpenDialog("##file_save", "Save file", ".z80;.trd; {(([.]z80|Z80|trd|TRD))}", file_config);
                 if (ImGuiFileDialog::Instance()->Display("##file_save", UI_WindowFlags)){
                     if (ImGuiFileDialog::Instance()->IsOk())
@@ -187,15 +182,6 @@ namespace UI {
                 }
                 break;
             case UI_Settings:
-                static struct {
-                    const char *label;
-                    const char *name;
-                } rom[sizeof(ROM_Bank)] = {
-                    { .label = "##rom_trdos", .name = "Rom TR-Dos" },
-                    { .label = "##rom_128",   .name = "Rom 128" },
-                    { .label = "##rom_48",    .name = "Rom 48" }
-                };
-                SetNextWindowPos(ImVec2(io.DisplaySize.x*0.5f, io.DisplaySize.y/2-HEIGHT/2), ImGuiCond_Always, ImVec2(0.5f, 0.0f));
                 SetNextWindowSize(ImVec2(WIDTH, 0), ImGuiCond_Always);
                 if (Begin("Settings", NULL, UI_WindowFlags | ImGuiWindowFlags_AlwaysAutoResize)){
                     if (BeginTabBar("tabs")){
@@ -219,6 +205,14 @@ namespace UI {
                             }
                             SeparatorText("BIOS");
                             for (int i = 0; i < (int)sizeof(ROM_Bank) - 1; i++){
+                                static struct {
+                                    const char *label;
+                                    const char *name;
+                                } rom[sizeof(ROM_Bank)] = {
+                                    { .label = "##rom_trdos", .name = "Rom TR-Dos" },
+                                    { .label = "##rom_128",   .name = "Rom 128" },
+                                    { .label = "##rom_48",    .name = "Rom 48" }
+                                };
                                 AlignTextToFramePadding();
                                 Text(rom[i].name);
                                 SameLine(LEFT);

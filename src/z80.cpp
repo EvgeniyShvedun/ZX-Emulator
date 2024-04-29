@@ -9,6 +9,7 @@
 #include "device.h"
 #include "memory.h"
 #include "ula.h"
+#include "z80_macros.h"
 #include "z80.h"
 
 Z80::Z80() {
@@ -143,7 +144,7 @@ void Z80::frame(ULA *memory, IO *io, s32 frame_clk){
         irl++;
         switch (memory->read_byte_ex(pc++)){
             case 0x00: // NOP
-                NOP;
+                time(4);
                 break;
             case 0x01: // LD BC, NN
                 LD_RR_NN(bc);
@@ -354,7 +355,7 @@ void Z80::frame(ULA *memory, IO *io, s32 frame_clk){
                 time(4);
                 break;
             case 0x40: // LD B, B
-                NOP;
+                time(4);
                 break;
             case 0x41: // LD B, C
                 LD_R_R(b, c);
@@ -381,7 +382,7 @@ void Z80::frame(ULA *memory, IO *io, s32 frame_clk){
                 LD_R_R(c, b);
                 break;
             case 0x49: // LD C, C
-                NOP;
+                time(4);
                 break;
             case 0x4A: // LD C, D
                 LD_R_R(c, d);
@@ -408,7 +409,7 @@ void Z80::frame(ULA *memory, IO *io, s32 frame_clk){
                 LD_R_R(d, c);
                 break;
             case 0x52: // LD D, D
-                NOP;
+                time(4);
                 break;
             case 0x53: // LD D, E
                 LD_R_R(d, e);
@@ -466,7 +467,7 @@ void Z80::frame(ULA *memory, IO *io, s32 frame_clk){
                 LD_R_R(h, e);
                 break;
             case 0x64: // LD H, H
-                NOP;
+                time(4);
                 break;
             case 0x65: // LD H, L
                 LD_R_R(h, l);
@@ -493,7 +494,7 @@ void Z80::frame(ULA *memory, IO *io, s32 frame_clk){
                 LD_R_R(l, h);
                 break;
             case 0x6D: // LD L, L
-                NOP;
+                time(4);
                 break;
             case 0x6E: // LD L, (HL);
                 LD_R_XR(l, hl);
@@ -548,7 +549,7 @@ void Z80::frame(ULA *memory, IO *io, s32 frame_clk){
                 LD_R_XR(a, hl);
                 break;
             case 0x7F: // LD A, A
-                NOP;
+                time(4);
                 break;
             case 0x80: // ADD A, B
                 ADD(b);
@@ -775,7 +776,7 @@ void Z80::frame(ULA *memory, IO *io, s32 frame_clk){
             case 0xCA: // JP Z, NN
                 JP_CND_NN(f & ZF);
                 break;
-            case 0xCB: // CB PREFIX
+            case 0xCB: // --------------- CB prefix --------------
                 irl++;
                 switch(memory->read_byte_ex(pc++)){
                     case 0x00: // RLC B
@@ -1608,12 +1609,12 @@ void Z80::frame(ULA *memory, IO *io, s32 frame_clk){
             case 0xDC: // CALL C, NN
                 CALL_CND_NN(f & CF);
                 break;
-            case 0xDD: // PREFIX DD (IX)
+            case 0xDD: // --------------- DD prefix --------------
                 irl++;
                 time(4);
                 switch(memory->read_byte_ex(pc++)){
                     case 0x00: // NOP
-                        NOP;
+                        time(4);
                         break;
                     case 0x01: // LD BC, NN
                         LD_RR_NN(bc);
@@ -1824,7 +1825,7 @@ void Z80::frame(ULA *memory, IO *io, s32 frame_clk){
                         time(4);
                         break;
                     case 0x40: // LD B, B
-                        NOP;
+                        time(4);
                         break;
                     case 0x41: // LD B, C
                         LD_R_R(b, c);
@@ -1851,7 +1852,7 @@ void Z80::frame(ULA *memory, IO *io, s32 frame_clk){
                         LD_R_R(c, b);
                         break;
                     case 0x49: // LD C, C
-                        NOP;
+                        time(4);
                         break;
                     case 0x4A: // LD C, D
                         LD_R_R(c, d);
@@ -1878,7 +1879,7 @@ void Z80::frame(ULA *memory, IO *io, s32 frame_clk){
                         LD_R_R(d, c);
                         break;
                     case 0x52: // LD D, D
-                        NOP;
+                        time(4);
                         break;
                     case 0x53: // LD D, E
                         LD_R_R(d, e);
@@ -1905,7 +1906,7 @@ void Z80::frame(ULA *memory, IO *io, s32 frame_clk){
                         LD_R_R(e, d);
                         break;
                     case 0x5B: // LD E, E
-                        NOP;
+                        time(4);
                         break;
                     case 0x5C: // LD E, IXH
                         LD_R_R(e, ixh);
@@ -1932,7 +1933,7 @@ void Z80::frame(ULA *memory, IO *io, s32 frame_clk){
                         LD_R_R(ixh, e);
                         break;
                     case 0x64: // LD IXH, IXH
-                        NOP;
+                        time(4);
                         break;
                     case 0x65: // LD IXH, IXL
                         LD_R_R(ixh, ixl);
@@ -1959,7 +1960,7 @@ void Z80::frame(ULA *memory, IO *io, s32 frame_clk){
                         LD_R_R(ixl, ixh);
                         break;
                     case 0x6D: // LD IXL, IXL
-                        NOP;
+                        time(4);
                         break;
                     case 0x6E: // LD L, (IX + s);
                         LD_R_XS(l, ix);
@@ -1986,7 +1987,7 @@ void Z80::frame(ULA *memory, IO *io, s32 frame_clk){
                         LD_XS_R(ix, l);
                         break;
                     case 0x76: // HALT
-                        pc--; // Next HALT without prefix.
+                        pc--;
                         time(4);
                         break;
                     case 0x77: // LD (IX + s), A
@@ -2014,7 +2015,7 @@ void Z80::frame(ULA *memory, IO *io, s32 frame_clk){
                         LD_R_XS(a, ix);
                         break;
                     case 0x7F: // LD A, A
-                        NOP;
+                        time(4);
                         break;
                     case 0x80: // ADD A, B
                         ADD(b);
@@ -2241,7 +2242,7 @@ void Z80::frame(ULA *memory, IO *io, s32 frame_clk){
                     case 0xCA: // JP Z, NN
                         JP_CND_NN(f & ZF);
                         break;
-                    case 0xCB: // --------------- DDCB PREFIX -------------- time set without DD prefix
+                    case 0xCB: // --------------- DDCB PREFIX --------------
                         pc++;
                         switch(memory->read_byte_ex(pc++)){
                             case 0x00: // RLC (IX + s), B
@@ -2962,7 +2963,7 @@ void Z80::frame(ULA *memory, IO *io, s32 frame_clk){
                     case 0xDC: // CALL C, NN
                         CALL_CND_NN(f & CF);
                         break;
-                    case 0xDD: // DD DD combination. Return to first DD prefix.
+                    case 0xDD: // --------------- DD DD combination ---------------
                         irl--;
                         pc--;
                         break;
@@ -3011,7 +3012,7 @@ void Z80::frame(ULA *memory, IO *io, s32 frame_clk){
                     case 0xEC: // CALL PE, NN
                         CALL_CND_NN(f & PF);
                         break;
-                    case 0xED: // DD ED combination. Return to ED position.
+                    case 0xED: // --------------- DD ED combination ---------------
                         irl--;
                         pc--;
                         break;
@@ -3062,7 +3063,7 @@ void Z80::frame(ULA *memory, IO *io, s32 frame_clk){
                     case 0xFC: // CALL M, NN
                         CALL_CND_NN(f & SF);
                         break;
-                    case 0xFD: // DD FD combination. Return to FD position.
+                    case 0xFD: // DD FD c
                         irl--;
                         pc--;
                         break;
@@ -3074,7 +3075,7 @@ void Z80::frame(ULA *memory, IO *io, s32 frame_clk){
                         break;
 		        }
 		        break;
-            // Continue not prefixed opcodes.
+            // No prefix.
             case 0xDE: // SBC A, N
                 SBC_XR(pc++);
                 break;
@@ -3306,7 +3307,7 @@ void Z80::frame(ULA *memory, IO *io, s32 frame_clk){
                     case 0xA3: // OUTI
                         OUTI;
                         break;
-                    // 0xA4 - 0xA7 is NOP
+                    // 0xA4-0xA7: NOP
                     case 0xA8: // LDD
                         LDD;
                         break;
@@ -3319,7 +3320,7 @@ void Z80::frame(ULA *memory, IO *io, s32 frame_clk){
                     case 0xAB: // OUTD
                         OUTD;
                         break;
-                    // 0xAC - 0xAF is NOP
+                    // 0xAC-0xAF: NOP
                     case 0xB0: // LDIR
                         LDIR;
                         break;
@@ -3332,7 +3333,7 @@ void Z80::frame(ULA *memory, IO *io, s32 frame_clk){
                     case 0xB3: // OUTIR
                         OUTIR;
                         break;
-                    // 0xB4 - 0xB7 is NOP
+                    // 0xB4-0xB7: NOP
                     case 0xB8: // LDDR
                         LDDR;
                         break;
@@ -3346,11 +3347,11 @@ void Z80::frame(ULA *memory, IO *io, s32 frame_clk){
                         OUTDR;
                         break;
                     default:
-                        NOP;
+                        time(4);
                         break;
                 }
                 break;
-            // Continue not prefixed opcodes.
+            // No prefix
             case 0xEE: // XOR A, N
                 XOR_XR(pc++);
                 break;
@@ -3403,7 +3404,7 @@ void Z80::frame(ULA *memory, IO *io, s32 frame_clk){
                 time(4);
                 switch(memory->read_byte_ex(pc++)){
                     case 0x00: // NOP
-                        NOP;
+                        time(4);
                         break;
                     case 0x01: // LD BC, NN
                         LD_RR_NN(bc);
@@ -3614,7 +3615,7 @@ void Z80::frame(ULA *memory, IO *io, s32 frame_clk){
                         time(4);
                         break;
                     case 0x40: // LD B, B
-                        NOP;
+                        time(4);
                         break;
                     case 0x41: // LD B, C
                         LD_R_R(b, c);
@@ -3641,7 +3642,7 @@ void Z80::frame(ULA *memory, IO *io, s32 frame_clk){
                         LD_R_R(c, b);
                         break;
                     case 0x49: // LD C, C
-                        NOP;
+                        time(4);
                         break;
                     case 0x4A: // LD C, D
                         LD_R_R(c, d);
@@ -3668,7 +3669,7 @@ void Z80::frame(ULA *memory, IO *io, s32 frame_clk){
                         LD_R_R(d, c);
                         break;
                     case 0x52: // LD D, D
-                        NOP;
+                        time(4);
                         break;
                     case 0x53: // LD D, E
                         LD_R_R(d, e);
@@ -3695,7 +3696,7 @@ void Z80::frame(ULA *memory, IO *io, s32 frame_clk){
                         LD_R_R(e, d);
                         break;
                     case 0x5B: // LD E, E
-                        NOP;
+                        time(4);
                         break;
                     case 0x5C: // LD E, IYH
                         LD_R_R(e, iyh);
@@ -3722,7 +3723,7 @@ void Z80::frame(ULA *memory, IO *io, s32 frame_clk){
                         LD_R_R(iyh, e);
                         break;
                     case 0x64: // LD IYH, IYH
-                        NOP;
+                        time(4);
                         break;
                     case 0x65: // LD IYH, IYL
                         LD_R_R(iyh, iyl);
@@ -3749,7 +3750,7 @@ void Z80::frame(ULA *memory, IO *io, s32 frame_clk){
                         LD_R_R(iyl, iyh);
                         break;
                     case 0x6D: // LD IYL, IYL
-                        NOP;
+                        time(4);
                         break;
                     case 0x6E: // LD L, (IY + s);
                         LD_R_XS(l, iy);
@@ -3804,7 +3805,7 @@ void Z80::frame(ULA *memory, IO *io, s32 frame_clk){
                         LD_R_XS(a, iy);
                         break;
                     case 0x7F: // LD A, A
-                        NOP;
+                        time(4);
                         break;
                     case 0x80: // ADD A, B
                         ADD(b);
@@ -4031,7 +4032,7 @@ void Z80::frame(ULA *memory, IO *io, s32 frame_clk){
                     case 0xCA: // JP Z, NN
                         JP_CND_NN(f & ZF);
                         break;
-                    case 0xCB: // --------------- FDCB PREFIY -------------- time set without DD prefix
+                    case 0xCB: // --------------- FDCB PREFIX --------------
                         pc++;
                         switch(memory->read_byte_ex(pc++)){
                             case 0x00: // RLC (IY + s), B

@@ -114,6 +114,10 @@ void Board::frame(){
         glTexCoord2f(1.0f, 0.0f); glVertex2f(viewport_width, 0.0f);
         glTexCoord2f(0.0f, 0.0f); glVertex2f(0.0f, 0.0f);
     glEnd();
+    if (frame_hold){
+        SDL_Delay(100);
+        return;
+    }
     // Update the PBO and setup async byte-transfer to the screen texture.
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pbo);
     glBufferData(GL_PIXEL_UNPACK_BUFFER, SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(GLushort), NULL, GL_DYNAMIC_DRAW);
@@ -193,6 +197,9 @@ void Board::event(SDL_Event &event){
                 break;
             case SDLK_F6:
                 tape.rewind_begin();
+                break;
+            case SDLK_F7:
+                sound.pause(frame_hold ^= true);
                 break;
             case SDLK_F9:
                 if (cfg.main.full_speed ^= true)

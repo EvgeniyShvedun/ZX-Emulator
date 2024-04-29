@@ -45,6 +45,7 @@ Register       Function                        Range
 		void set_speaker_volume(float volume = 0.5);
 		void set_tape_volume(float volume = 0.3);
 		void update(s32 clk);
+        void pause(bool state = true);
         void queue();
 
         void read(u16 port, u8* byte, s32 clk);

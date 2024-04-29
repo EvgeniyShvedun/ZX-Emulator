@@ -21,10 +21,8 @@ void Sound::init(int sample_rate, int frame_clk){
     cpu_factor = sample_rate / (float)Z80_FREQ;
     increment = AY_RATE / (float)sample_rate;
     reset();
-    if (audio_device_id){
-        SDL_PauseAudioDevice(audio_device_id, 1);
+    if (audio_device_id)
         SDL_CloseAudioDevice(audio_device_id);
-    }
     DELETE_ARRAY(buffer);
     buffer = new short[sample_rate * BUFFER_TIME_SEC];
     memset(buffer, 0, sample_rate * sizeof(short) * BUFFER_TIME_SEC);
@@ -278,6 +276,11 @@ void Sound::reset(){
 void Sound::frame(int frame_clk){
     update(frame_clk);
     frame_idx = 0;
+}
+
+void Sound::pause(bool state){
+    if (audio_device_id)
+        SDL_PauseAudioDevice(audio_device_id, state ? 1 : 0);
 }
 
 void Sound::queue(){

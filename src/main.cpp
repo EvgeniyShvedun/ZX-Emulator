@@ -26,6 +26,9 @@
 
 #define TITLE "2024 Sinclair Research v1.1"
 #define CONFIG "zx.dat"
+//#define TIME
+//#define FRAME_LIMIT 10000
+
 const char* glsl_version = "#version 130";
 SDL_Window *window = NULL;
 SDL_GLContext gl_context = NULL;
@@ -78,9 +81,14 @@ int main(int argc, char **argv){
         board->load_file(argv[i]);
     UI::setup(window, gl_context, glsl_version);
 
-    static bool loop = true;
-    static bool supsend = false;
+    #ifdef TIME
+        board->set_vsync(false);
+        cfg.main.full_speed = true;
+        int frame_count = 0;
+        Uint32 time_start = SDL_GetTicks();
+    #endif
 
+    bool loop = true;
     while (loop){
         SDL_Event event;
         while (SDL_PollEvent(&event)){
@@ -88,12 +96,6 @@ int main(int argc, char **argv){
                 switch (event.window.event){
                     case SDL_WINDOWEVENT_CLOSE:
                         loop = false;
-                        break;
-                    case SDL_WINDOWEVENT_HIDDEN:
-                        supsend = true;
-                        break;
-                    case SDL_WINDOWEVENT_SHOWN:
-                        supsend = false;
                         break;
                     case SDL_WINDOWEVENT_EXPOSED:
                         int width, height;
@@ -108,15 +110,18 @@ int main(int argc, char **argv){
             else
                 board->event(event);
         }
-        if (supsend){
-            SDL_Delay(100);
-            continue;
-        }
         board->frame();
         if (UI::frame(cfg, board))
             break;
         SDL_GL_SwapWindow(window);
+        #ifdef TIME
+            if (++frame_count > FRAME_LIMIT)
+                break;
+        #endif
     }
+    #ifdef TIME
+        printf("Frames: %d, Time: %d\n", frame_count, (SDL_GetTicks() - time_start));
+    #endif
     Config::save(CONFIG);
     release_all();
     return 0;

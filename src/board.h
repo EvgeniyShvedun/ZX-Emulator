@@ -14,7 +14,6 @@ class Board : public IO {
         void set_full_speed(bool state);
         void set_full_screen(bool state);
         void set_vsync(bool state);
-
         void event(SDL_Event &event);
 
         void read(u16 port, u8 *byte, s32 clk=0);
@@ -26,7 +25,7 @@ class Board : public IO {
         Sound sound;
         Keyboard keyboard;
     private:
-        // Display
+        bool frame_hold = false;
         int viewport_width = -1;
         int viewport_height = -1;
         GLuint screen_texture = 0;

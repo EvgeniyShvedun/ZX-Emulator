@@ -3,8 +3,9 @@ F2 - Open file
 F3 - Save file
 F4 - Settings
 
-F5 - Play/Stop tape switch
+F5 - Play/Stop tape
 F6 - Rewind tape to the beginning
-F9 - Maximal speed on/off switch
+F7 - Pause
+F9 - Maximal speed
 F11 - Reset
 F12 - Reset to TRDOS
