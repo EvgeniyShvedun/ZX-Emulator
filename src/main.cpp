@@ -76,17 +76,18 @@ int main(int argc, char **argv){
     SDL_SetWindowMinimumSize(window, SCREEN_WIDTH*2, SCREEN_HEIGHT*2);
     SDL_ShowCursor(SDL_DISABLE);
 
-    board = new Board(cfg);
+    board = new Board();
     for (int i = 1; i < argc; i++)
         board->load_file(argv[i]);
+
     UI::setup(window, gl_context, glsl_version);
 
-    #ifdef TIME
-        board->set_vsync(false);
-        cfg.main.full_speed = true;
-        int frame_count = 0;
-        Uint32 time_start = SDL_GetTicks();
-    #endif
+#ifdef TIME
+    int frame_count = 0;
+    board->set_vsync(false);
+    cfg.main.full_speed = true;
+    Uint32 time_start = SDL_GetTicks();
+#endif
 
     bool loop = true;
     while (loop){
@@ -103,25 +104,21 @@ int main(int argc, char **argv){
                         board->set_viewport_size(width, height);
                         break;
                 }
-                break;
             }
-            if (UI::event(event))
-                board->keyboard.clear();
-            else
-                board->event(event);
+            board->event(event);
         }
         board->frame();
         if (UI::frame(cfg, board))
-            break;
+            loop = false;
         SDL_GL_SwapWindow(window);
-        #ifdef TIME
-            if (++frame_count > FRAME_LIMIT)
-                break;
-        #endif
+#ifdef TIME
+        if (++frame_count > FRAME_LIMIT)
+            break;
+#endif
     }
-    #ifdef TIME
-        printf("Frames: %d, Time: %d\n", frame_count, (SDL_GetTicks() - time_start));
-    #endif
+#ifdef TIME
+    printf("Frames: %d, Time: %d\n", frame_count, (SDL_GetTicks() - time_start));
+#endif
     Config::save(CONFIG);
     release_all();
     return 0;

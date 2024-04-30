@@ -1,4 +1,10 @@
-#define UI_WindowFlags ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings
+#define UI_WindowFlags ImGuiWindowFlags_NoCollapse \
+    | ImGuiWindowFlags_NoScrollbar \
+    | ImGuiWindowFlags_NoResize \
+    | ImGuiWindowFlags_NoMove \
+    | ImGuiWindowFlags_NoSavedSettings \
+    | ImGuiWindowFlags_NoDecoration 
+//    | ImGuiWindowFlags_NoNavFocus 
 
 namespace UI {
     enum UI_Mode { UI_Hidden, UI_Exit, UI_KbdLayout, UI_OpenFile, UI_SaveFile, UI_Settings, UI_Debugger };

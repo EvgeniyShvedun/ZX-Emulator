@@ -287,6 +287,8 @@ void Sound::pause(bool state){
 }
 
 void Sound::queue(){
+    if (SDL_GetAudioDeviceStatus(audio_device_id) != SDL_AUDIO_PLAYING)
+        return;
     while (SDL_GetQueuedAudioSize(audio_device_id) > (audio_spec.samples - frame_samples) * 4)
         SDL_Delay(1);
     SDL_QueueAudio(audio_device_id, buffer, frame_samples * 4);

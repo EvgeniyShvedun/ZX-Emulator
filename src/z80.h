@@ -60,14 +60,15 @@ class Z80 {
         Reg16(ir)
         Reg16(ix)
         Reg16(iy)
-        Reg16(memptr)    // Internal
-
+        Reg16(memptr);   // Internal ptr
+ 
         s32 clk;
         u8 im;           // Interrupt mode.
         u8 iff1;         // Int is enabled.
         u8 iff2;         // Save's iff1 while NMI.
         u8 r8bit;        // 8 bbt of the R.
-    protected:
+
+    private:
         u8 flag_inc[0x100];
         u8 flag_dec[0x100];
         u8 flag_parity[0x100];

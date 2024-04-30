@@ -22,8 +22,10 @@
 #include "sound.h"
 #include "mouse.h"
 #include "board.h"
+#include "ui.h"
 
-Board::Board(CFG &cfg){
+Board::Board(){
+    CFG &cfg = Config::get();
     glEnable(GL_TEXTURE_2D);
     glGenTextures(1, &screen_texture);
     glBindTexture(GL_TEXTURE_2D, screen_texture);
@@ -114,6 +116,7 @@ void Board::frame(){
         glTexCoord2f(1.0f, 0.0f); glVertex2f(viewport_width, 0.0f);
         glTexCoord2f(0.0f, 0.0f); glVertex2f(0.0f, 0.0f);
     glEnd();
+
     if (frame_hold){
         SDL_Delay(100);
         return;
@@ -137,6 +140,7 @@ void Board::frame(){
     glBindTexture(GL_TEXTURE_2D, 0);
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 
+    
     if (!Config::get().main.full_speed)
         sound.queue();
 }
@@ -173,6 +177,7 @@ void Board::set_full_screen(bool state){
     SDL_SetWindowFullscreen(SDL_GL_GetCurrentWindow(), state ? SDL_WINDOW_FULLSCREEN : 0);
 }
 
+
 void Board::set_vsync(bool state){
     SDL_GL_SetSwapInterval(state ? 1 : 0);
 }
@@ -185,7 +190,7 @@ void Board::reset(){
 }
 
 void Board::event(SDL_Event &event){
-    // Functional keys
+    // Control keys
     CFG &cfg = Config::get();
     if (event.type == SDL_KEYDOWN && !event.key.repeat){
         switch (event.key.keysym.sym){
@@ -194,33 +199,38 @@ void Board::event(SDL_Event &event){
                     tape.stop();
                 else
                     tape.play();
-                break;
+                return;
             case SDLK_F6:
                 tape.rewind_begin();
-                break;
+                return;
             case SDLK_F7:
-                sound.pause(frame_hold ^= true);
-                break;
+                frame_hold ^= true;
+                return;
             case SDLK_F9:
-                if (cfg.main.full_speed ^= true)
-                    set_vsync(false);
-                else
-                    set_vsync(cfg.video.vsync);
-                break;
-            case SDLK_F11:
+                set_vsync(!(cfg.main.full_speed ^= true));
+                return;
+           case SDLK_F11:
                 ula.set_main_rom(cfg.main.model != HW_Sinclair_48 ? ROM_128 : ROM_48);
                 reset();
-                break;
-            case SDLK_F12:
+                return;
+           case SDLK_F12:
                 ula.set_main_rom(ROM_Trdos);
                 reset();
-                break;
-            case SDLK_RETURN:
-                if (event.key.keysym.mod & KMOD_CTRL)
+                return;
+           case SDLK_RETURN:
+                if (event.key.keysym.mod & KMOD_CTRL){
                     set_full_screen(cfg.video.full_screen ^= true);
+                    return;
+                }
                 break;
         }
     }
+    // GUI
+    if (UI::event(event)){
+        keyboard.clear(); //////////////////////////
+        return;
+    }
+
     // Joystick, mouse, keyboard
     switch (event.type){
         case SDL_JOYHATMOTION:
