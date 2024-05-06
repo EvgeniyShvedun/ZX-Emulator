@@ -1,27 +1,22 @@
 #
-# Cross build for Windows.
-# Require: -lSDL2 -lSDL2_image -lGLEW -lGLU -lGL
+# Win64 build
 #
 
-CXX     := x86_64-w64-mingw32-c++
-SDLCFG  := /usr/x86_64-w64-mingw32/bin/sdl2-config
-INCLUDES := -I/usr/local/x86_64-w64-mingw32/include -I./ext/imgui -I./ext/imgui/backends -I./ext/ImGuiFileDialog $(shell $(SDLCFG) --cflags)
-CXXFLAGS := -O -fomit-frame-pointer -pipe -Wall -Wno-int-to-pointer-cast -DGLEW_STATIC
-LIBS := -static ./ext/glew/x64/glew32s.lib -lopengl32 -lSDL2_image $(shell $(SDLCFG) --static-libs)
+SDL = /usr/x86_64-w64-mingw32/bin/sdl2-config
 
-SRCS = ext/imgui/imgui.cpp ext/imgui/imgui_draw.cpp \
-	ext/imgui/imgui_tables.cpp ext/imgui/imgui_widgets.cpp \
-	ext/imgui/backends/imgui_impl_sdl2.cpp \
-	ext/imgui/backends/imgui_impl_opengl3.cpp \
-	ext/ImGuiFileDialog/ImGuiFileDialog.cpp
-SRCS += main.cpp ula.cpp z80.cpp memory.cpp board.cpp \
-	joystick.cpp keyboard.cpp mouse.cpp sound.cpp tape.cpp floppy.cpp \
-	disasm.cpp snapshot.cpp config.cpp ui.cpp
-
+CXX = x86_64-w64-mingw32-c++
+CXXFLAGS = -O -fomit-frame-pointer -pipe -Wall -Wno-int-to-pointer-cast -DGLEW_STATIC
+INCLUDES := -I/usr/local/x86_64-w64-mingw32/include -I./ext/imgui -I./ext/imgui/backends -I./ext/ImGuiFileDialog \
+			$(shell $(SDL) --cflags)
+LIBS := -static ./ext/glew/x64/glew32s.lib -lopengl32 -lSDL2_image \
+			$(shell $(SDL) --static-libs)
+SRCS = ext/imgui/imgui.cpp ext/imgui/imgui_draw.cpp ext/imgui/imgui_tables.cpp ext/imgui/imgui_widgets.cpp \
+			ext/imgui/backends/imgui_impl_sdl2.cpp ext/imgui/backends/imgui_impl_opengl3.cpp \
+			ext/ImGuiFileDialog/ImGuiFileDialog.cpp \
+			main.cpp ula.cpp z80.cpp memory.cpp board.cpp joystick.cpp keyboard.cpp mouse.cpp sound.cpp tape.cpp floppy.cpp disasm.cpp snapshot.cpp config.cpp ui.cpp
 OBJS = $(addsuffix .o, $(basename $(SRCS)))
 
 TARGET = ../emulator.exe
-
 
 $(TARGET): $(OBJS)
 	$(CXX) -o $@ $^ $(LIBS)

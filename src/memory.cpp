@@ -92,12 +92,11 @@ bool Memory::trap_trdos(u16 pc){
 }
 
 void Memory::load_rom(ROM_Bank bank, const char *path){
-    int fd = open(path, O_RDONLY);
-    if (fd < 0)
-        throw;
-    if (::read(fd, rom[bank], PAGE_SIZE) != PAGE_SIZE)
-        throw;
-    close(fd);
+    FILE *fp = fopen(path, "r");
+    if (!fp)
+		throw("Load ROM file");
+    fread(rom[bank], 1, PAGE_SIZE, fp);
+    fclose(fp);
     if (bank != ROM_Trdos){
         memcpy(trap[bank], rom[bank], PAGE_SIZE);
         if (bank == ROM_48)
