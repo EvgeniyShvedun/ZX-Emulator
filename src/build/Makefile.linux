@@ -3,7 +3,7 @@
 #
 
 CXX = c++
-CXXFLAGS = -g -O -fomit-frame-pointer -pipe -Wall -Wno-int-to-pointer-cast \
+CXXFLAGS = -O -fomit-frame-pointer -pipe -Wall -Wno-int-to-pointer-cast \
 	$(shell sdl2-config --cflags)
 
 LIBS = -lGLEW -lGL -ldl -lSDL2_image \
