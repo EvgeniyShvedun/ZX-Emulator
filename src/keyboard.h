@@ -19,8 +19,8 @@ class Keyboard : public Device {
 
         void button(unsigned short port, char mask, bool state);
         void clear(){ memset(kbd, 0xFF, sizeof(kbd)); };
-
         void read(u16 port, u8 *byte, s32 clk);
+        void event(SDL_Event &event);
     private:
         unsigned char kbd[8];
 };

@@ -9,12 +9,13 @@ class Board : public IO {
         bool load_file(const char *path);
         bool save_file(const char *path);
 
-        void set_viewport_size(int width, int height);
-        void set_video_filter(VideoFilter filter);
+        void run(CFG &cfg);
+
+        void viewport_setup(int width, int height);
+        void set_window_size(int width, int height);
+        void set_video_filter(Filter filter);
         void set_full_screen(bool state);
         void set_vsync(bool state);
-
-        void event(SDL_Event &event);
 
         void read(u16 port, u8 *byte, s32 clk=0);
         void write(u16 port, u8 byte, s32 clk=0);
@@ -26,7 +27,7 @@ class Board : public IO {
         Keyboard keyboard;
         s32 frame_clk;
     private:
-        bool frame_hold = false;
+        SDL_Window *window = NULL;
         int viewport_width = -1;
         int viewport_height = -1;
         GLuint screen_texture = 0;
@@ -35,4 +36,5 @@ class Board : public IO {
         FDC fdc;
         Joystick joystick;
         Mouse mouse;
+        bool paused = false;
 };

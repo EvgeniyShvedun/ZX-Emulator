@@ -46,6 +46,8 @@ bool Tape::load_tap(const char *p_path){
 }
 
 void Tape::play(){
+    if (idx >= data_size)
+        return;
     time = 0;
     last_clk = 0;
     bit = 0;

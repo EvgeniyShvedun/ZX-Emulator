@@ -79,46 +79,8 @@ int main(int argc, char **argv){
     board = new Board();
     for (int i = 1; i < argc; i++)
         board->load_file(argv[i]);
-
     UI::setup(window, gl_context, glsl_version);
-
-#ifdef TIME
-    int frame_count = 0;
-    board->set_vsync(false);
-    cfg.main.full_speed = true;
-    Uint32 time_start = SDL_GetTicks();
-#endif
-
-    bool loop = true;
-    while (loop){
-        SDL_Event event;
-        while (SDL_PollEvent(&event)){
-            if (event.type == SDL_WINDOWEVENT){
-                switch (event.window.event){
-                    case SDL_WINDOWEVENT_CLOSE:
-                        loop = false;
-                        break;
-                    case SDL_WINDOWEVENT_EXPOSED:
-                        int width, height;
-                        SDL_GetWindowSize(window, &width, &height);
-                        board->set_viewport_size(width, height);
-                        break;
-                }
-            }
-            board->event(event);
-        }
-        board->frame();
-        if (UI::frame(cfg, board))
-            loop = false;
-        SDL_GL_SwapWindow(window);
-#ifdef TIME
-        if (++frame_count > FRAME_LIMIT)
-            break;
-#endif
-    }
-#ifdef TIME
-    printf("Frames: %d, Time: %d\n", frame_count, (SDL_GetTicks() - time_start));
-#endif
+    board->run(cfg);
     Config::save(CONFIG);
     release_all();
     return 0;

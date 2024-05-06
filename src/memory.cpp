@@ -94,7 +94,7 @@ bool Memory::trap_trdos(u16 pc){
 void Memory::load_rom(ROM_Bank bank, const char *path){
     FILE *fp = fopen(path, "r");
     if (!fp)
-		throw("Load ROM file");
+        throw("Load ROM file");
     fread(rom[bank], 1, PAGE_SIZE, fp);
     fclose(fp);
     if (bank != ROM_Trdos){

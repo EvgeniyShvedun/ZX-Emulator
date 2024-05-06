@@ -1,18 +1,8 @@
 
-enum Hardware {
-    HW_Pentagon_128, HW_Sinclair_128, HW_Sinclair_48
-};
-
-enum ROM_Bank {
-    ROM_Trdos, ROM_128, ROM_48
-};
-enum AY_Mixer {
-    AY_ABC, AY_ACB, AY_MONO
-};
-
-enum VideoFilter { 
-    VF_Nearest, VF_Linear
-};
+enum Hardware { HW_Pentagon_128, HW_Sinclair_128, HW_Sinclair_48 };
+enum AY_Mixer { ABC, ACB, Mono };
+enum Filter {  Nearest, Linear };
+enum ROM_Bank { ROM_Trdos, ROM_128, ROM_48 };
 
 struct CFG {
     struct Main {
@@ -26,14 +16,14 @@ struct CFG {
     } main;
     struct Video {
         int screen_scale = 2;
-        int filter = VF_Nearest;
+        int filter = Nearest;
         bool full_screen = false;
         bool vsync = true;
     } video;
     struct Audio {
         int dsp_rate = 44100;
         int lpf_rate = 11050;
-        int ay_mixer = AY_ABC;
+        int ay_mixer = ABC;
         float ay_side = 1.0;
         float ay_center = 0.7;
         float ay_penetr = 0.3;

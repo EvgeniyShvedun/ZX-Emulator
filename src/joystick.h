@@ -12,6 +12,7 @@ class Joystick : public Device {
         void gamepad(int code, bool state);
         void button(char mask, bool state);
         void read(u16, u8 *byte, s32 clk);
+        void event(SDL_Event &event);
     private:
         u8 port_1F = 0xC0;
         int gamepad_map[6];

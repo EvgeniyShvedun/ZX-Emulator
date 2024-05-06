@@ -5,8 +5,8 @@
 #include <string.h>
 #include "types.h"
 #include "utils.h"
-#include "config.h"
 #include "device.h"
+#include <SDL.h>
 #include "mouse.h"
 
 void Mouse::motion(char x, char y){
@@ -37,3 +37,21 @@ void  Mouse::read(u16 port, u8 *byte, s32 clk){
             *byte &= y_coord;
     }
 }
+
+void Mouse::event(SDL_Event &event){
+    switch (event.type){
+        case SDL_MOUSEMOTION:
+            motion(event.motion.xrel, event.motion.yrel);
+            break;
+        case SDL_MOUSEBUTTONDOWN:
+            button((event.button.button & SDL_BUTTON_LEFT ? 0x01 : 0x00) | (event.button.button & SDL_BUTTON_RIGHT ? 0x02 : 0x00), true);
+            break;
+        case SDL_MOUSEBUTTONUP:
+            button((event.button.button & SDL_BUTTON_LEFT ? 0x01 : 0x00) | (event.button.button & SDL_BUTTON_RIGHT ? 0x02 : 0x00), false);
+            break;
+        case SDL_MOUSEWHEEL:
+            wheel(event.wheel.y);
+            break;
+    }
+}
+

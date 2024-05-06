@@ -221,7 +221,7 @@ namespace Snapshot {
         cpu->iff2 = header->iff2;
         cpu->im = header->im & 0x03;
         io->write(0xFE, (header->flags >> 1) & 0x07);
-        DELETE_ARRAY(data);
+        delete[] data;
         return hw;
     }
 }
