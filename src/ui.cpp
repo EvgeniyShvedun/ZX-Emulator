@@ -61,7 +61,7 @@ namespace UI {
         return texture;
     }
 
-    void setup(SDL_Window *window, SDL_GLContext context, const char *glsl_version){
+    void setup(CFG &cfg, SDL_Window *window, SDL_GLContext context, const char *glsl_version){
         IMGUI_CHECKVERSION();
         CreateContext();
         ImGuiIO &io = GetIO();
@@ -69,7 +69,6 @@ namespace UI {
         io.FontGlobalScale = 1.2f;
         io.IniFilename = NULL;
         io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
-        //io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
         StyleColorsDark();
         ImGui_ImplSDL2_InitForOpenGL(window, context);
         ImGui_ImplOpenGL3_Init(glsl_version);
@@ -78,34 +77,17 @@ namespace UI {
         style.WindowPadding = ImVec2(9, 9);
         style.ItemSpacing = ImVec2(6, 4);
         //style.FramePadding = ImVec2(4, 2);
-
         style.WindowRounding = 3.0;
         style.FrameRounding = 2.0;
         style.GrabRounding = 2.0;
         style.TabRounding = 2.0;
         style.GrabMinSize = 10.0;
-        //style.SeparatorTextPadding = ImVec2(10.0, 8.0);
         style.WindowTitleAlign = ImVec2(0.5, 0.5);
-        //style.SeparatorTextBorderSize = 2.0;
         style.Colors[ImGuiCol_ModalWindowDimBg] = ImVec4(0.0f, 0.0f, 0.0f, 0.0f);
-        style.Colors[ImGuiCol_ChildBg].w = 0.37f;
-        //style.Colors[ImGuiCol_Border] = ImVec4(0.00f, 0.00f, 0.00f, 1.0f);
-        //style.ItemSpacing = ImVec2(8.0, 4.0);
+        set_alpha(cfg.ui.alpha);
+        set_gamepad_ctrl(cfg.ui.gamepad_ctrl);
         kbd_texture = load_texture(KBD_IMAGE_PATH);
     }
-    void open(UI_Mode mode){
-        ImGuiIO &io = GetIO();
-        io.ClearInputKeys();
-        io.ClearEventsQueue();
-        UI::mode = mode;
-    }
-    void hide(){
-        mode = UI_Hidden;
-    }
-    bool is_active(){
-        return mode != UI_Hidden;
-    }
-
     bool event(SDL_Event &event){
         ImGui_ImplSDL2_ProcessEvent(&event);
         if (event.type == SDL_KEYDOWN){
@@ -204,7 +186,7 @@ namespace UI {
                     static const char *label[sizeof(ROM_Bank)] = { "Rom TR-Dos", "Rom 128", "Rom 48" };
                     SetNextWindowPos(ImVec2(io.DisplaySize.x*0.5f, (io.DisplaySize.y-400.0f)*0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.0f));
                     SetNextWindowSize(ImVec2(io.DisplaySize.x*(0.60f-(1.0f-SCREEN_WIDTH*2/io.DisplaySize.x)*0.5f), 0), ImGuiCond_Always);
-                    if (Begin("Settings", NULL, UI_WindowFlags | ImGuiWindowFlags_AlwaysAutoResize)){
+                    if (Begin("Settings", NULL, UI_WindowFlags)){
                         ImVec2 glyph = CalcTextSize("A");
                         if (BeginTabBar("tabs")){
                             if (BeginTabItem("Main")){
@@ -236,7 +218,7 @@ namespace UI {
                                 }
                                 if (load_rom >= 0){
                                     SetNextWindowPos(ImVec2(io.DisplaySize.x*0.5f, io.DisplaySize.y*0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
-                                    SetNextWindowSize(ImVec2(SCREEN_WIDTH*2*0.87f, SCREEN_HEIGHT*2*0.65f), ImGuiCond_Always);
+                                    SetNextWindowSize(ImVec2(io.DisplaySize.x*(0.85f-(1.0f-SCREEN_WIDTH*2/io.DisplaySize.x)*0.5f), io.DisplaySize.y*(0.75f-(1.0f-SCREEN_HEIGHT*2/io.DisplaySize.y)*0.5f)), ImGuiCond_Always);
                                     ImGuiFileDialog::Instance()->OpenDialog("load_rom", "Load ROM", ".rom {(([.]rom|ROM))}", file_config);
                                     if (ImGuiFileDialog::Instance()->Display("load_rom", UI_WindowFlags)){
                                         if (ImGuiFileDialog::Instance()->IsOk()){
@@ -390,6 +372,26 @@ namespace UI {
                                 }
                                 EndTabItem();
                             }
+                            if (BeginTabItem("UI")){
+                                SeparatorText("Appearance");
+                                Text("Alpha");
+                                SameLine(LABEL_WIDTH);
+                                if (SliderFloat("##alpha", &cfg.ui.alpha, 0.7f, 1.0f, "%.2f"))
+                                    set_alpha(cfg.ui.alpha);
+                                SeparatorText("Controls");
+                                Text("Use gamepad");
+                                SameLine(LABEL_WIDTH);
+                                if (Checkbox("##gamepad", &cfg.ui.gamepad_ctrl))
+                                    set_gamepad_ctrl(cfg.ui.gamepad_ctrl);
+                                Spacing();
+                                SetCursorPosX(GetWindowWidth()-btn_size.x-style.WindowPadding.x);
+                                if (Button("Defaults", btn_size)){
+                                    memcpy(&cfg.ui, &Config::get_defaults().ui, sizeof(CFG::ui));
+                                    set_alpha(cfg.ui.alpha);
+                                    set_gamepad_ctrl(cfg.ui.gamepad_ctrl);
+                                }
+                                EndTabItem();
+                            }
                             EndTabBar();
                         }
                         End();
@@ -406,8 +408,35 @@ namespace UI {
                     */
             }
         }
+        //ShowStyleEditor();
         Render();
         ImGui_ImplOpenGL3_RenderDrawData(GetDrawData());
         return status;
+    }
+    void open(UI_Mode mode){
+        ImGuiIO &io = GetIO();
+        io.ClearInputKeys();
+        io.ClearEventsQueue();
+        UI::mode = mode;
+    }
+    void hide(){
+        mode = UI_Hidden;
+    }
+    bool is_active(){
+        return mode != UI_Hidden;
+    }
+    void set_alpha(float alpha){
+        ImGuiStyle &style = GetStyle();
+        style.Colors[ImGuiCol_WindowBg] = ImVec4(0.05f, 0.05f, 0.05f, alpha);
+        style.Colors[ImGuiCol_ChildBg] = ImVec4(0.0f, 0.0f, 0.0f, alpha * 0.15f);
+        style.Colors[ImGuiCol_PopupBg] = ImVec4(0.0f, 0.0f, 0.0f, alpha * 0.85f);
+        style.Colors[ImGuiCol_FrameBg].w = 0.90f;
+    }
+    void set_gamepad_ctrl(bool state){
+        ImGuiIO &io = GetIO();
+        if (state)
+            io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
+        else
+            io.ConfigFlags &= ~ImGuiConfigFlags_NavEnableGamepad;
     }
 }

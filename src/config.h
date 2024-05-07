@@ -39,6 +39,10 @@ struct CFG {
         int a = 1;
         int b = 3;
     } gamepad;
+    struct UI {
+        float alpha = 0.90f;
+        bool gamepad_ctrl = false;
+    } ui;
 };
 
 namespace Config {

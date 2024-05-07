@@ -54,10 +54,7 @@ Board::Board(){
     ula.load_rom(ROM_Trdos, cfg.main.rom_path[ROM_Trdos]);
     ula.load_rom(ROM_128, cfg.main.rom_path[ROM_128]);
     ula.load_rom(ROM_48, cfg.main.rom_path[ROM_48]);
-    //ula.set_main_rom(ROM_48);
-    //ula.reset();
     setup((Hardware)cfg.main.model);
-    ula.reset();
     reset();
 }
 
@@ -107,6 +104,8 @@ void Board::write(u16 port, u8 byte, s32 clk){
 }
 
 void Board::viewport_setup(int width, int height){
+    viewport_width = width;
+    viewport_height = height;
     glViewport(0, 0, (GLsizei)width, (GLsizei)height);
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
@@ -116,9 +115,9 @@ void Board::viewport_setup(int width, int height){
 }
 
 void Board::set_window_size(int width, int height){
+    viewport_setup(width, height);
     SDL_SetWindowSize(window, width, height);
     SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
-    viewport_setup(width, height);
 }
 
 void Board::set_video_filter(Filter filter){
@@ -138,10 +137,15 @@ void Board::set_video_filter(Filter filter){
 
 void Board::set_full_screen(bool state){
     CFG &cfg = Config::get();
-    SDL_SetWindowSize(window, state ? SCREEN_WIDTH*2 : SCREEN_WIDTH*cfg.video.screen_scale, state ? SCREEN_HEIGHT*2 : SCREEN_HEIGHT*cfg.video.screen_scale);
-    SDL_SetWindowFullscreen(window, state ? SDL_WINDOW_FULLSCREEN : 0);
+    if (state){
+        Board::set_window_size(SCREEN_WIDTH*2, SCREEN_HEIGHT*2);
+        SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN);
+    }else{
+        SDL_ShowCursor(SDL_DISABLE);
+        SDL_SetWindowFullscreen(window, 0);
+        Board::set_window_size(SCREEN_WIDTH*cfg.video.screen_scale, SCREEN_HEIGHT*cfg.video.screen_scale);
+    }
 }
-
 
 void Board::set_vsync(bool state){
     SDL_GL_SetSwapInterval(state ? 1 : 0);
@@ -156,6 +160,7 @@ void Board::reset(){
 
 void Board::run(CFG &cfg){
     window = SDL_GL_GetCurrentWindow();
+    SDL_SetWindowMinimumSize(window, SCREEN_WIDTH*2, SCREEN_HEIGHT*2);
 #ifdef TIME
     int frame_count = 0;
     set_vsync(false);
@@ -171,11 +176,10 @@ void Board::run(CFG &cfg){
                         case SDL_WINDOWEVENT_CLOSE:
                             return;
                         case SDL_WINDOWEVENT_RESIZED:
-                            //viewport_width = event.window.data1;
-                            //viewport_height = event.window.data2;
+                            viewport_width = event.window.data1;
+                            viewport_height = event.window.data2;
                             break;
                         case SDL_WINDOWEVENT_EXPOSED:
-                            SDL_GetWindowSize(window, &viewport_width, &viewport_height);
                             viewport_setup(viewport_width, viewport_height);
                             break;
                     }

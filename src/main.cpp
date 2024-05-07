@@ -73,13 +73,10 @@ int main(int argc, char **argv){
     if (glewInit() != GLEW_OK)
         return fatal_error("glewInit");
     SDL_SetWindowIcon(window, IMG_Load("data/icon.png"));
-    SDL_SetWindowMinimumSize(window, SCREEN_WIDTH*2, SCREEN_HEIGHT*2);
-    SDL_ShowCursor(SDL_DISABLE);
-
     board = new Board();
     for (int i = 1; i < argc; i++)
         board->load_file(argv[i]);
-    UI::setup(window, gl_context, glsl_version);
+    UI::setup(cfg, window, gl_context, glsl_version);
     board->run(cfg);
     Config::save(CONFIG);
     release_all();
