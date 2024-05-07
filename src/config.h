@@ -4,7 +4,10 @@ enum AY_Mixer { ABC, ACB, Mono };
 enum Filter {  Nearest, Linear };
 enum ROM_Bank { ROM_Trdos, ROM_128, ROM_48 };
 
+#define CONFIG_H_MODIFIED __TIMESTAMP__
+
 struct Cfg {
+    char format_id[32];
     struct Main {
         int model = HW_Pentagon_128;
         char rom_path[sizeof(ROM_Bank)][PATH_MAX] = {
@@ -31,17 +34,9 @@ struct Cfg {
         float speaker_volume = 0.70f;
         float tape_volume = 0.35f;
     } audio;
-    struct Gamepad {
-        int left = 15;
-        int right = 16;
-        int down = 14;
-        int up = 13;
-        int a = 1;
-        int b = 3;
-    } gamepad;
     struct UI {
         float alpha = 0.95f;
-        bool gamepad_ctrl = false;
+        bool gamepad = false;
     } ui;
 };
 

@@ -44,16 +44,9 @@ Board::Board(){
     sound.set_speaker_volume(cfg.audio.speaker_volume);
     sound.set_tape_volume(cfg.audio.tape_volume);
 
-    joystick.map(JOY_LEFT, cfg.gamepad.left);
-    joystick.map(JOY_RIGHT, cfg.gamepad.right);
-    joystick.map(JOY_DOWN, cfg.gamepad.down);
-    joystick.map(JOY_UP, cfg.gamepad.up);
-    joystick.map(JOY_A, cfg.gamepad.a);
-    joystick.map(JOY_B, cfg.gamepad.b);
-
-    ula.load_rom(ROM_Trdos, cfg.main.rom_path[ROM_Trdos]);
-    ula.load_rom(ROM_128, cfg.main.rom_path[ROM_128]);
-    ula.load_rom(ROM_48, cfg.main.rom_path[ROM_48]);
+    ula.load_rom(ROM_Trdos, (const char*)&cfg.main.rom_path[ROM_Trdos]);
+    ula.load_rom(ROM_128, (const char*)&cfg.main.rom_path[ROM_128]);
+    ula.load_rom(ROM_48, (const char*)&cfg.main.rom_path[ROM_48]);
     setup((Hardware)cfg.main.model);
     reset();
 }

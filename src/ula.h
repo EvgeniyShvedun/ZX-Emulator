@@ -18,6 +18,7 @@ class ULA : public Memory {
         void update(s32 clk);
         void frame(s32 clk);
         void reset();
+        u8 read_wFE(){ return port_wFE; };
 
         u16 *buffer = NULL;
     private:
@@ -25,7 +26,7 @@ class ULA : public Memory {
         u16 palette[0x10];
         u8 *screen_page = NULL;
         u8 flash_mask = 0x7F;
-        u8 port_FE = 0xFF;
+        u8 port_wFE = 0xFF;
         s32 update_clk = 0;
         int frame_count = 0;
         int idx = 0;

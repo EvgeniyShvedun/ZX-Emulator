@@ -1,19 +1,20 @@
-#define JOY_NONE            0b00000000
-#define JOY_RIGHT           0b00000001
-#define JOY_LEFT            0b00000010
-#define JOY_DOWN            0b00000100
-#define JOY_UP              0b00001000
-#define JOY_A               0b00010000
-#define JOY_B               0b00100000
+enum JoyButton {
+    JB_Right = 0b00000001,
+    JB_Left  = 0b00000010,
+    JB_Down  = 0b00000100,
+    JB_Up    = 0b00001000,
+    JB_A     = 0b00010000,
+    JB_B     = 0b00100000
+};
 
 class Joystick : public Device {
     public:
-        void map(char mask, int code);
-        void gamepad(int code, bool state);
+        Joystick();
+        ~Joystick();
         void button(char mask, bool state);
         void read(u16, u8 *byte, s32 clk);
         void event(SDL_Event &event);
     private:
-        u8 port_1F = 0xC0;
-        int gamepad_map[6];
+        SDL_GameController *controller;        
+        u8 port_r1F = 0xC0;
 };

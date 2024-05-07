@@ -10,82 +10,53 @@
 #include <SDL.h>
 #include "joystick.h"
 
-void Joystick::gamepad(int code, bool state){
-    for (int i = 0; i <= 5; i++){
-        if (gamepad_map[i] == code){
-            button(0x01 << i, state);
-            break;
-        }
+Joystick::Joystick(){
+    if (SDL_IsGameController(0) == SDL_TRUE){
+       controller = SDL_GameControllerOpen(0);
+       SDL_GameControllerEventState(SDL_ENABLE);
+    }
+}
+
+Joystick::~Joystick(){
+    if (controller){
+        SDL_GameControllerClose(controller);
+        controller = NULL;
     }
 }
 
 void Joystick::button(char mask, bool state){
     if (state)
-        port_1F |= mask;
+        port_r1F |= mask;
     else
-        port_1F &= ~mask;
-}
-
-void Joystick::map(char mask, int code){
-    for (int i = 0; i <= 5; i++){
-        if (mask & (0x01 << i)){
-            gamepad_map[i] = code;
-            break;
-        }
-    }
+        port_r1F &= ~mask;
 }
 
 void Joystick::read(u16 port, u8 *byte, s32 clk){
     if (port & 0x01)
-        *byte &= port_1F;
+        *byte &= port_r1F;
 }
 
 void Joystick::event(SDL_Event &event){
-    switch (event.type){
-        case SDL_JOYHATMOTION:
-            switch (event.jhat.value){
-                case SDL_HAT_LEFT:
-                    button(JOY_LEFT, true);
-                    button(JOY_RIGHT | JOY_UP | JOY_DOWN, false);
-                    break;
-                case SDL_HAT_LEFTUP:
-                    button(JOY_LEFT | JOY_UP, true);
-                    button(JOY_RIGHT | JOY_DOWN, false);
-                    break;
-                case SDL_HAT_LEFTDOWN:
-                    button(JOY_LEFT | JOY_DOWN, true);
-                    button(JOY_RIGHT | JOY_UP, false);
-                    break;
-                case SDL_HAT_RIGHT:
-                    button(JOY_RIGHT, true);
-                    button(JOY_LEFT | JOY_UP | JOY_DOWN, false);
-                    break;
-                case SDL_HAT_RIGHTUP:
-                    button(JOY_RIGHT | JOY_UP, true);
-                    button(JOY_LEFT | JOY_DOWN, false);
-                    break;
-                case SDL_HAT_RIGHTDOWN:
-                    button(JOY_RIGHT | JOY_DOWN, true);
-                    button(JOY_LEFT | JOY_UP, false);
-                    break;
-                case SDL_HAT_UP:
-                    button(JOY_UP, true);
-                    button(JOY_LEFT | JOY_RIGHT | JOY_DOWN, false);
-                    break;
-                case SDL_HAT_DOWN:
-                    button(JOY_DOWN, true);
-                    button(JOY_LEFT | JOY_RIGHT | JOY_UP, false);
-                    break;
-                case SDL_HAT_CENTERED:
-                    button(JOY_LEFT | JOY_RIGHT | JOY_UP | JOY_DOWN, false);
-                    break;
-            }
-            break;
-        case SDL_JOYBUTTONDOWN:
-            gamepad(event.jbutton.button, true);
-            break;
-        case SDL_JOYBUTTONUP:
-            gamepad(event.jbutton.button, false);
-            break;
+    if (event.type != SDL_CONTROLLERBUTTONDOWN && event.type != SDL_CONTROLLERBUTTONUP)
+        return;
+    switch (event.cbutton.button){
+        case SDL_CONTROLLER_BUTTON_DPAD_LEFT:
+             button(JB_Left, event.cbutton.state);
+             break;
+        case SDL_CONTROLLER_BUTTON_DPAD_RIGHT:
+             button(JB_Right, event.cbutton.state);
+             break;
+        case SDL_CONTROLLER_BUTTON_DPAD_DOWN:
+             button(JB_Down, event.cbutton.state);
+             break;
+        case SDL_CONTROLLER_BUTTON_DPAD_UP:
+             button(JB_Up, event.cbutton.state);
+             break;
+        case SDL_CONTROLLER_BUTTON_A:
+             button(JB_A, event.cbutton.state);
+             break;
+        case SDL_CONTROLLER_BUTTON_B:
+             button(JB_B, event.cbutton.state);
+             break;
     }
 }

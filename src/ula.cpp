@@ -92,8 +92,8 @@ void ULA::update(s32 clk){
             case Border:
                 ptr = &buffer[table[idx].pos + (update_clk - table[idx].clk) * 2];
                 for (; update_clk < limit; update_clk++){
-                    *ptr++ = palette[port_FE & 0x07];
-                    *ptr++ = palette[port_FE & 0x07];
+                    *ptr++ = palette[port_wFE & 0x07];
+                    *ptr++ = palette[port_wFE & 0x07];
                 }
                 break;
             case Paper:
@@ -124,16 +124,16 @@ void ULA::reset(){
     //printf("ROM byte: %02x\n", read_byte_ex(1));
     screen_page = ram[5];
     update_clk = table[0].clk;
-    port_FE = 0xFF;
+    port_wFE = 0xFF;
     idx = 0;
 }
 
 void ULA::write(u16 port, u8 byte, s32 clk){
     Memory::write(port, byte, clk);
     if (!(port & 0x01)){
-        if ((port_FE ^ byte) & 0x07){
+        if ((port_wFE ^ byte) & 0x07){
             update(clk);
-            port_FE = byte;
+            port_wFE = byte;
         }
     }else{
         if (!(port & 0x8002)){ // 7FFD decoded if A2 and A15 is zero.

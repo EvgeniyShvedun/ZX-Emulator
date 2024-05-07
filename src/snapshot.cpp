@@ -87,7 +87,7 @@ namespace Snapshot {
         return idx;
     }
 
-    void save_z80(const char *path, Z80 *cpu, Memory *memory, IO *io){
+    void save_z80(const char *path, Z80 *cpu, ULA *ula, IO *io){
         FILE *fp = fopen(path, "wb");
         struct Z80_Header header {
             .a = cpu->a, .f = cpu->f,
@@ -107,7 +107,7 @@ namespace Snapshot {
         };
         header.flags = ((cpu->r8bit >> 7) & 0x01);
         header.mode = 4;
-        header.p7ffd = memory->read_7FFD();
+        header.p7ffd = ula->read_7FFD();
         header.clk_lo = cpu->clk & 0xFFFF;
         header.clk_hi = cpu->clk >> 16;
         struct Z80_Data data { .length = 0xFFFF };
@@ -115,19 +115,20 @@ namespace Snapshot {
             io->write(0xFFFD, i);
             io->read(0xBFFD, &header.ay_regs[i]);
         }
+        header.flags |= ((ula->read_wFE()) & 0x07) << 1;
         if (fwrite(&header, sizeof(Z80_Header), 1, fp) != 1)
             throw std::runtime_error("Write z80 snapshot header");
         for (unsigned char page = 0; page <= 7 ; page++){
             data.page = page + 3;
             if (fwrite(&data, sizeof(Z80_Data), 1, fp) != 1)
                 throw std::runtime_error("Write data header");
-            if (fwrite(memory->page(page), 0x4000, 1, fp) != 1)
+            if (fwrite(ula->page(page), 0x4000, 1, fp) != 1)
                 throw std::runtime_error("Write page data");
         }
         fclose(fp);
     }
 
-    Hardware load_z80(const char *path, Z80 *cpu, Memory *memory, IO *io){
+    Hardware load_z80(const char *path, Z80 *cpu, ULA *ula, IO *io){
         Hardware hw = HW_Sinclair_128;
         Z80_Header *header;
         int page_mode = 1;
@@ -170,10 +171,10 @@ namespace Snapshot {
                     block_size = 0x4000;
                     if (idx + block_size > size)
                         throw std::runtime_error("Wrong block size");
-                    memcpy(memory->page(page_map[page_mode][page]), &data[idx], block_size);
+                    memcpy(ula->page(page_map[page_mode][page]), &data[idx], block_size);
                     idx += block_size;
                 }else{
-                    pages[0] = memory->page(page_map[page_mode][page]);
+                    pages[0] = ula->page(page_map[page_mode][page]);
                     pages[1] = NULL;
                     page_offset = 0;
                     idx += rle_decode(pages, &page_offset, &data[idx], block_size);
@@ -187,16 +188,16 @@ namespace Snapshot {
             cpu->pc = header->ext_pc;
         }else{
             if (header->flags & 0b100000){ // RLE
-                pages[0] = memory->page(5);
-                pages[1] = memory->page(2);
-                pages[2] = memory->page(0);
+                pages[0] = ula->page(5);
+                pages[1] = ula->page(2);
+                pages[2] = ula->page(0);
                 pages[3] = NULL;
                 page_offset = 0;
                 rle_decode(pages, &page_offset, &data[idx], size - idx);
             }else{
-                memcpy(memory->page(5), &data[idx], 0x4000);
-                memcpy(memory->page(2), &data[idx + 0x4000], 0x4000);
-                memcpy(memory->page(0), &data[idx + 0x8000], 0x4000);
+                memcpy(ula->page(5), &data[idx], 0x4000);
+                memcpy(ula->page(2), &data[idx + 0x4000], 0x4000);
+                memcpy(ula->page(0), &data[idx + 0x8000], 0x4000);
             }
             io->write(0x7FFD, 0x10);
             cpu->pc = header->pc;
