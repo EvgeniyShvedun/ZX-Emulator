@@ -115,9 +115,9 @@ void Board::viewport_setup(int width, int height){
 }
 
 void Board::set_window_size(int width, int height){
-    viewport_setup(width, height);
     SDL_SetWindowSize(window, width, height);
     SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
+    viewport_setup(width, height);
 }
 
 void Board::set_video_filter(Filter filter){
