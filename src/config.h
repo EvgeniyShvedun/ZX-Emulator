@@ -4,7 +4,7 @@ enum AY_Mixer { ABC, ACB, Mono };
 enum Filter {  Nearest, Linear };
 enum ROM_Bank { ROM_Trdos, ROM_128, ROM_48 };
 
-struct CFG {
+struct Cfg {
     struct Main {
         int model = HW_Pentagon_128;
         char rom_path[sizeof(ROM_Bank)][PATH_MAX] = {
@@ -46,8 +46,8 @@ struct CFG {
 };
 
 namespace Config {
-    CFG& load(const char *path);
+    Cfg& load(const char *path);
     void save(const char *path);
-    CFG& get();
-    CFG& get_defaults();
+    Cfg& get();
+    Cfg& get_defaults();
 }

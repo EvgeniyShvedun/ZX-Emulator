@@ -25,7 +25,7 @@
 #include "ui.h"
 
 Board::Board(){
-    CFG &cfg = Config::get();
+    Cfg &cfg = Config::get();
     glEnable(GL_TEXTURE_2D);
     glGenTextures(1, &screen_texture);
     glBindTexture(GL_TEXTURE_2D, screen_texture);
@@ -78,7 +78,7 @@ void Board::setup(Hardware model){
     };
     frame_clk = profile[model].clk;
     ula.set_main_rom(profile[model].rom);
-    CFG &cfg = Config::get();
+    Cfg &cfg = Config::get();
     sound.setup(cfg.audio.dsp_rate, cfg.audio.lpf_rate, frame_clk);
 }
 void Board::read(u16 port, u8 *byte, s32 clk){
@@ -136,7 +136,7 @@ void Board::set_video_filter(Filter filter){
 }
 
 void Board::set_full_screen(bool state){
-    CFG &cfg = Config::get();
+    Cfg &cfg = Config::get();
     if (state){
         Board::set_window_size(SCREEN_WIDTH*2, SCREEN_HEIGHT*2);
         SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN);
@@ -158,7 +158,7 @@ void Board::reset(){
     sound.reset();
 }
 
-void Board::run(CFG &cfg){
+void Board::run(Cfg &cfg){
     window = SDL_GL_GetCurrentWindow();
     SDL_SetWindowMinimumSize(window, SCREEN_WIDTH*2, SCREEN_HEIGHT*2);
 #ifdef TIME

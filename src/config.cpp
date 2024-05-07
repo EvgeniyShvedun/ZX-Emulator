@@ -5,10 +5,10 @@
 #include "config.h"
 
 namespace Config {
-    CFG data;
-    CFG defaults;
+    Cfg data;
+    Cfg defaults;
 
-    CFG& load(const char *path){
+    Cfg& load(const char *path){
         FILE *fp = fopen(path, "r");
         if (!fp || fread(&data, 1, sizeof(data), fp) != sizeof(data))
             memcpy(&data, &defaults, sizeof(data));
@@ -24,11 +24,11 @@ namespace Config {
         fclose(fp);
     }
     
-    CFG& get(){
+    Cfg& get(){
         return data;
     }
 
-    CFG& get_defaults(){
+    Cfg& get_defaults(){
         return defaults;
     }
 }

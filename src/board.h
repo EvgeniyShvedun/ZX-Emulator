@@ -9,7 +9,7 @@ class Board : public IO {
         bool load_file(const char *path);
         bool save_file(const char *path);
 
-        void run(CFG &cfg);
+        void run(Cfg &cfg);
 
         void viewport_setup(int width, int height);
         void set_window_size(int width, int height);

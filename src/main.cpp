@@ -48,7 +48,7 @@ int fatal_error(const char *msg){
 }
 
 int main(int argc, char **argv){
-    CFG &cfg = Config::load(CONFIG);
+    Cfg &cfg = Config::load(CONFIG);
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMECONTROLLER | SDL_INIT_TIMER) != 0)
         return fatal_error("SDL: init");
     if (SDL_NumJoysticks()){

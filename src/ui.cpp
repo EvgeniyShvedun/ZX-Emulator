@@ -61,7 +61,7 @@ namespace UI {
         return texture;
     }
 
-    void setup(CFG &cfg, SDL_Window *window, SDL_GLContext context, const char *glsl_version){
+    void setup(Cfg &cfg, SDL_Window *window, SDL_GLContext context, const char *glsl_version){
         IMGUI_CHECKVERSION();
         CreateContext();
         ImGuiIO &io = GetIO();
@@ -122,7 +122,7 @@ namespace UI {
         return is_active();
     }
 
-    bool frame(CFG &cfg, Board *board){
+    bool frame(Cfg &cfg, Board *board){
         bool status = false;
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplSDL2_NewFrame();
@@ -233,7 +233,7 @@ namespace UI {
                                 Spacing();
                                 SetCursorPosX(GetWindowWidth() - btn_size.x - style.WindowPadding.x);
                                 if (Button("Defaults", btn_size)){
-                                    memcpy(&cfg.main, &Config::get_defaults().main, sizeof(CFG::main));
+                                    memcpy(&cfg.main, &Config::get_defaults().main, sizeof(Cfg::main));
                                     board->setup((Hardware)cfg.main.model);
                                     board->reset();
                                 }
@@ -272,7 +272,7 @@ namespace UI {
                                 Spacing();
                                 SetCursorPosX(GetWindowWidth()-btn_size.x-style.WindowPadding.x);
                                 if (Button("Defaults", btn_size)){
-                                    memcpy(&cfg.video, &Config::get_defaults().video, sizeof(CFG::video));
+                                    memcpy(&cfg.video, &Config::get_defaults().video, sizeof(Cfg::video));
                                     board->set_window_size(cfg.video.full_screen ? SCREEN_WIDTH*2 : SCREEN_WIDTH*cfg.video.screen_scale, cfg.video.full_screen ? SCREEN_HEIGHT*2 : SCREEN_HEIGHT*2);
                                     board->set_full_screen(cfg.video.full_screen);
                                     board->set_video_filter((Filter)cfg.video.filter);
@@ -329,7 +329,7 @@ namespace UI {
                                 Spacing();
                                 SetCursorPosX(GetWindowWidth()-btn_size.x-style.WindowPadding.x);
                                 if (Button("Defaults", btn_size)){
-                                    memcpy(&cfg.audio, &Config::get_defaults().audio, sizeof(CFG::audio));
+                                    memcpy(&cfg.audio, &Config::get_defaults().audio, sizeof(Cfg::audio));
                                     board->sound.setup(cfg.audio.dsp_rate, cfg.audio.lpf_rate, board->frame_clk);
                                     board->sound.set_mixer((AY_Mixer)cfg.audio.ay_mixer, cfg.audio.ay_side, cfg.audio.ay_center, cfg.audio.ay_penetr);
                                     board->sound.set_ay_volume(cfg.audio.ay_volume);
@@ -387,7 +387,7 @@ namespace UI {
                                 Spacing();
                                 SetCursorPosX(GetWindowWidth()-btn_size.x-style.WindowPadding.x);
                                 if (Button("Defaults", btn_size)){
-                                    memcpy(&cfg.ui, &Config::get_defaults().ui, sizeof(CFG::ui));
+                                    memcpy(&cfg.ui, &Config::get_defaults().ui, sizeof(Cfg::ui));
                                     set_alpha(cfg.ui.alpha);
                                     set_gamepad_ctrl(cfg.ui.gamepad_ctrl);
                                 }

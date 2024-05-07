@@ -7,8 +7,8 @@
 
 namespace UI {
     enum UI_Mode { UI_Hidden, UI_Exit, UI_KbdLayout, UI_OpenFile, UI_SaveFile, UI_Settings, UI_Debugger };
-    void setup(CFG &cfg, SDL_Window *window, SDL_GLContext context, const char *glsl_version);
-    bool frame(CFG &cfg, Board *board);
+    void setup(Cfg &cfg, SDL_Window *window, SDL_GLContext context, const char *glsl_version);
+    bool frame(Cfg &cfg, Board *board);
     bool event(SDL_Event &event);
     void open(UI_Mode mode);
     void hide();
