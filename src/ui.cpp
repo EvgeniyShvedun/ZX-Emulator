@@ -137,7 +137,7 @@ namespace UI {
                     static const char *exit_agree = "Do you exit ?";
                     SetNextWindowSize(ImVec2(270.0f, 0.0f), ImGuiCond_Always);
                     SetNextWindowPos(ImVec2(io.DisplaySize.x*0.5f, io.DisplaySize.y*0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
-                    if (Begin("Exit", NULL, UI_WindowFlags | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoDecoration)){
+                    if (Begin("Exit", NULL, UI_WindowFlags | ImGuiWindowFlags_AlwaysAutoResize)){// | ImGuiWindowFlags_NoDecoration)){
                         Dummy(ImVec2(0.0f, 10.0f));
                         SetCursorPosX((GetWindowWidth() - CalcTextSize(exit_agree).x)*0.5f);
                         Text(exit_agree);
@@ -376,6 +376,7 @@ namespace UI {
                                 SeparatorText("Appearance");
                                 Text("Alpha");
                                 SameLine(LABEL_WIDTH);
+                                SetNextItemWidth(-FLT_MIN);
                                 if (SliderFloat("##alpha", &cfg.ui.alpha, 0.7f, 1.0f, "%.2f"))
                                     set_alpha(cfg.ui.alpha);
                                 SeparatorText("Controls");
@@ -428,9 +429,9 @@ namespace UI {
     void set_alpha(float alpha){
         ImGuiStyle &style = GetStyle();
         style.Colors[ImGuiCol_WindowBg] = ImVec4(0.05f, 0.05f, 0.05f, alpha);
-        style.Colors[ImGuiCol_ChildBg] = ImVec4(0.0f, 0.0f, 0.0f, alpha * 0.15f);
-        style.Colors[ImGuiCol_PopupBg] = ImVec4(0.0f, 0.0f, 0.0f, alpha * 0.85f);
-        style.Colors[ImGuiCol_FrameBg].w = 0.90f;
+        style.Colors[ImGuiCol_ChildBg] = ImVec4(0.0f, 0.0f, 0.0f, alpha * 0.035f);
+        style.Colors[ImGuiCol_PopupBg] = ImVec4(0.0f, 0.0f, 0.0f, alpha);
+        style.Colors[ImGuiCol_FrameBg].w = alpha;
     }
     void set_gamepad_ctrl(bool state){
         ImGuiIO &io = GetIO();

@@ -27,9 +27,6 @@ void Sound::setup(int sample_rate, int lpf_rate, int frame_clk){
     set_lpf(sample_rate, lpf_rate);
     if (audio_device_id)
         SDL_CloseAudioDevice(audio_device_id);
-    DELETE_ARRAY(buffer);
-    buffer = new short[sample_rate*4];
-    memset(buffer, 0, sample_rate*sizeof(short)*4);
     frame_samples = frame_clk * (sample_rate / (float)Z80_FREQ);
     SDL_zero(audio_spec);
     audio_spec.freq = sample_rate;
@@ -40,7 +37,12 @@ void Sound::setup(int sample_rate, int lpf_rate, int frame_clk){
     audio_device_id = SDL_OpenAudioDevice(NULL, 0, &audio_spec, NULL, 0);
     if (!audio_device_id)
         throw std::runtime_error("SDL: Open audio device");
-    SDL_QueueAudio(audio_device_id, buffer, audio_spec.samples*2*4);
+    DELETE_ARRAY(buffer);
+    buffer =  new short[sample_rate*4];
+    //frame_pos = 0;
+    //update(frame_clk);
+    memset(buffer, 0x00, frame_samples * 4);
+    SDL_QueueAudio(audio_device_id, buffer, frame_samples*4);
     SDL_PauseAudioDevice(audio_device_id, 0);
 }
 
@@ -90,9 +92,9 @@ void Sound::update(int clk){
     if (!buffer)
         return;
     float square = (
-        (port_wFE & SPEAKER ? speaker_volume : 0.0) +
+        (port_wFE & SPEAKER ? 0.0f : speaker_volume) +
         (port_wFE & TAPE_OUT ? tape_volume : 0.0f) +
-        (port_rFE & TAPE_IN ? tape_volume : 0.0f)) / 3;
+        (port_rFE & TAPE_IN ? 0.0f : tape_volume)) / 3;
     for (int now = clk * factor; frame_pos < now; frame_pos++){
         tone_a_counter += increment;
         if (tone_a_counter >= tone_a_limit){

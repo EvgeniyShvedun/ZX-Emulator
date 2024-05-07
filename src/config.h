@@ -40,7 +40,7 @@ struct CFG {
         int b = 3;
     } gamepad;
     struct UI {
-        float alpha = 0.90f;
+        float alpha = 0.95f;
         bool gamepad_ctrl = false;
     } ui;
 };
