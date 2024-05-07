@@ -39,8 +39,6 @@ void Sound::setup(int sample_rate, int lpf_rate, int frame_clk){
         throw std::runtime_error("SDL: Open audio device");
     DELETE_ARRAY(buffer);
     buffer =  new short[sample_rate*4];
-    //frame_pos = 0;
-    //update(frame_clk);
     memset(buffer, 0x00, frame_samples * 4);
     SDL_QueueAudio(audio_device_id, buffer, frame_samples*4);
     SDL_PauseAudioDevice(audio_device_id, 0);
@@ -92,8 +90,8 @@ void Sound::update(int clk){
     if (!buffer)
         return;
     float square = (
-        (port_wFE & SPEAKER ? 0.0f : speaker_volume) +
-        (port_wFE & TAPE_OUT ? tape_volume : 0.0f) +
+        (port_wFE & SPEAKER ? 0.0f : speaker_volume) + 
+        (port_wFE & TAPE_OUT ? 0.0f : tape_volume) +
         (port_rFE & TAPE_IN ? 0.0f : tape_volume)) / 3;
     for (int now = clk * factor; frame_pos < now; frame_pos++){
         tone_a_counter += increment;

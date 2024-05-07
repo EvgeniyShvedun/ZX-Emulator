@@ -27,9 +27,9 @@ struct CFG {
         float ay_side = 1.0;
         float ay_center = 0.7;
         float ay_penetr = 0.3;
-        float ay_volume = 0.90;
-        float speaker_volume = 0.5;
-        float tape_volume = 0.25;
+        float ay_volume = 1.0f;
+        float speaker_volume = 0.70f;
+        float tape_volume = 0.35f;
     } audio;
     struct Gamepad {
         int left = 15;
