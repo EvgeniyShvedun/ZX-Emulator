@@ -388,9 +388,9 @@ namespace UI {
     }
     void set_alpha(float alpha){
         ImGuiStyle &style = GetStyle();
-        style.Colors[ImGuiCol_WindowBg] = ImVec4(0.05f, 0.05f, 0.05f, alpha);
-        style.Colors[ImGuiCol_ChildBg] = ImVec4(0.00f, 0.00f, 0.00f, alpha * 0.10f);
-        style.Colors[ImGuiCol_PopupBg] = ImVec4(0.05f, 0.05f, 0.05f, alpha * 0.99);
+        style.Colors[ImGuiCol_WindowBg] = ImVec4(0.01f, 0.01f, 0.01f, alpha);
+        style.Colors[ImGuiCol_ChildBg] = ImVec4(0.00f, 0.00f, 0.01f, alpha * 0.25f);
+        style.Colors[ImGuiCol_PopupBg] = ImVec4(0.01, 0.01f, 0.01f, alpha * 0.99);
         style.Colors[ImGuiCol_FrameBg].w = alpha;
     }
     void set_gamepad_ctrl(bool state){

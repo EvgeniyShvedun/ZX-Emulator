@@ -13,7 +13,6 @@
 #include "z80.h"
 #include "sound.h"
 
-#define BUFFER_TIME_SEC 4
 SDL_AudioSpec audio_spec;
 SDL_AudioDeviceID audio_device_id = 0;
 
@@ -25,9 +24,14 @@ void Sound::setup(int sample_rate, int lpf_rate, int frame_clk){
     factor = sample_rate / (float)Z80_FREQ;
     increment = AY_RATE / (float)sample_rate;
     set_lpf(sample_rate, lpf_rate);
-    if (audio_device_id)
-        SDL_CloseAudioDevice(audio_device_id);
+    if (!buffer)
+        buffer = new short[sample_rate*4];
     frame_samples = frame_clk * (sample_rate / (float)Z80_FREQ);
+    frame_samples &= ~0x03;
+    if (audio_device_id){
+        SDL_PauseAudioDevice(audio_device_id, 1);
+        SDL_CloseAudioDevice(audio_device_id);
+    }
     SDL_zero(audio_spec);
     audio_spec.freq = sample_rate;
     audio_spec.format = AUDIO_S16;
@@ -37,10 +41,7 @@ void Sound::setup(int sample_rate, int lpf_rate, int frame_clk){
     audio_device_id = SDL_OpenAudioDevice(NULL, 0, &audio_spec, NULL, 0);
     if (!audio_device_id)
         throw std::runtime_error("SDL: Open audio device");
-    DELETE_ARRAY(buffer);
-    buffer =  new short[sample_rate*4];
-    memset(buffer, 0x00, frame_samples * 4);
-    SDL_QueueAudio(audio_device_id, buffer, frame_samples*4);
+    SDL_QueueAudio(audio_device_id, buffer, frame_samples * 4);
     SDL_PauseAudioDevice(audio_device_id, 0);
 }
 

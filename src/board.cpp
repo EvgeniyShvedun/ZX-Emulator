@@ -96,6 +96,7 @@ void Board::write(u16 port, u8 byte, s32 clk){
     ula.write(port, byte, clk);
 }
 
+/*
 void Board::viewport_setup(int width, int height){
     viewport_width = width;
     viewport_height = height;
@@ -105,12 +106,11 @@ void Board::viewport_setup(int width, int height){
     glOrtho(0.0, width, height, 0.0, -1.0, 1.0);
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
-}
+}*/
 
 void Board::set_window_size(int width, int height){
     SDL_SetWindowSize(window, width, height);
-    SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
-    viewport_setup(width, height);
+    //viewport_setup(width, height);
 }
 
 void Board::set_video_filter(Filter filter){
@@ -173,7 +173,12 @@ void Board::run(Cfg &cfg){
                             viewport_height = event.window.data2;
                             break;
                         case SDL_WINDOWEVENT_EXPOSED:
-                            viewport_setup(viewport_width, viewport_height);
+                            glViewport(0, 0, (GLsizei)viewport_width, (GLsizei)viewport_height);
+                            glMatrixMode(GL_PROJECTION);
+                            glLoadIdentity();
+                            glOrtho(0.0, viewport_width, viewport_height, 0.0, -1.0, 1.0);
+                            glMatrixMode(GL_MODELVIEW);
+                            glLoadIdentity();
                             break;
                     }
                     break;
