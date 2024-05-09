@@ -4,9 +4,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <SDL.h>
-#include <SDL_image.h>
 #include <GL/glew.h>
-#include <GL/gl.h>
+#include <SDL_image.h>
 #include "types.h"
 #include "utils.h"
 #include "config.h"
@@ -24,19 +23,18 @@
 #include "board.h"
 #include "ui.h"
 
-Board::Board(){
-    Cfg &cfg = Config::get();
+Board::Board(Cfg &cfg) : cfg(cfg) {
     glEnable(GL_TEXTURE_2D);
     glGenTextures(1, &screen_texture);
     glBindTexture(GL_TEXTURE_2D, screen_texture);
-    glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA, SCREEN_WIDTH, SCREEN_HEIGHT);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, SCREEN_WIDTH, SCREEN_HEIGHT, 0, GL_RGBA, GL_UNSIGNED_SHORT_4_4_4_4, NULL);
+    glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA, ZX_SCREEN_WIDTH, ZX_SCREEN_HEIGHT);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, ZX_SCREEN_WIDTH, ZX_SCREEN_HEIGHT, 0, GL_RGBA, GL_UNSIGNED_SHORT_4_4_4_4, NULL);
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glBindTexture(GL_TEXTURE_2D, 0);
     glGenBuffers(1, &pbo);
 
-    set_video_filter((Filter)cfg.video.filter);
+    set_texture_filter((Filter)cfg.video.filter);
     set_vsync(cfg.video.vsync);
 
     sound.set_mixer((AY_Mixer)cfg.audio.ay_mixer, cfg.audio.ay_side, cfg.audio.ay_center, cfg.audio.ay_penetr);
@@ -71,7 +69,6 @@ void Board::setup(Hardware model){
     };
     frame_clk = profile[model].clk;
     ula.set_main_rom(profile[model].rom);
-    Cfg &cfg = Config::get();
     sound.setup(cfg.audio.dsp_rate, cfg.audio.lpf_rate, frame_clk);
 }
 void Board::read(u16 port, u8 *byte, s32 clk){
@@ -96,24 +93,23 @@ void Board::write(u16 port, u8 byte, s32 clk){
     ula.write(port, byte, clk);
 }
 
-/*
 void Board::viewport_setup(int width, int height){
-    viewport_width = width;
-    viewport_height = height;
     glViewport(0, 0, (GLsizei)width, (GLsizei)height);
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
     glOrtho(0.0, width, height, 0.0, -1.0, 1.0);
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
-}*/
-
-void Board::set_window_size(int width, int height){
-    SDL_SetWindowSize(window, width, height);
-    //viewport_setup(width, height);
 }
 
-void Board::set_video_filter(Filter filter){
+void Board::set_window_size(int width, int height){
+    viewport_width = cfg.video.screen_width = width;
+    viewport_height = cfg.video.screen_height = height;
+    SDL_SetWindowSize(window, width, height);
+    viewport_setup(width, height);
+}
+
+void Board::set_texture_filter(Filter filter){
     glBindTexture(GL_TEXTURE_2D, screen_texture);
     switch (filter){
         case Nearest:
@@ -129,14 +125,15 @@ void Board::set_video_filter(Filter filter){
 }
 
 void Board::set_full_screen(bool state){
-    Cfg &cfg = Config::get();
     if (state){
-        Board::set_window_size(SCREEN_WIDTH*2, SCREEN_HEIGHT*2);
+        SDL_SetWindowSize(window, SCREEN_WIDTH, SCREEN_HEIGHT);
         SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN);
     }else{
         SDL_ShowCursor(SDL_DISABLE);
         SDL_SetWindowFullscreen(window, 0);
-        Board::set_window_size(SCREEN_WIDTH*cfg.video.screen_scale, SCREEN_HEIGHT*cfg.video.screen_scale);
+        viewport_width = cfg.video.screen_width;
+        viewport_height = cfg.video.screen_height;
+        SDL_SetWindowSize(window, cfg.video.screen_width, cfg.video.screen_height);
     }
 }
 
@@ -153,7 +150,8 @@ void Board::reset(){
 
 void Board::run(Cfg &cfg){
     window = SDL_GL_GetCurrentWindow();
-    SDL_SetWindowMinimumSize(window, SCREEN_WIDTH*2, SCREEN_HEIGHT*2);
+    viewport_width = cfg.video.screen_width;
+    viewport_height = cfg.video.screen_height;
 #ifdef TIME
     int frame_count = 0;
     set_vsync(false);
@@ -173,12 +171,7 @@ void Board::run(Cfg &cfg){
                             viewport_height = event.window.data2;
                             break;
                         case SDL_WINDOWEVENT_EXPOSED:
-                            glViewport(0, 0, (GLsizei)viewport_width, (GLsizei)viewport_height);
-                            glMatrixMode(GL_PROJECTION);
-                            glLoadIdentity();
-                            glOrtho(0.0, viewport_width, viewport_height, 0.0, -1.0, 1.0);
-                            glMatrixMode(GL_MODELVIEW);
-                            glLoadIdentity();
+                            viewport_setup(viewport_width, viewport_height);
                             break;
                     }
                     break;
@@ -249,7 +242,7 @@ void Board::run(Cfg &cfg){
         if (!paused){
             // Update the PBO and setup async byte-transfer to the screen texture.
             glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pbo);
-            glBufferData(GL_PIXEL_UNPACK_BUFFER, SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(GLushort), NULL, GL_DYNAMIC_DRAW);
+            glBufferData(GL_PIXEL_UNPACK_BUFFER, ZX_SCREEN_WIDTH * ZX_SCREEN_HEIGHT * sizeof(GLushort), NULL, GL_DYNAMIC_DRAW);
             ula.buffer = (u16*)glMapBuffer(GL_PIXEL_UNPACK_BUFFER, GL_WRITE_ONLY);
             cpu.frame(&ula, this, frame_clk);
             cpu.interrupt(&ula);
@@ -260,7 +253,7 @@ void Board::run(Cfg &cfg){
             ula.frame(frame_clk);
             glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
             // Start update texture.
-            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, GL_RGBA, GL_UNSIGNED_SHORT_4_4_4_4, NULL);
+            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, ZX_SCREEN_WIDTH, ZX_SCREEN_HEIGHT, GL_RGBA, GL_UNSIGNED_SHORT_4_4_4_4, NULL);
             glBindTexture(GL_TEXTURE_2D, 0);
             glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
             if (!cfg.main.full_speed)

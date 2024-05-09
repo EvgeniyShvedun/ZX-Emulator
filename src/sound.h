@@ -1,20 +1,22 @@
 #define AY_RATE                     (1774400 / 8.0)
-#define TAPE_OUT                    0b00001000
-#define SPEAKER                     0b00010000
-#define TAPE_IN                     0b01000000
 
 enum AY_Register {
-    A_PCH_L, A_PCH_H,
-    B_PCH_L, B_PCH_H,
-    C_PCH_L, C_PCH_H,
-    N_PCH,
-    MIX,
-    A_VOL, B_VOL, C_VOL,
-    ENV_L, ENV_H, ENV_SHAPE,
-    PORT_A, PORT_B
+    ToneALow, ToneAHigh,
+    ToneBLow, ToneBHigh,
+    ToneCLow, ToneCHigh,
+    Noise,
+    Mixer,
+    VolA, VolB, VolC,
+    EnvLow, EnvHigh, EnvShape,
+    PortA, PortB
 };
 enum AY_Stereo { Left, Right };
 enum AY_Channel { A, B, C };
+enum FE_ReadWrite {
+    TapeOut     = 0b00001000,
+    Speaker     = 0b00010000,
+    TapeIn      = 0b01000000
+};
 
 class Sound : public Device {
 /*
@@ -55,14 +57,17 @@ Register       Function                        Range
         void reset();
 
     protected:
+        SDL_AudioSpec audio_spec;
+        SDL_AudioDeviceID device_id = 0;
         int sample_rate;
-        unsigned int frame_samples;
+        unsigned int samples;
         float increment, factor;
-        signed char tone_a, tone_b, tone_c, noise, envelope;
         float tone_a_counter, tone_b_counter, tone_c_counter, noise_counter, envelope_counter;
         float tone_a_limit, tone_b_limit, tone_c_limit, noise_limit, envelope_limit;
-        int envelope_pos;
-        unsigned int noise_seed;
+        u8 tone_a, tone_b, tone_c;
+        u8 noise, envelope;
+        s32 envelope_pos;
+        u32 noise_seed;
         /*
         The envelope counter on the AY-3-8910 has 16 steps. On the YM2149 it has twice the steps, happening twice as fast.
         C AtAlH
@@ -77,7 +82,7 @@ Register       Function                        Range
         1 1 1 0  /\/\ 14
         1 1 1 1  /___ 15
         */
-        const unsigned char envelope_shape[0x20 * 0x10] = {
+        const u8 envelope_shape[0x20 * 0x10] = {
             0x0F, 0x0E, 0x0D, 0x0C, 0x0B, 0x0A, 0x09, 0x08, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01, 0x00, /* \__ */
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
             0x0F, 0x0E, 0x0D, 0x0C, 0x0B, 0x0A, 0x09, 0x08, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01, 0x00, /* \__ */
@@ -111,18 +116,18 @@ Register       Function                        Range
             0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, /* /|__*/
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
         };
-        AY_Mixer mixer_mode;
+        AY_Mixer mix_mode;
         float mixer[sizeof(AY_Mixer)][sizeof(AY_Stereo)][sizeof(AY_Channel)];
         // Posted to comp.sys.sinclair in Dec 2001 by Matthew Westcott.
-        const float ay_volume_table[0x10] = {
+        const float volume_table[0x10] = {
             0.000000, 0.013748, 0.020462, 0.029053, 0.042343, 0.061844, 0.084718, 0.136903,
             0.169130, 0.264667, 0.352712, 0.449942, 0.570382, 0.687281, 0.848172, 1.000000
         };
-        unsigned char registers[0x10];
-        unsigned char port_wFE, port_rFE, port_wFFFD;
+        u8 registers[0x10];
+        u8 wFE, rFE, wFFFD;
         float ay_volume, speaker_volume, tape_volume;
         float left, right;
         float lpf_alpha;
-        short *buffer = NULL;
+        short *audio_frame = NULL;
         int frame_pos;
 };

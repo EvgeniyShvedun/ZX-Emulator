@@ -1,6 +1,6 @@
 class Board : public IO {
     public:
-        Board();
+        Board(Cfg &cfg);
         ~Board();
         void setup(Hardware model);
         void frame();
@@ -13,7 +13,7 @@ class Board : public IO {
 
         void viewport_setup(int width, int height);
         void set_window_size(int width, int height);
-        void set_video_filter(Filter filter);
+        void set_texture_filter(Filter filter);
         void set_full_screen(bool state);
         void set_vsync(bool state);
 
@@ -27,11 +27,12 @@ class Board : public IO {
         Keyboard keyboard;
         s32 frame_clk;
     private:
+        Cfg &cfg;
         SDL_Window *window = NULL;
-        int viewport_width = -1;
-        int viewport_height = -1;
         GLuint screen_texture = 0;
         GLuint pbo = 0;
+        int viewport_width = SCREEN_WIDTH;
+        int viewport_height = SCREEN_HEIGHT;
         // Devices
         FDC fdc;
         Joystick joystick;

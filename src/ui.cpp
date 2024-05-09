@@ -3,10 +3,9 @@
 #include <stdexcept>
 #include <stdio.h>
 #include <string.h>
+#include <GL/glew.h>
 #include <SDL.h>
 #include <SDL_image.h>
-#include <GL/glew.h>
-#include <GL/gl.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #include "imgui.h"
@@ -156,7 +155,7 @@ namespace UI {
                 break;
             case UI_OpenFile:
                 SetNextWindowPos(ImVec2(io.DisplaySize.x*0.5f, io.DisplaySize.y*0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
-                SetNextWindowSize(ImVec2(io.DisplaySize.x*(0.85f-(1.0f-SCREEN_WIDTH*2/io.DisplaySize.x)*0.5f), io.DisplaySize.y*(0.75f-(1.0f-SCREEN_HEIGHT*2/io.DisplaySize.y)*0.5f)), ImGuiCond_Always);
+                SetNextWindowSize(ImVec2(io.DisplaySize.x*(0.85f-(1.0f-SCREEN_WIDTH/io.DisplaySize.x)*0.5f), io.DisplaySize.y*(0.75f-(1.0f-SCREEN_HEIGHT/io.DisplaySize.y)*0.5f)), ImGuiCond_Always);
                 ImGuiFileDialog::Instance()->OpenDialog("##file_dlg", "Open file", ".z80;.tap;.trd;.scl {(([.]z80|Z80|trd|TRD|scl|SCL|tap|TAP))}", file_config);
                 if (ImGuiFileDialog::Instance()->Display("##file_dlg", UI_WindowFlags)){
                     if (ImGuiFileDialog::Instance()->IsOk())
@@ -167,7 +166,7 @@ namespace UI {
                 break;
             case UI_SaveFile:
                 SetNextWindowPos(ImVec2(io.DisplaySize.x*0.5f, io.DisplaySize.y*0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
-                SetNextWindowSize(ImVec2(io.DisplaySize.x*(0.85f-(1.0f-SCREEN_WIDTH*2/io.DisplaySize.x)*0.5f), io.DisplaySize.y*(0.75f-(1.0f-SCREEN_HEIGHT*2/io.DisplaySize.y)*0.5f)), ImGuiCond_Always);
+                SetNextWindowSize(ImVec2(io.DisplaySize.x*(0.85f-(1.0f-SCREEN_WIDTH/io.DisplaySize.x)*0.5f), io.DisplaySize.y*(0.75f-(1.0f-SCREEN_HEIGHT/io.DisplaySize.y)*0.5f)), ImGuiCond_Always);
                 ImGuiFileDialog::Instance()->OpenDialog("##file_dlg", "Save file", ".z80;.trd; {(([.]z80|Z80|trd|TRD))}", file_config);
                 if (ImGuiFileDialog::Instance()->Display("##file_dlg", UI_WindowFlags)){
                     if (ImGuiFileDialog::Instance()->IsOk())
@@ -180,7 +179,7 @@ namespace UI {
                 static int load_rom = -1;
                 static const char *label[sizeof(ROM_Bank)] = { "Rom TR-Dos", "Rom 128", "Rom 48" };
                 SetNextWindowPos(ImVec2(io.DisplaySize.x*0.5f, (io.DisplaySize.y-400.0f)*0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.0f));
-                SetNextWindowSize(ImVec2(io.DisplaySize.x*(0.60f-(1.0f-SCREEN_WIDTH*2/io.DisplaySize.x)*0.5f), 0), ImGuiCond_Always);
+                SetNextWindowSize(ImVec2(io.DisplaySize.x*(0.60f-(1.0f-SCREEN_WIDTH/io.DisplaySize.x)*0.5f), 0), ImGuiCond_Always);
                 if (Begin("Settings", NULL, UI_WindowFlags)){
                     ImVec2 glyph = CalcTextSize("A");
                     if (BeginTabBar("tabs")){
@@ -201,7 +200,7 @@ namespace UI {
                                 Text(label[i]);
                                 SameLine(LABEL_WIDTH);
                                 SetNextItemWidth(-FLT_MIN - btn_small.x - style.ItemSpacing.x);
-                                float path_width = GetContentRegionAvail().x - btn_small.x - style.ItemSpacing.x - style.FramePadding.x*2;
+                                float path_width = GetContentRegionAvail().x - btn_small.x - style.ItemSpacing.x - style.FramePadding.x;
                                 int path_len = strlen(cfg.main.rom_path[i]);
                                 PushID(i);
                                 InputText("##path", cfg.main.rom_path[i] + (path_len*glyph.x > path_width ? (int)(path_len - path_width/glyph.x) : 0), PATH_MAX);
@@ -213,7 +212,7 @@ namespace UI {
                             }
                             if (load_rom >= 0){
                                 SetNextWindowPos(ImVec2(io.DisplaySize.x*0.5f, io.DisplaySize.y*0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
-                                SetNextWindowSize(ImVec2(io.DisplaySize.x*(0.85f-(1.0f-SCREEN_WIDTH*2/io.DisplaySize.x)*0.5f), io.DisplaySize.y*(0.75f-(1.0f-SCREEN_HEIGHT*2/io.DisplaySize.y)*0.5f)), ImGuiCond_Always);
+                                SetNextWindowSize(ImVec2(io.DisplaySize.x*(0.85f-(1.0f-SCREEN_WIDTH/io.DisplaySize.x)*0.5f), io.DisplaySize.y*(0.75f-(1.0f-SCREEN_HEIGHT/io.DisplaySize.y)*0.5f)), ImGuiCond_Always);
                                 ImGuiFileDialog::Instance()->OpenDialog("load_rom", "Load ROM", ".rom {(([.]rom|ROM))}", file_config);
                                 if (ImGuiFileDialog::Instance()->Display("load_rom", UI_WindowFlags)){
                                     if (ImGuiFileDialog::Instance()->IsOk()){
@@ -239,10 +238,18 @@ namespace UI {
                             Text("Scale");
                             SameLine(LABEL_WIDTH);
                             SetNextItemWidth(-FLT_MIN);
-                            if (InputInt("##screen_scale", &cfg.video.screen_scale, 1, 1, ImGuiInputTextFlags_CharsDecimal | ImGuiInputTextFlags_CharsNoBlank | (cfg.video.full_screen ? ImGuiInputTextFlags_ReadOnly : ImGuiInputTextFlags_None))){
-                                cfg.video.screen_scale = std::min(std::max(cfg.video.screen_scale, 2), 5);
-                                board->set_window_size(SCREEN_WIDTH*cfg.video.screen_scale, SCREEN_HEIGHT*cfg.video.screen_scale);
+
+                            int screen_size = (float)cfg.video.screen_width / cfg.video.screen_height == ASPECT_RATIO ? std::min(((float)cfg.video.screen_width - SCREEN_WIDTH) / ZX_SCREEN_WIDTH, 3.0f) : 4;
+                            if (!cfg.video.full_screen){
+                                if (Combo("##screen_size", &screen_size, "640x480\0""960x720\0""1280x960\0""1600x1200\0\0"))
+                                    if (screen_size >= 0 && screen_size <= 3)
+                                        board->set_window_size(SCREEN_WIDTH+ZX_SCREEN_WIDTH*screen_size, SCREEN_HEIGHT+ZX_SCREEN_HEIGHT*screen_size);
+                            }else{
+                                BeginDisabled();
+                                Combo("##screen_size", &screen_size, "640x480\0""960x720\0""1280x960\0""1600x1200\0\0");
+                                EndDisabled();
                             }
+
                             SetCursorPosX(LABEL_WIDTH);
                             if (Checkbox("Full screen", &cfg.video.full_screen))
                                 board->set_full_screen(cfg.video.full_screen);
@@ -250,27 +257,26 @@ namespace UI {
                             Text("Type");
                             SameLine(LABEL_WIDTH);
                             if (RadioButton("LCD", &cfg.video.filter, Nearest))
-                                board->set_video_filter(Nearest);
+                                board->set_texture_filter(Nearest);
                             SameLine();
                             if (RadioButton("CRT", &cfg.video.filter, Linear))
-                                board->set_video_filter(Linear);
+                                board->set_texture_filter(Linear);
                             SetCursorPosX(LABEL_WIDTH);
                             if (!cfg.main.full_speed){
                                 if (Checkbox("V-Sync", &cfg.video.vsync))
                                     board->set_vsync(cfg.video.vsync);
                             }else{
-                                bool none = cfg.video.vsync;
-                                PushStyleVar(ImGuiStyleVar_Alpha, 0.4f);
-                                Checkbox("V-Sync", &none);
-                                PopStyleVar();
+                                BeginDisabled();
+                                Checkbox("V-Sync", &cfg.video.vsync);
+                                EndDisabled();
                             }
                             Spacing();
                             SetCursorPosX(GetWindowWidth()-btn_size.x-style.WindowPadding.x);
                             if (Button("Defaults", btn_size)){
                                 memcpy(&cfg.video, &Config::get_defaults().video, sizeof(Cfg::video));
-                                board->set_window_size(cfg.video.full_screen ? SCREEN_WIDTH*2 : SCREEN_WIDTH*cfg.video.screen_scale, cfg.video.full_screen ? SCREEN_HEIGHT*2 : SCREEN_HEIGHT*2);
+                                board->set_window_size(SCREEN_WIDTH, SCREEN_HEIGHT);
                                 board->set_full_screen(cfg.video.full_screen);
-                                board->set_video_filter((Filter)cfg.video.filter);
+                                board->set_texture_filter((Filter)cfg.video.filter);
                                 board->set_vsync(cfg.video.vsync);
                             }
                             EndTabItem();
@@ -363,7 +369,7 @@ namespace UI {
             case UI_Debugger:
                 break;
                 SetNextWindowPos(ImVec2(io.DisplaySize.x*0.5f, io.DisplaySize.y*0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
-                SetNextWindowSize(ImVec2(SCREEN_WIDTH*2, SCREEN_HEIGHT*2), ImGuiCond_Always);
+                SetNextWindowSize(ImVec2(SCREEN_WIDTH, SCREEN_HEIGHT), ImGuiCond_Always);
                 if (Begin("##debugger", NULL, UI_WindowFlags)){
                     static struct Debugger debugger(board->cpu);
                 }
