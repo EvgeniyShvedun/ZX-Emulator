@@ -58,7 +58,7 @@ ULA::ULA(){
     for (int i = 0; i < (ZX_SCREEN_HEIGHT - BORDER_TOP - 192); i++){
         table[BORDER_TOP+192*3+i].type = Border;
         table[BORDER_TOP+192*3+i].clk = START_CLK + SCANLINE_CLK*(BORDER_TOP+192+i);
-        table[BORDER_TOP+192*3+i].end = START_CLK + SCANLINE_CLK*(BORDER_TOP+192+i+1);
+        table[BORDER_TOP+192*3+i].end = START_CLK + SCANLINE_CLK*(BORDER_TOP+192+i) + ZX_SCREEN_WIDTH/2;
         table[BORDER_TOP+192*3+i].pos = ZX_SCREEN_WIDTH*(BORDER_TOP+192+i);
     }
     table[BORDER_TOP + 192*3 + (ZX_SCREEN_HEIGHT - BORDER_TOP - 192)].clk = 0xFFFFFF;
