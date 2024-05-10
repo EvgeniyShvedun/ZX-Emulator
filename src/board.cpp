@@ -134,6 +134,7 @@ void Board::set_full_screen(bool state){
         viewport_width = cfg.video.screen_width;
         viewport_height = cfg.video.screen_height;
         SDL_SetWindowSize(window, cfg.video.screen_width, cfg.video.screen_height);
+        viewport_setup(cfg.video.screen_width, cfg.video.screen_height);
     }
 }
 
