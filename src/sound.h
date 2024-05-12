@@ -123,7 +123,7 @@ Register       Function                        Range
             0.000000, 0.013748, 0.020462, 0.029053, 0.042343, 0.061844, 0.084718, 0.136903,
             0.169130, 0.264667, 0.352712, 0.449942, 0.570382, 0.687281, 0.848172, 1.000000
         };
-        u8 registers[0x10];
+        u8 registers[0x10] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
         u8 wFE, rFE, wFFFD;
         float ay_volume, speaker_volume, tape_volume;
         float left, right;

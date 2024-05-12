@@ -1,9 +1,7 @@
-#include <limits.h>
 #include <stdexcept>
 #include <stdio.h>
 #include <string.h>
 #include "config.h"
-#include <stdint.h>
 
 namespace Config {
     Cfg data;

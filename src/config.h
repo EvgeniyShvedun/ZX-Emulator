@@ -15,7 +15,7 @@ struct Cfg {
     char format_id[32];
     struct Main {
         int model = HW_Pentagon_128;
-        char rom_path[sizeof(ROM_Bank)][PATH_MAX] = {
+        char rom_path[sizeof(ROM_Bank)][4096] = {
             "data/rom/trdos.rom",
             "data/rom/128.rom",
             "data/rom/48.rom"

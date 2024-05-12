@@ -91,25 +91,25 @@ void Sound::update(int clk){
         return;
 
     float square = (
-        (wFE & Speaker ? 0.0f : speaker_volume) + 
-        (wFE & TapeOut ? 0.0f : tape_volume) +
-        (rFE & TapeIn ? 0.0f : tape_volume)) / 3;
+        (wFE & Speaker ? speaker_volume : 0.0f) + 
+        (wFE & TapeOut ? tape_volume : 0.0f) +
+        (rFE & TapeIn ? tape_volume : 0.0f)) / 3;
 
     for (int now = clk * factor; frame_pos < now; frame_pos++){
         tone_a_counter += increment;
         if (tone_a_counter >= tone_a_limit){
             tone_a_counter -= tone_a_limit;
-            tone_a ^= -1;
+            tone_a ^= 0x0F;
         }
         tone_b_counter += increment;
         if (tone_b_counter >= tone_b_limit){
             tone_b_counter -= tone_b_limit;
-            tone_b ^= -1;
+            tone_b ^= 0x0F;
         }
         tone_c_counter += increment;
         if (tone_c_counter >= tone_c_limit){
             tone_c_counter -= tone_c_limit;
-            tone_c ^= -1;
+            tone_c ^= 0x0F;
         }
         noise_counter += increment;
         if (noise_counter >= noise_limit){
@@ -123,7 +123,7 @@ void Sound::update(int clk){
                 noise_seed = ((noise_seed << 1) + 1) ^ (((noise_seed >> 16) ^ (noise_seed >> 13)) & 0x01);
                 noise = (noise_seed >> 16) & 0x01 ? 0x00 : 0xFF; */
             if ((noise_seed & 0x01) ^ ((noise_seed & 0x02) >> 1))
-                noise ^= -1;
+                noise ^= 0x0F;
             if (noise_seed & 0x01)
                 noise_seed ^= 0x24000;
             noise_seed >>= 1;
@@ -230,11 +230,20 @@ void Sound::read(u16 port, u8 *byte, s32 clk){
 
 void Sound::reset(){
     noise_seed = 12345;
+    tone_a = tone_b = tone_c = noise = envelope = 0x0F;
+    tone_a_counter = tone_b_counter = tone_c_counter = noise_counter = envelope_counter = 0;
+    tone_a_limit = tone_b_limit = tone_c_limit = 0xFFF;
+    noise_limit = 0x1F;
+    envelope_limit = 0xFFFF;
+    envelope = envelope_shape[registers[EnvShape] * 0x20];
+    envelope_pos = 0x00;
+    /*
     for (int i = 0; i < 0x10; i++){
         write(0xFFFD, i++, 0);
         write(0xBFFD, 0x00, 0);
-    }
-    rFE = wFE = 0xFF;
+    }*/
+    rFE = wFE = 0x0;
+    wFFFD = 0x0F;
     left = right = 0.0f;
     frame_pos = 0;
 }
