@@ -23,6 +23,10 @@
 #include "board.h"
 #include "ui.h"
 
+//#define TIME
+//#define FRAME_LIMIT 10000
+
+
 Board::Board(Cfg &cfg) : cfg(cfg) {
     glEnable(GL_TEXTURE_2D);
     glGenTextures(1, &screen_texture);

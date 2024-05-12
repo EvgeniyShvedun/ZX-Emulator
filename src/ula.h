@@ -55,7 +55,7 @@ class ULA : public Memory {
         u16 *buffer = NULL;
     private:
         u16 pixel_table[0x10000*8];
-        u16 palette[0x10];
+        u32 palette[0x10];
         u8 *screen_page = NULL;
         u8 flash_mask = 0x7F;
         u8 port_wFE = 0xFF;
