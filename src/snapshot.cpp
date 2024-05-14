@@ -87,35 +87,35 @@ namespace Snapshot {
         return idx;
     }
 
-    void save_z80(const char *path, Z80 *cpu, ULA *ula, IO *io){
+    void save_z80(const char *path, Z80_State &cpu, ULA *ula, IO *io){
         FILE *fp = fopen(path, "wb");
         struct Z80_Header header {
-            .a = cpu->a, .f = cpu->f,
-            .bc = cpu->bc, .hl = cpu->hl, .pc = 0, .sp = cpu->sp,
-            .i = cpu->irh, .r = cpu->irl,
-            .de = cpu->de,
-            .alt_bc = cpu->alt.bc, .alt_de = cpu->alt.de, .alt_hl = cpu->alt.hl,
-            .alt_a = cpu->alt.a, .alt_f = cpu->alt.f,
-            .iy = cpu->iy, .ix = cpu->ix,
-            .iff1 = cpu->iff1, .iff2 = cpu->iff2, .im = cpu->im,
+            .a = cpu.a, .f = cpu.f,
+            .bc = cpu.bc, .hl = cpu.hl, .pc = 0, .sp = cpu.sp,
+            .i = cpu.irh, .r = cpu.irl,
+            .de = cpu.de,
+            .alt_bc = cpu.alt.bc, .alt_de = cpu.alt.de, .alt_hl = cpu.alt.hl,
+            .alt_a = cpu.alt.a, .alt_f = cpu.alt.f,
+            .iy = cpu.iy, .ix = cpu.ix,
+            .iff1 = cpu.iff1, .iff2 = cpu.iff2, .im = cpu.im,
 
             .ext_length = header_v300_length,
-            .ext_pc = cpu->pc,
+            .ext_pc = cpu.pc,
             .ram_paged = 0,
             .emu_opt = 0b1000111,
             .pfffd = 0x0F
         };
-        header.flags = ((cpu->r8bit >> 7) & 0x01);
+        header.flags = ((cpu.r8bit >> 7) & 0x01);
         header.mode = 4;
         header.p7ffd = ula->read_7FFD();
-        header.clk_lo = cpu->clk & 0xFFFF;
-        header.clk_hi = cpu->clk >> 16;
+        header.clk_lo = cpu.clk & 0xFFFF;
+        header.clk_hi = cpu.clk >> 16;
         struct Z80_Data data { .length = 0xFFFF };
         for (int i = 0; i < 0x10; i++){
             io->write(0xFFFD, i);
             io->read(0xBFFD, &header.ay_regs[i]);
         }
-        header.flags |= ((ula->read_wFE()) & 0x07) << 1;
+        header.flags |= (((ula->get_border_color() & 0x07) << 1) & 0x0E);
         if (fwrite(&header, sizeof(Z80_Header), 1, fp) != 1)
             throw std::runtime_error("Write z80 snapshot header");
         for (unsigned char page = 0; page <= 7 ; page++){
@@ -128,7 +128,7 @@ namespace Snapshot {
         fclose(fp);
     }
 
-    Hardware load_z80(const char *path, Z80 *cpu, ULA *ula, IO *io){
+    Hardware load_z80(const char *path, Z80_State &cpu, ULA *ula, IO *io){
         Hardware hw = HW_Sinclair_128;
         Z80_Header *header;
         int page_mode = 1;
@@ -185,7 +185,7 @@ namespace Snapshot {
                 io->write(0xFFFD, i);
                 io->write(0xBFFD, header->ay_regs[i]);
             }
-            cpu->pc = header->ext_pc;
+            cpu.pc = header->ext_pc;
         }else{
             if (header->flags & 0b100000){ // RLE
                 pages[0] = ula->page(5);
@@ -200,27 +200,27 @@ namespace Snapshot {
                 memcpy(ula->page(0), &data[idx + 0x8000], 0x4000);
             }
             io->write(0x7FFD, 0x10);
-            cpu->pc = header->pc;
+            cpu.pc = header->pc;
         }
-        cpu->a = header->a;
-        cpu->f = header->f;
-        cpu->bc = header->bc;
-        cpu->hl = header->hl;
-        cpu->sp = header->sp;
-        cpu->irh = header->i;
-        cpu->irl = header->r & 0x7F;
-        cpu->r8bit = (header->flags & 0x01) << 7;
-        cpu->de = header->de;
-        cpu->alt.bc = header->alt_bc;
-        cpu->alt.de = header->alt_de;
-        cpu->alt.hl = header->alt_hl;
-        cpu->alt.a = header->alt_a;
-        cpu->alt.f = header->alt_f;
-        cpu->iy = header->iy;
-        cpu->ix = header->ix;
-        cpu->iff1 = header->iff1;
-        cpu->iff2 = header->iff2;
-        cpu->im = header->im & 0x03;
+        cpu.a = header->a;
+        cpu.f = header->f;
+        cpu.bc = header->bc;
+        cpu.hl = header->hl;
+        cpu.sp = header->sp;
+        cpu.irh = header->i;
+        cpu.irl = header->r & 0x7F;
+        cpu.r8bit = (header->flags & 0x01) << 7;
+        cpu.de = header->de;
+        cpu.alt.bc = header->alt_bc;
+        cpu.alt.de = header->alt_de;
+        cpu.alt.hl = header->alt_hl;
+        cpu.alt.a = header->alt_a;
+        cpu.alt.f = header->alt_f;
+        cpu.iy = header->iy;
+        cpu.ix = header->ix;
+        cpu.iff1 = header->iff1;
+        cpu.iff2 = header->iff2;
+        cpu.im = header->im & 0x03;
         io->write(0xFE, (header->flags >> 1) & 0x07);
         delete[] data;
         return hw;

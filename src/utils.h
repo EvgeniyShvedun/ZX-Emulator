@@ -26,12 +26,8 @@ void DELETE_ARRAY(T*& ptr){
         delete[] ptr;\
     ptr = NULL;
 
-#define RGB5551(r, g, b, a) (((r) << 11) | (((g) & 0x1F) << 6) | (((b) & 0x1F) << 1) | ((a) & 0x01))
-#define RGB4444(r, g, b, a) (((r) << 12) | (((g) & 0x0F) << 8) | (((b) & 0x0F) << 4) | ((a) & 0x0F))
-#define RGB565(r, g, b)     (((r) << 11) | ((g) << 5) | ((b) & 0x1F))
 
-/*
-#define min(x, y) ((y) ^ (((x) ^ (y)) & -((x) < (y))))
-#define max(x, y) ((x) ^ (((x) ^ (y)) & -((x) < (y))))
-#define range(x, l, h) (min(max(x, l), h))
-*/
+#define XCHG(x, y) ((x) ^ (y) ^ (x) ^ (y))
+#define MIN(x, y) ((y) ^ (((x) ^ (y)) & -((x) < (y))))
+#define MAX(x, y) ((x) ^ (((x) ^ (y)) & -((x) < (y))))
+#define LIMIT(x, lower, upper) (min(max(x, lower), upper))

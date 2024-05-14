@@ -34,8 +34,32 @@
         };\
     };
 
+struct Z80_State {
+    Reg88(b, c)
+    Reg88(d, e)
+    Reg88(h, l)
+    Reg88(a, f)
+    struct {
+        Reg88(b, c)
+        Reg88(d, e)
+        Reg88(h, l)
+        Reg88(a, f)
+    } alt;
+    Reg16(pc)
+    Reg16(sp)
+    Reg16(ir)
+    Reg16(ix)
+    Reg16(iy)
+    Reg16(memptr);   // Internal ptr
 
-class Z80 {
+    s32 clk;
+    u8 im;           // Interrupt mode.
+    u8 iff1;         // Int is enabled.
+    u8 iff2;         // Save's iff1 while NMI.
+    u8 r8bit;        // 8 bbt of the R.
+};
+
+struct Z80 : public Z80_State {
     public:
         Z80();
         void reset();
@@ -44,30 +68,6 @@ class Z80 {
         void step_over(ULA *memory, IO *io, s32 frame_clk);
         void step_into(ULA *memory, IO *io, s32 frame_clk);
         void NMI();
-
-        Reg88(b, c)
-        Reg88(d, e)
-        Reg88(h, l)
-        Reg88(a, f)
-        struct {
-            Reg88(b, c)
-            Reg88(d, e)
-            Reg88(h, l)
-            Reg88(a, f)
-        } alt;
-        Reg16(pc)
-        Reg16(sp)
-        Reg16(ir)
-        Reg16(ix)
-        Reg16(iy)
-        Reg16(memptr);   // Internal ptr
- 
-        s32 clk;
-        u8 im;           // Interrupt mode.
-        u8 iff1;         // Int is enabled.
-        u8 iff2;         // Save's iff1 while NMI.
-        u8 r8bit;        // 8 bbt of the R.
-
     private:
         u8 flag_inc[0x100];
         u8 flag_dec[0x100];

@@ -19,14 +19,15 @@ class Board : public IO {
 
         void read(u16 port, u8 *byte, s32 clk=0);
         void write(u16 port, u8 byte, s32 clk=0);
+        Z80_State& cpu_state() { return cpu; };
 
-        Z80 cpu;
         ULA ula;
         Sound sound;
         Tape tape;
         Keyboard keyboard;
         s32 frame_clk;
     private:
+        Z80 cpu;
         Cfg &cfg;
         SDL_Window *window = NULL;
         GLuint screen_texture = 0;

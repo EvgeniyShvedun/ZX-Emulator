@@ -8,22 +8,12 @@
 #include "device.h"
 #include "memory.h"
 #include "ula.h"
-
-enum RegionType { Border, Paper };
-
-static struct { 
-    RegionType type;
-    s32 clk;
-    s32 end;
-    int rastr;
-    int color;
-} table[ZX_SCREEN_HEIGHT*4];
-
+//#include <emmintrin.h>
 
 ULA::ULA(){
     for (int i = 0x00; i < 0x10; i++){
-        u16 intensity = i & 0x08 ? 0x0F : 0x0F * LOW_INTENSITY;
-        palette[i] = RGB4444((i & 0x02) ? intensity : 0x00, (i & 0x04) ? intensity : 0x00, (i & 0x01) ? intensity : 0x00, 0x0F);
+        float bright = i & 0x08 ? HIGH_BRIGHTNESS : LOW_BRIGHTNESS;
+        palette[i] = RGBA4444(bright*((i >> 1) % 2), bright*((i >> 2) % 2), bright*(i % 2), 1.0f);
         palette[i] |= palette[i] << 16;
     }
     for (int i = 0; i < 0x10000; i++){
@@ -32,53 +22,58 @@ ULA::ULA(){
         for (int b = 0; b < 8; b++)
             pixel_table[i * 8 + b] = (((i >> 8) & 0x80) >> b) ^ (i & (0x80 >> b)) ? ink_color : paper_color;
     }
-    for (int i = 0; i < BORDER_TOP; i++){
+    for (int i = 0; i < BORDER_TOP_HEIGHT; i++){
         table[i].type = Border;
-        table[i].clk = START_CLK + SCANLINE_CLK*i;
-        table[i].end = START_CLK + SCANLINE_CLK*i + ZX_SCREEN_WIDTH/2;
+        table[i].clk = START_CLK + LINE_CLK*i;
+        table[i].len = ZX_SCREEN_WIDTH/2;
     }       
     for (int i = 0; i < 192; i++){
-        table[BORDER_TOP+i*3+0].type = Border;
-        table[BORDER_TOP+i*3+0].clk = START_CLK + SCANLINE_CLK*(BORDER_TOP + i);
-        table[BORDER_TOP+i*3+0].end = START_CLK + SCANLINE_CLK*(BORDER_TOP + i) + BORDER_LEFT/2;
-        table[BORDER_TOP+i*3+1].type = Paper;
-        table[BORDER_TOP+i*3+1].clk = START_CLK + SCANLINE_CLK*(BORDER_TOP + i) + BORDER_LEFT/2;
-        table[BORDER_TOP+i*3+1].end = START_CLK + SCANLINE_CLK*(BORDER_TOP + i) + BORDER_LEFT/2 + 256/2;
-        table[BORDER_TOP+i*3+1].rastr = ((i & 0x07)*256) + (((i >> 3) & 7)*32) + (((i >> 6) & 3)*(256*8));
-        table[BORDER_TOP+i*3+1].color = 0x1800 + (((i >> 3) & 0x07)*32) + (((i >> 6) & 3)*(32*8));
-        table[BORDER_TOP+i*3+2].type = Border;
-        table[BORDER_TOP+i*3+2].clk = START_CLK + SCANLINE_CLK*(BORDER_TOP + i) + BORDER_LEFT/2 + 256/2;
-        table[BORDER_TOP+i*3+2].end = START_CLK + SCANLINE_CLK*(BORDER_TOP + i) + ZX_SCREEN_WIDTH/2;
+        table[BORDER_TOP_HEIGHT+i*3+0].type = Border;
+        table[BORDER_TOP_HEIGHT+i*3+0].clk = START_CLK + LINE_CLK*(BORDER_TOP_HEIGHT + i);
+        table[BORDER_TOP_HEIGHT+i*3+0].len = BORDER_SIDE_WIDTH/2;
+        table[BORDER_TOP_HEIGHT+i*3+1].type = Paper;
+        table[BORDER_TOP_HEIGHT+i*3+1].clk = START_CLK + LINE_CLK*(BORDER_TOP_HEIGHT + i) + BORDER_SIDE_WIDTH/2;
+        table[BORDER_TOP_HEIGHT+i*3+1].len = 256/2;
+        table[BORDER_TOP_HEIGHT+i*3+1].pixel = ((i & 0x07)*256) + (((i >> 3) & 7)*32) + (((i >> 6) & 3)*(256*8));
+        table[BORDER_TOP_HEIGHT+i*3+1].color = 0x1800 + (((i >> 3) & 0x07)*32) + (((i >> 6) & 3)*(32*8));
+        table[BORDER_TOP_HEIGHT+i*3+2].type = Border;
+        table[BORDER_TOP_HEIGHT+i*3+2].clk = START_CLK + LINE_CLK*(BORDER_TOP_HEIGHT + i) + BORDER_SIDE_WIDTH/2 + 256/2;
+        table[BORDER_TOP_HEIGHT+i*3+2].len = BORDER_SIDE_WIDTH/2;
     }
-    for (int i = 0; i < (ZX_SCREEN_HEIGHT - BORDER_TOP - 192); i++){
-        table[BORDER_TOP+192*3+i].type = Border;
-        table[BORDER_TOP+192*3+i].clk = START_CLK + SCANLINE_CLK*(BORDER_TOP+192+i);
-        table[BORDER_TOP+192*3+i].end = START_CLK + SCANLINE_CLK*(BORDER_TOP+192+i) + ZX_SCREEN_WIDTH/2;
+    for (int i = 0; i < (ZX_SCREEN_HEIGHT - BORDER_TOP_HEIGHT - 192); i++){
+        table[BORDER_TOP_HEIGHT+192*3+i].type = Border;
+        table[BORDER_TOP_HEIGHT+192*3+i].clk = START_CLK + LINE_CLK*(BORDER_TOP_HEIGHT+192+i);
+        table[BORDER_TOP_HEIGHT+192*3+i].len = ZX_SCREEN_WIDTH/2;
     }
-    table[BORDER_TOP + 192*3 + (ZX_SCREEN_HEIGHT - BORDER_TOP - 192)].clk = 0xFFFFFF;
+    table[BORDER_TOP_HEIGHT + 192*3 + (ZX_SCREEN_HEIGHT - BORDER_TOP_HEIGHT - 192)].clk = 0xFFFFFF;
     reset();
 }
 
 void ULA::update(s32 clk){
     while (update_clk < clk){
-        int limit = (clk < table[idx].end) ? clk : table[idx].end;
-        switch (table[idx].type){
-            case Border:
-                for (; update_clk < limit; update_clk++){
-                    *(u32*)buffer = palette[port_wFE & 0x07];
-                    buffer += 2;
-                }
-                break;
-            case Paper:
-                int limit = (clk < table[idx].end) ? clk : table[idx].end;
-                for (int offset = (update_clk - table[idx].clk); update_clk < limit; update_clk++, offset++){
-                    *(u32*)buffer = ((u32*)&pixel_table[(((screen_page[table[idx].color + offset/4] & flash_mask) << 8) | screen_page[table[idx].rastr + offset/4]) << 3])[offset%4];
-                    buffer += 2;
-                }
-                break;
+        int offset = update_clk - table[idx].clk;
+        int clocks = MIN(clk, table[idx].clk + table[idx].len) - update_clk;
+        //int clocks = MIN(clk - table[idx].clk, table[idx].len) - offset;
+        update_clk += clocks;
+        if (table[idx].type == Border){
+            for (; clocks--; offset++)
+                ((u32*)frame_buffer)[offset] = palette[border_color];
+        }else{
+            u8 *color = &display_page[table[idx].color + offset/4];
+            u8 *pixel = &display_page[table[idx].pixel + offset/4];
+            while (clocks){
+                u32 *src = (u32*)(&pixel_table[(((*color++ & flash_mask) << 8) | *pixel++) << 3]);
+                do {
+                    ((u32*)frame_buffer)[offset] = src[offset % 4];
+                } while (--clocks && ++offset % 4); 
+            }
         }
-        if (clk >= table[idx].end)
+        if (clk >= table[idx].clk + table[idx].len){
+        //if (offset >= table[idx].len){
+        //if (update_clk >= table[idx].clk + table[idx].len){
+            frame_buffer += table[idx].len*2;
             update_clk = table[++idx].clk;
+        }
     }
 }
 
@@ -87,41 +82,41 @@ void ULA::frame(s32 frame_clk){
     if (!(frame_count++ % 16))
         flash_mask ^= 0x80;
     update_clk = table[0].clk;
-    buffer = NULL;
+    frame_buffer = NULL;
     idx = 0;
 }
 
 void ULA::reset(){
     Memory::reset();
-    screen_page = ram[5];
+    display_page = !(Memory::Memory::port_7FFD & ULA_PAGE5) ? Memory::ram[5] : Memory::ram[7];
+    border_color = 0x07;
     update_clk = table[0].clk;
-    port_wFE = 0xFF;
     idx = 0;
 }
 
 void ULA::write(u16 port, u8 byte, s32 clk){
     Memory::write(port, byte, clk);
     if (!(port & 0x01)){
-        if ((port_wFE ^ byte) & 0x07){
+        if (border_color ^ (byte & 0x07)){
             update(clk);
-            port_wFE = byte;
+            border_color = byte & 0x07;
         }
     }else{
         if (!(port & 0x8002)){ // 7FFD decoded if A2 and A15 is zero.
             //if (port_7FFD & PORT_LOCKED)
             //    return;
-            if ((port_7FFD ^ byte) & SCREEN_PAGE7){
+            if ((Memory::port_7FFD ^ byte) & ULA_PAGE5){
                 update(clk);
-                screen_page = byte & SCREEN_PAGE7 ? ram[7] : ram[5];
+                display_page = !(byte & ULA_PAGE5) ? Memory::ram[5] : Memory::ram[7];
             }
         }
     }
 }
 
 void ULA::read(u16 port, u8 *byte, s32 clk){
-    if (port == 0xFF){
+    if (port == 0xFF){ /////////////////
         update(clk);
-        if (table[idx].type == Paper && clk >= table[idx].clk && clk < table[idx].end)
-            *byte &= screen_page[table[idx].color + (clk - table[idx].clk) / 4];
+        if (table[idx].type == Paper && clk >= table[idx].clk && clk < table[idx].clk + table[idx].len)
+            *byte &= display_page[table[idx].color + (clk - table[idx].clk) / 4];
     }
 }

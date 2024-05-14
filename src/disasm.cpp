@@ -330,29 +330,36 @@ namespace Disasm {
     };
 
     char* hex(char *dst, u8 byte){
-        byte = (byte >> 4) ^ (byte << 4) ^ (byte >> 4);
+        byte = (byte >> 4) | (byte << 4);
+        if (byte < 0x10)
+            *dst++ = '0';
         do {
-            *dst++ = byte % 0x10 < 0x0A ? byte % 0x10 + '0' : byte % 0x10 + 'A';
+            *dst++ = byte % 0x10 <= 0x09 ? byte % 0x10 + '0' : byte % 0x10 + 'A' - 0x0A;
         }while (byte /= 0x10);
         return dst;
     }
 
     char* dec(char *dst, u16 num){
-        char *src = dst;
-        int idx = 0;
+        char *start = dst;
         do {
-            src[idx++] = '0' + num % 10;
+            *start++ = '0' + num % 10;
         }while (num /= 10);
-        while (--idx > 0)
-            *dst++ = src[idx];
+        while (dst != start)
+            *dst++ = *start--;
         return dst;
     }
-
-    u16 decode(char *opcode, char *operand, char *info, u16 ptr, Memory *memory, Z80 *cpu){
+    char* copy(char *dst, const char *src){
+        while (*src)
+            *dst++ = *src++;
+        return dst;
+    }
+            
+    u16 decode(char *opcode, char *operand, char *info, u16 ptr, Memory *memory, Z80_State &cpu){
         const char *reg_ix = NULL;
         MM_Decode *decode = NULL;
         s8 offset = 0;
         u8 byte = memory->read_byte_ex(ptr++);
+        //printf("PTR: %04x -> %02x\n", ptr -1, byte);
         switch (byte){
             case 0xCB:
                 decode = &cb_prefix[byte];
@@ -376,15 +383,15 @@ namespace Disasm {
                 decode = &no_prefix[byte];
                 break;
         }
-        opcode = strcpy(opcode, name[decode->id]);
+        opcode = copy(opcode, name[decode->id]);
         if (decode->operand){
             for (int i = 0; decode->operand[i]; i++){
                 switch (decode->operand[i]){
                     case 'p':
-                        operand = strcpy(operand, reg_16a[((byte >> 4) & 0x03)]);
+                        operand = copy(operand, reg_16a[((byte >> 4) & 0x03)]);
                         break;
                     case 'i':
-                        operand = strcpy(operand, reg_16b[((byte >> 4) & 0x03)]);
+                        operand = copy(operand, reg_16b[((byte >> 4) & 0x03)]);
                         break;
                     case 'b': // LD B, #NN
                         *operand++ = '#';
@@ -403,16 +410,16 @@ namespace Disasm {
                         operand = hex(operand, (ptr + offset) & 0xFF);
                         break;
                    case 'y':
-                        operand = strcpy(operand, opr_8[(byte >> 3) & 0x07]);
+                        operand = copy(operand, opr_8[(byte >> 3) & 0x07]);
                         break;
                    case 'z':
-                        operand = strcpy(operand, opr_8[byte & 0x07]);
+                        operand = copy(operand, opr_8[byte & 0x07]);
                         break;
                    case 'f':
-                        operand = strcpy(operand, flags[(byte >> 3) & 0x07]);
+                        operand = copy(operand, flags[(byte >> 3) & 0x07]);
                         break;
                    case 'c':
-                        operand = strcpy(operand, flags[((byte >> 3) & 0x07) - 4]); // ?
+                        operand = copy(operand, flags[((byte >> 3) & 0x07) - 4]); //?
                         break;
                    case 't':
                         *operand++ = '#';
@@ -422,14 +429,14 @@ namespace Disasm {
                         operand = dec(operand, (byte >> 3) & 0x07);
                         break;
                    case 'x':
-                        operand = strcpy(operand, reg_ix);
+                        operand = copy(operand, reg_ix);
                         break;
                    case 'X': // Read offset
                         offset = (s8)memory->read_byte_ex(ptr++);
                         break;
                    case 'Y': // (IX + s)
                         *operand++ = '(';
-                        operand = strcpy(operand, reg_ix);
+                        operand = copy(operand, reg_ix);
                         *operand++ = ' ';
                         *operand++ = offset < 0 ? '-' : '+';
                         *operand++ = '#';
@@ -443,6 +450,7 @@ namespace Disasm {
             }
         }
         *opcode = 0x00;
+        *operand = 0x00;
         return ptr;
     }
 };

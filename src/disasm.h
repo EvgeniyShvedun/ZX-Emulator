@@ -17,5 +17,6 @@ namespace Disasm {
     };
     char* hex(char *dst, u8 byte);
     char* dec(char *dst, u16 word);
-    u16 decode(char *opcode, char *operand, char *info, u16 ptr, Memory *memory, Z80 *cpu);
+    char* copy(char *dst, const char *src);
+    u16 decode(char *opcode, char *operand, char *info,  u16 ptr, Memory *memory, Z80_State &cpu);
 };

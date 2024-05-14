@@ -24,7 +24,7 @@
 #include "ui.h"
 
 //#define TIME
-//#define FRAME_LIMIT 10000
+//#define FRAME_LIMIT 50000
 
 
 Board::Board(Cfg &cfg) : cfg(cfg) {
@@ -39,7 +39,6 @@ Board::Board(Cfg &cfg) : cfg(cfg) {
     glGenBuffers(1, &pbo);
 
     set_texture_filter((Filter)cfg.video.filter);
-    set_vsync(cfg.video.vsync);
 
     sound.set_mixer((AY_Mixer)cfg.audio.ay_mixer, cfg.audio.ay_side, cfg.audio.ay_center, cfg.audio.ay_penetr);
     sound.set_ay_volume(cfg.audio.ay_volume);
@@ -184,8 +183,6 @@ void Board::run(Cfg &cfg){
                     if (event.key.repeat)
                         break;
                     switch (event.key.keysym.sym){
-                        case SDLK_F8:
-                            continue;
                         case SDLK_F5:
                             if (tape.is_play())
                                 tape.stop();
@@ -244,11 +241,11 @@ void Board::run(Cfg &cfg){
         glTexCoord2f(1.0f, 0.0f); glVertex2f(viewport_width, 0.0f);
         glTexCoord2f(0.0f, 0.0f); glVertex2f(0.0f, 0.0f);
         glEnd();
-        if (!paused){
+        if (!paused && !UI::is_debugger()){
             // Update the PBO and setup async byte-transfer to the screen texture.
             glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pbo);
             glBufferData(GL_PIXEL_UNPACK_BUFFER, ZX_SCREEN_WIDTH * ZX_SCREEN_HEIGHT * sizeof(GLushort), NULL, GL_DYNAMIC_DRAW);
-            ula.buffer = (u16*)glMapBuffer(GL_PIXEL_UNPACK_BUFFER, GL_WRITE_ONLY);
+            ula.frame_setup((u16*)glMapBuffer(GL_PIXEL_UNPACK_BUFFER, GL_WRITE_ONLY));
             cpu.frame(&ula, this, frame_clk);
             cpu.interrupt(&ula);
             cpu.clk -= frame_clk;
@@ -265,6 +262,7 @@ void Board::run(Cfg &cfg){
                 sound.queue();
         }else
             SDL_Delay(100);
+
         if (UI::frame(cfg, this))
             break;
         SDL_GL_SwapWindow(window);
@@ -284,7 +282,7 @@ bool Board::load_file(const char *path){
     if (len < 4)
         return false;
     if (!strcmp(path+len-4, ".z80") || !strcmp(path+len-4, ".Z80"))
-        setup(Snapshot::load_z80(path, &cpu, &ula, this));
+        setup(Snapshot::load_z80(path, cpu, &ula, this));
     if (!strcmp(path+len-4, ".trd") || !strcmp(path+len-4, ".TRD"))
         fdc.load_trd(0, path);
     if (!strcmp(path+len-4, ".scl") || !strcmp(path+len-4, ".SCL"))
@@ -299,7 +297,7 @@ bool Board::save_file(const char *path){
     if (len < 4)
         return false;
     if (!strcmp(path+len-4, ".z80") || !strcmp(path+len-4, ".Z80"))
-        Snapshot::save_z80(path, &cpu, &ula, this);
+        Snapshot::save_z80(path, cpu, &ula, this);
     if (!strcmp(path+len-4, ".trd") || !strcmp(path+len-4, ".TRD"))
         fdc.save_trd(0, path);
     return true;

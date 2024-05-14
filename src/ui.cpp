@@ -28,11 +28,12 @@
 #include "sound.h"
 #include "mouse.h"
 #include "board.h"
-//#include "ui_debugger.h"
 #include "ui.h"
+//#include "ui_debugger.h"
 
 #define LABEL_WIDTH                       140
 #define KBD_IMAGE_PATH                    "data/kbd_layout.png"
+//#define DEBUGGER
 
 using namespace ImGui;
 
@@ -365,17 +366,14 @@ namespace UI {
                     End();
                 }
                 break;
-                /*
             case UI_Debugger:
+#ifdef DEBUGGER
+                Debugger::display(board);
+#endif
                 break;
-                SetNextWindowPos(ImVec2(io.DisplaySize.x*0.5f, io.DisplaySize.y*0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
-                SetNextWindowSize(ImVec2(SCREEN_WIDTH, SCREEN_HEIGHT), ImGuiCond_Always);
-                if (Begin("##debugger", NULL, UI_WindowFlags)){
-                    static struct Debugger debugger(board->cpu);
-                }
-                */
         }
         //ShowStyleEditor();
+        //ShowDemoWindow();
         Render();
         ImGui_ImplOpenGL3_RenderDrawData(GetDrawData());
         return status;
@@ -392,6 +390,10 @@ namespace UI {
     bool is_shown(){
         return mode != UI_None;
     }
+    bool is_debugger(){
+        return mode == UI_Debugger;
+    }
+        
     void set_alpha(float alpha){
         ImGuiStyle &style = GetStyle();
         style.Colors[ImGuiCol_WindowBg] = ImVec4(0.01f, 0.01f, 0.01f, alpha);
