@@ -3,8 +3,8 @@ void DELETE(T*& ptr){
     if (ptr){
         delete ptr;
         ptr = NULL;
-    }       
-}   
+    }
+}
 
 template<class T>
 void DELETE_ARRAY(T*& ptr){
@@ -13,19 +13,20 @@ void DELETE_ARRAY(T*& ptr){
         ptr = NULL;
     }
 }
+
+
 /*
 #define DELETE(ptr)(\
     if (ptr)\
         delete ptr;\
     ptr = NULL;
 
-*/
 
-#define DeleteArray(ptr)\
+#define DELETE_ARRAY(ptr)\
     if (ptr)\
         delete[] ptr;\
     ptr = NULL;
-
+*/
 
 #define XCHG(x, y) ((x) ^ (y) ^ (x) ^ (y))
 #define MIN(x, y) ((y) ^ (((x) ^ (y)) & -((x) < (y))))

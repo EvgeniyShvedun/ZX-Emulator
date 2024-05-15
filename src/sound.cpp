@@ -79,7 +79,7 @@ void Sound::set_mixer(AY_Mixer mode, float side, float center, float penetr){
 }
 
 Sound::~Sound(){
-    DeleteArray(audio_frame);
+    DELETE_ARRAY(audio_frame);
     if (device_id){
         SDL_CloseAudioDevice(device_id);
         device_id = 0;

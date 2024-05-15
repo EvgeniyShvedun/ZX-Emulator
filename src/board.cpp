@@ -76,24 +76,22 @@ void Board::setup(Hardware model){
 }
 void Board::read(u16 port, u8 *byte, s32 clk){
     *byte = 0xFF;
-    if (ula.is_trdos_active()){ ////
-        fdc.read(port, byte, clk);
-        return;
-    }
-    tape.read(port, byte, clk);
     keyboard.read(port, byte, clk);
+    tape.read(port, byte, clk);
     joystick.read(port, byte, clk);
     mouse.read(port, byte, clk);
     sound.read(port, byte, clk);
     ula.read(port, byte, clk);
+    if (ula.is_trdos_active())
+        fdc.read(port, byte, clk);
 }
 
 void Board::write(u16 port, u8 byte, s32 clk){
-    if (ula.is_trdos_active())
-        fdc.write(port, byte, clk);
     sound.write(port, byte, clk);
     tape.write(port, byte, clk);
     ula.write(port, byte, clk);
+    if (ula.is_trdos_active())
+        fdc.write(port, byte, clk);
 }
 
 void Board::viewport_setup(int width, int height){
