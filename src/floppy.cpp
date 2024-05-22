@@ -11,7 +11,7 @@
 #include "z80.h"
 #include "floppy.h"
 
-//#define DEBUG
+#define DEBUG
 
 FDC::FDC(){
     fdd[0].data = fdd[1].data = fdd[2].data = fdd[3].data = NULL;
