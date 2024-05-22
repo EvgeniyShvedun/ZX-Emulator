@@ -11,7 +11,7 @@
 #include "z80.h"
 #include "floppy.h"
 
-#define DEBUG
+//#define DEBUG
 
 FDC::FDC(){
     fdd[0].data = fdd[1].data = fdd[2].data = fdd[3].data = NULL;
@@ -246,7 +246,9 @@ void FDC::write(u16 port, u8 byte, s32 clk){
                     break;
                 time = cmd_time = 0;
                 reg_command = byte;
+#ifdef DEBUG
                 printf("COMMAND: %02x\n", byte);
+#endif
                 switch (byte >> 4){
                     case 0x00: // Restore.
                         reg_track = 0xFF;
