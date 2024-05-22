@@ -141,8 +141,8 @@ void Sound::update(int clk){
         }
         left += lpf * (mix_left - (left >> FRACT_BITS));
         right += lpf * (mix_right - (right >> FRACT_BITS));
-        sound_frame[pos * 2] = (left >> FRACT_BITS);
-        sound_frame[pos * 2 + 1] = (right >> FRACT_BITS);
+        sound_frame[pos * 2] = left >> FRACT_BITS;
+        sound_frame[pos * 2 + 1] = right >> FRACT_BITS;
     }
 }
 
