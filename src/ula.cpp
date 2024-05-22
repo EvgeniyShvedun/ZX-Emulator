@@ -53,7 +53,6 @@ void ULA::update(s32 clk){
     while (update_clk < clk){
         int offset = update_clk - table[idx].clk;
         int clocks = MIN(clk, table[idx].clk + table[idx].len) - update_clk;
-        //int clocks = MIN(clk - table[idx].clk, table[idx].len) - offset;
         update_clk += clocks;
         if (table[idx].type == Border){
             for (; clocks--; offset++)
@@ -69,8 +68,6 @@ void ULA::update(s32 clk){
             }
         }
         if (clk >= table[idx].clk + table[idx].len){
-        //if (offset >= table[idx].len){
-        //if (update_clk >= table[idx].clk + table[idx].len){
             frame_buffer += table[idx].len*2;
             update_clk = table[++idx].clk;
         }

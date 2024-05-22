@@ -8,7 +8,7 @@
 #define SF                  0x80            // Negative. Bit 7 of result.
 
 #define LD_IR_PF_CLK        18              // Time while PF-flag was not change (Undocumented behievior: LD A, I and LD A, R).
-#define Z80_FREQ            3579545
+#define Z80_FREQ            3579545.0
 
 #define Reg16(reg16)\
     union {\

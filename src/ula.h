@@ -28,7 +28,7 @@
 #define HIGH_BRIGHTNESS     1.0f
 #define LOW_BRIGHTNESS      0.84615f
 #define LINE_CLK            224
-#define START_CLK           LINE_CLK*16+24
+#define START_CLK           LINE_CLK*60+45
 #define BORDER_TOP_HEIGHT   20
 #define BORDER_SIDE_WIDTH   32
 

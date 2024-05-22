@@ -38,5 +38,4 @@ class Board : public IO {
         FDC fdc;
         Joystick joystick;
         Mouse mouse;
-        bool paused = false;
 };

@@ -9,7 +9,7 @@ namespace Config {
     Cfg& load(const char *path){
         FILE *fp = fopen(path, "r");
         if (!fp || fread(&data, 1, sizeof(data), fp) != sizeof(data) || strcmp(data.format_id, CONFIG_H_MODIFIED)){
-            printf("WARNING: Can't read onfig data, the settings are set to default.\n");
+            printf("WARN: Set the settings to default.\n");
             memcpy(&data, &defaults, sizeof(data));
             strcpy(data.format_id, CONFIG_H_MODIFIED);
         }
@@ -24,7 +24,7 @@ namespace Config {
             throw std::runtime_error("Write config file");
         fclose(fp);
     }
-    
+
     Cfg& get(){
         return data;
     }

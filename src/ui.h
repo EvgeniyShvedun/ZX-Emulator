@@ -13,7 +13,7 @@ namespace UI {
     void open(UI_Mode mode);
     void hide();
     bool is_shown();
-    bool is_debugger();
+    bool is_modal();
     void set_alpha(float alpha);
     void set_gamepad_ctrl(bool state);
 }

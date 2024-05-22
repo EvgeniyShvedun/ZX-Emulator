@@ -26,7 +26,6 @@
 //#define TIME
 //#define FRAME_LIMIT 50000
 
-
 Board::Board(Cfg &cfg) : cfg(cfg) {
     glEnable(GL_TEXTURE_2D);
     glGenTextures(1, &screen_texture);
@@ -40,8 +39,7 @@ Board::Board(Cfg &cfg) : cfg(cfg) {
 
     set_texture_filter((Filter)cfg.video.filter);
 
-    sound.set_mixer((AY_Mixer)cfg.audio.ay_mixer, cfg.audio.ay_side, cfg.audio.ay_center, cfg.audio.ay_penetr);
-    sound.set_ay_volume(cfg.audio.ay_volume);
+    sound.set_ay_volume(cfg.audio.ay_volume, (AY_Mixer)cfg.audio.ay_mixer_mode, cfg.audio.ay_side_level, cfg.audio.ay_center_level, cfg.audio.ay_penetr_level);
     sound.set_speaker_volume(cfg.audio.speaker_volume);
     sound.set_tape_volume(cfg.audio.tape_volume);
 
@@ -66,9 +64,9 @@ void Board::setup(Hardware model){
         ROM_Bank rom;
         s32 clk;
     } profile[sizeof(Hardware)] = {
-        { ROM_128, 70908 }, 
-        { ROM_128, 69888 },
-        { ROM_48, 71680 }
+        { ROM_128, 71680 }, 
+        { ROM_128, 70908 },
+        { ROM_48, 69888 }
     };
     frame_clk = profile[model].clk;
     ula.set_main_rom(profile[model].rom);
@@ -76,22 +74,26 @@ void Board::setup(Hardware model){
 }
 void Board::read(u16 port, u8 *byte, s32 clk){
     *byte = 0xFF;
+    if (ula.is_trdos_active()){
+        fdc.read(port, byte, clk);
+        return;
+    }
     keyboard.read(port, byte, clk);
     tape.read(port, byte, clk);
     joystick.read(port, byte, clk);
     mouse.read(port, byte, clk);
     sound.read(port, byte, clk);
     ula.read(port, byte, clk);
-    if (ula.is_trdos_active())
-        fdc.read(port, byte, clk);
 }
 
 void Board::write(u16 port, u8 byte, s32 clk){
+    if (ula.is_trdos_active()){
+        fdc.write(port, byte, clk);
+        return;
+    }
     sound.write(port, byte, clk);
     tape.write(port, byte, clk);
     ula.write(port, byte, clk);
-    if (ula.is_trdos_active())
-        fdc.write(port, byte, clk);
 }
 
 void Board::viewport_setup(int width, int height){
@@ -145,9 +147,13 @@ void Board::set_vsync(bool state){
  
 void Board::reset(){
     cpu.reset();
-    fdc.reset();
     ula.reset();
+    fdc.reset();
     sound.reset();
+    tape.reset();
+    keyboard.reset();
+    joystick.reset();
+    mouse.reset();
 }
 
 void Board::run(Cfg &cfg){
@@ -180,6 +186,18 @@ void Board::run(Cfg &cfg){
                 case SDL_KEYDOWN:
                     if (event.key.repeat)
                         break;
+                    if (event.key.keysym.sym == SDLK_RETURN && event.key.keysym.mod & KMOD_CTRL){
+                        set_full_screen(cfg.video.full_screen ^= true);
+                        continue;
+                    }
+                    break;
+            }
+            if (UI::event(event)){
+                keyboard.clear();
+                continue;
+            }
+            switch (event.type){
+                case SDL_KEYDOWN:
                     switch (event.key.keysym.sym){
                         case SDLK_F5:
                             if (tape.is_play())
@@ -189,9 +207,6 @@ void Board::run(Cfg &cfg){
                             continue;
                         case SDLK_F6:
                             tape.rewind_begin();
-                            continue;
-                        case SDLK_F7:
-                            sound.pause(paused ^= true);
                             continue;
                         case SDLK_F9:
                             set_vsync(!(cfg.main.full_speed ^= true));
@@ -211,19 +226,9 @@ void Board::run(Cfg &cfg){
                             }
                             break;
                     }
-                    break;
-            }
-            if (UI::event(event)){
-                keyboard.clear();
-                continue;
-            }
-            switch (event.type){
-                case SDL_KEYDOWN:
                     if (event.key.keysym.mod & (KMOD_NUM | KMOD_CAPS))
                         SDL_SetModState(KMOD_NONE);
                 case SDL_KEYUP:
-                    if (event.key.repeat)
-                        continue;
                     keyboard.event(event);
                     break;
                 default:
@@ -239,7 +244,7 @@ void Board::run(Cfg &cfg){
         glTexCoord2f(1.0f, 0.0f); glVertex2f(viewport_width, 0.0f);
         glTexCoord2f(0.0f, 0.0f); glVertex2f(0.0f, 0.0f);
         glEnd();
-        if (!paused && !UI::is_debugger()){
+        if (!UI::is_modal()){
             // Update the PBO and setup async byte-transfer to the screen texture.
             glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pbo);
             glBufferData(GL_PIXEL_UNPACK_BUFFER, ZX_SCREEN_WIDTH * ZX_SCREEN_HEIGHT * sizeof(GLushort), NULL, GL_DYNAMIC_DRAW);

@@ -1,4 +1,6 @@
 #define AY_RATE                     (1774400 / 8.0)
+#define CHANNEL_AMP                 (0xFFFF / 6)
+#define FRACT_BITS                  14
 
 enum AY_Register {
     ToneALow, ToneAHigh,
@@ -13,42 +15,21 @@ enum AY_Register {
 enum AY_Stereo { Left, Right };
 enum AY_Channel { A, B, C };
 enum FE_ReadWrite {
-    TapeOut     = 0b00001000,
-    Speaker     = 0b00010000,
-    TapeIn      = 0b01000000
+    TapeOut     = 0b00001000, // 0 on
+    Speaker     = 0b00010000, // 1 on
+    TapeIn      = 0b01000000  // 1 on
 };
 
 class Sound : public Device {
-/*
-Register       Function                        Range
-               Channel A fine pitch            8-bit (0-255)
-               Channel A course pitch          4-bit (0-15)
-               Channel B fine pitch            8-bit (0-255)
-               Channel B course pitch          4-bit (0-15)
-               Channel C fine pitch            8-bit (0-255)
-               Channel C course pitch          4-bit (0-15)
-               Noise pitch                     5-bit (0-31) 
-               Mixer                           8-bit (see below)
-               Channel A volume                4-bit (0-15, see below)
-               Channel B volume                4-bit (0-15, see below)
-               Channel C volume                4-bit (0-15, see below)
-               Envelope fine duration          8-bit (0-255)
-               Envelope course duration        8-bit (0-255)
-               Envelope shape                  4-bit (0-15) 
-               I/O port A                      8-bit (0-255)
-               I/O port B                      8-bit (0-255)
-*/
     public:
         Sound();
         ~Sound();
         void setup(int sample_rate, int lpf_rate, int frame_clk);
         void set_lpf(int sample_rate, int lpf_rate);
-        void set_mixer(AY_Mixer mode, float side_level = 1.0, float center_level = 0.5, float penetr_level = 0.25);
-        void set_ay_volume(float volume) { ay_volume = volume; };
-        void set_speaker_volume(float volume) { speaker_volume = volume; };
-        void set_tape_volume(float volume) { tape_volume = volume; };
+        void set_ay_volume(float volume, AY_Mixer channel_mode, float side_level, float center_level, float penetr_level);
+        void set_speaker_volume(float volume) { speaker_volume = CHANNEL_AMP * volume; };
+        void set_tape_volume(float volume) { tape_volume = CHANNEL_AMP * volume; };
         void update(s32 clk);
-        void pause(bool state = true);
         void queue();
 
         void read(u16 port, u8* byte, s32 clk);
@@ -57,15 +38,17 @@ Register       Function                        Range
         void reset();
 
     protected:
-        SDL_AudioSpec audio_spec;
+        s16 *sound_frame = NULL;
         SDL_AudioDeviceID device_id = 0;
-        int sample_rate;
-        unsigned int samples;
-        float increment, factor;
-        float tone_a_counter, tone_b_counter, tone_c_counter, noise_counter, envelope_counter;
-        float tone_a_limit, tone_b_limit, tone_c_limit, noise_limit, envelope_limit;
-        u8 tone_a, tone_b, tone_c;
-        u8 noise, envelope;
+        SDL_AudioSpec audio_spec;
+        s32 sample_rate;
+        u32 frame_samples;
+        float cpu_fract;
+        u32 ay_fract;
+        u32 tone_a_counter, tone_b_counter, tone_c_counter, noise_counter, envelope_counter;
+        u32 tone_a_limit, tone_b_limit, tone_c_limit, noise_limit, envelope_limit;
+        bool tone_a, tone_b, tone_c, noise;
+        u8 envelope;
         s32 envelope_pos;
         u32 noise_seed;
         /*
@@ -116,18 +99,32 @@ Register       Function                        Range
             0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, /* /|__*/
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
         };
-        AY_Mixer mix_mode;
-        float mixer[sizeof(AY_Mixer)][sizeof(AY_Stereo)][sizeof(AY_Channel)];
         // Posted to comp.sys.sinclair in Dec 2001 by Matthew Westcott.
         const float volume_table[0x10] = {
             0.000000, 0.013748, 0.020462, 0.029053, 0.042343, 0.061844, 0.084718, 0.136903,
             0.169130, 0.264667, 0.352712, 0.449942, 0.570382, 0.687281, 0.848172, 1.000000
         };
-        u8 registers[0x10] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+        u16 mixer[sizeof(AY_Stereo)][sizeof(AY_Channel)][0x10];
+        /* Channel A fine pitch            8-bit (0-255)
+           Channel A course pitch          4-bit (0-15)
+           Channel B fine pitch            8-bit (0-255)
+           Channel B course pitch          4-bit (0-15)
+           Channel C fine pitch            8-bit (0-255)
+           Channel C course pitch          4-bit (0-15)
+           Noise pitch                     5-bit (0-31)
+           Mixer                           8-bit (see below)
+           Channel A volume                4-bit (0-15, see below)
+           Channel B volume                4-bit (0-15, see below)
+           Channel C volume                4-bit (0-15, see below)
+           Envelope fine duration          8-bit (0-255)
+           Envelope course duration        8-bit (0-255)
+           Envelope shape                  4-bit (0-15)
+           I/O port A                      8-bit (0-255)
+           I/O port B                      8-bit (0-255) */
+        u8 registers[0x10];
         u8 wFE, rFE, wFFFD;
-        float ay_volume, speaker_volume, tape_volume;
-        float left, right;
-        float lpf_alpha;
-        short *audio_frame = NULL;
-        int frame_pos;
+        u16 speaker_volume, tape_volume;
+        u32 left, right;
+        u32 lpf;
+        s32 pos;
 };

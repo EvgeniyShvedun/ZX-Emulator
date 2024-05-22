@@ -141,6 +141,7 @@ void Z80::step_into(ULA *memory, IO *io, s32 frame_clk){
 
 void Z80::frame(ULA *memory, IO *io, s32 frame_clk){
     while (clk < frame_clk){
+        //printf("PC: %04x, B:%02x\n", pc, memory->read_byte_ex(pc));
         irl++;
         switch (memory->read_byte_ex(pc++)){
             case 0x00: // NOP

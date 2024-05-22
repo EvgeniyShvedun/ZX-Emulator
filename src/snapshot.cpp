@@ -129,7 +129,8 @@ namespace Snapshot {
     }
 
     Hardware load_z80(const char *path, Z80_State &cpu, ULA *ula, IO *io){
-        Hardware hw = HW_Sinclair_128;
+        //Hardware hw = HW_Sinclair_128;
+        Hardware hw = HW_Pentagon_128;
         Z80_Header *header;
         int page_mode = 1;
         int page_map[2][12] = { { -1, -1, -1, -1, 2, 0, -1, -1, 5, -1, -1, -1 }, { -1, -1, -1, 0, 1, 2, 3, 4, 5, 6, 7, -1 } };

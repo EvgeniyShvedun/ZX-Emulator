@@ -32,10 +32,10 @@ struct Cfg {
     struct Audio {
         int dsp_rate = 44100;
         int lpf_rate = 11050;
-        int ay_mixer = ABC;
-        float ay_side = 1.0;
-        float ay_center = 0.7;
-        float ay_penetr = 0.3;
+        int ay_mixer_mode = ABC;
+        float ay_side_level = 1.0;
+        float ay_center_level = 0.7;
+        float ay_penetr_level = 0.3;
         float ay_volume = 1.0f;
         float speaker_volume = 0.70f;
         float tape_volume = 0.35f;

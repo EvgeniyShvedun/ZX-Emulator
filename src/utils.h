@@ -14,21 +14,6 @@ void DELETE_ARRAY(T*& ptr){
     }
 }
 
-
-/*
-#define DELETE(ptr)(\
-    if (ptr)\
-        delete ptr;\
-    ptr = NULL;
-
-
-#define DELETE_ARRAY(ptr)\
-    if (ptr)\
-        delete[] ptr;\
-    ptr = NULL;
-*/
-
-#define XCHG(x, y) ((x) ^ (y) ^ (x) ^ (y))
 #define MIN(x, y) ((y) ^ (((x) ^ (y)) & -((x) < (y))))
 #define MAX(x, y) ((x) ^ (((x) ^ (y)) & -((x) < (y))))
-#define LIMIT(x, lower, upper) (min(max(x, lower), upper))
+#define ABS(x)((x) < 0 ? -(x) : (x))

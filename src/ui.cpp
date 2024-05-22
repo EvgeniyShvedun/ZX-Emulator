@@ -107,7 +107,7 @@ namespace UI {
                     case SDLK_F4:
                         open(UI_Settings);
                         break;
-                    case SDLK_F8:
+                    case SDLK_F7:
                         open(UI_Debugger);
                         break;
                 }
@@ -300,41 +300,40 @@ namespace UI {
                             SeparatorText("Volume");
                             Text("AY");
                             SameLine(LABEL_WIDTH);
-                            if (SliderFloat("##ay", &cfg.audio.ay_volume, 0.0, 1.0, "%.2f"))
-                                board->sound.set_ay_volume(cfg.audio.ay_volume);
+                            if (SliderFloat("##ay_volume", &cfg.audio.ay_volume, 0.0, 1.0, "%.2f"))
+                                board->sound.set_ay_volume(cfg.audio.ay_volume, (AY_Mixer)cfg.audio.ay_mixer_mode, cfg.audio.ay_side_level, cfg.audio.ay_center_level, cfg.audio.ay_penetr_level);
                             Text("Speaker");
                             SameLine(LABEL_WIDTH);
-                            if (SliderFloat("##speaker", &cfg.audio.speaker_volume, 0.0, 1.0, "%.2f"))
+                            if (SliderFloat("##speaker_volume", &cfg.audio.speaker_volume, 0.0, 1.0, "%.2f"))
                                 board->sound.set_speaker_volume(cfg.audio.speaker_volume);
                             Text("Tape");
                             SameLine(LABEL_WIDTH);
-                            if (SliderFloat("##tape", &cfg.audio.tape_volume, 0.0, 1.0, "%.2f"))
+                            if (SliderFloat("##tape_volume", &cfg.audio.tape_volume, 0.0, 1.0, "%.2f"))
                                 board->sound.set_tape_volume(cfg.audio.tape_volume);
                             SeparatorText("AY mixer");
                             Text("Mode");
                             SameLine(LABEL_WIDTH);
-                            if (Combo("##mode", &cfg.audio.ay_mixer, "ABC\0ACB\0Mono\0\0"))
-                                board->sound.set_mixer((AY_Mixer)cfg.audio.ay_mixer, cfg.audio.ay_side, cfg.audio.ay_center, cfg.audio.ay_penetr);
+                            if (Combo("##ay_mixer_mode", &cfg.audio.ay_mixer_mode, "ABC\0ACB\0Mono\0\0"))
+                                board->sound.set_ay_volume(cfg.audio.ay_volume, (AY_Mixer)cfg.audio.ay_mixer_mode, cfg.audio.ay_side_level, cfg.audio.ay_center_level, cfg.audio.ay_penetr_level);
                             Text("Left/Right");
                             SameLine(LABEL_WIDTH);
-                            if (SliderFloat("##ay_side", &cfg.audio.ay_side, 0.0, 1.0, "%.2f"))
-                                board->sound.set_mixer((AY_Mixer)cfg.audio.ay_mixer, cfg.audio.ay_side, cfg.audio.ay_center, cfg.audio.ay_penetr);
+                            if (SliderFloat("##ay_side_level", &cfg.audio.ay_side_level, 0.0, 1.0, "%.2f"))
+                                board->sound.set_ay_volume(cfg.audio.ay_volume, (AY_Mixer)cfg.audio.ay_mixer_mode, cfg.audio.ay_side_level, cfg.audio.ay_center_level, cfg.audio.ay_penetr_level);
                             Text("Center");
                             SameLine(LABEL_WIDTH);
-                            if (SliderFloat("##ay_center", &cfg.audio.ay_center, 0.0, 1.0, "%.2f"))
-                                board->sound.set_mixer((AY_Mixer)cfg.audio.ay_mixer, cfg.audio.ay_side, cfg.audio.ay_center, cfg.audio.ay_penetr);
+                            if (SliderFloat("##ay_center_level", &cfg.audio.ay_center_level, 0.0, 1.0, "%.2f"))
+                                board->sound.set_ay_volume(cfg.audio.ay_volume, (AY_Mixer)cfg.audio.ay_mixer_mode, cfg.audio.ay_side_level, cfg.audio.ay_center_level, cfg.audio.ay_penetr_level);
                             Text("Penetration");
                             SameLine(LABEL_WIDTH);
-                            if (SliderFloat("##ay_penetration", &cfg.audio.ay_penetr, 0.0, 1.0, "%.2f"))
-                                board->sound.set_mixer((AY_Mixer)cfg.audio.ay_mixer, cfg.audio.ay_side, cfg.audio.ay_center, cfg.audio.ay_penetr);
+                            if (SliderFloat("##ay_penetr_level", &cfg.audio.ay_penetr_level, 0.0, 1.0, "%.2f"))
+                                board->sound.set_ay_volume(cfg.audio.ay_volume, (AY_Mixer)cfg.audio.ay_mixer_mode, cfg.audio.ay_side_level, cfg.audio.ay_center_level, cfg.audio.ay_penetr_level);
                             PopItemWidth();
                             Spacing();
                             SetCursorPosX(GetWindowWidth()-btn_size.x-style.WindowPadding.x);
                             if (Button("Defaults", btn_size)){
                                 memcpy(&cfg.audio, &Config::get_defaults().audio, sizeof(Cfg::audio));
                                 board->sound.setup(cfg.audio.dsp_rate, cfg.audio.lpf_rate, board->frame_clk);
-                                board->sound.set_mixer((AY_Mixer)cfg.audio.ay_mixer, cfg.audio.ay_side, cfg.audio.ay_center, cfg.audio.ay_penetr);
-                                board->sound.set_ay_volume(cfg.audio.ay_volume);
+                                board->sound.set_ay_volume(cfg.audio.ay_volume, (AY_Mixer)cfg.audio.ay_mixer_mode, cfg.audio.ay_side_level, cfg.audio.ay_center_level, cfg.audio.ay_penetr_level);
                                 board->sound.set_speaker_volume(cfg.audio.speaker_volume);
                                 board->sound.set_tape_volume(cfg.audio.tape_volume);
                             }
@@ -390,8 +389,8 @@ namespace UI {
     bool is_shown(){
         return mode != UI_None;
     }
-    bool is_debugger(){
-        return mode == UI_Debugger;
+    bool is_modal(){
+        return mode == UI_SaveFile || mode == UI_Debugger;
     }
         
     void set_alpha(float alpha){
