@@ -37,17 +37,17 @@ void FDC::update(s32 clk){
         reg_status |= ST_NOT_READY;
         return;
     }
-    if (time - cmd_time > IDLE_TIME){
-        drive->hlt = false;
+    if (time - cmd_time > IDLE_WIDTH){
+        hld = drive->hlt = false;
     }else{
         time += clk;
         if (reg_command < 0x80 || (reg_command & 0xF0) == 0xD0){ // Type I or Force interrupt.
-            reg_status &= ~(ST_INDEX | ST_TRACK0 | ST_HEAD_LOADED);
+            reg_status &= ~(ST_HEAD_LOADED | ST_TRACK0 | ST_INDEX);
             if (hld && drive->hlt)
                 reg_status |= ST_HEAD_LOADED;
             if (!drive->track)
                 reg_status |= ST_TRACK0;
-            if (time % DISK_TURN_TIME < INDEX_PULSE_TIME)
+            if (time % DISK_TURN_PERIOD < INDEX_PULSE_WIDTH)
                 reg_status |= ST_INDEX;
         }
         if (reg_status & ST_BUSY){
@@ -77,11 +77,11 @@ void FDC::update(s32 clk){
                             break;
                     }
                     if (reg_command & CM_VERIFY){
-                        if (!(reg_command & CM_HEAD_LOAD)){
-                            if (time - cmd_time < DELAY15_TIME)
+                        if (!hld){
+                            if (time - cmd_time < DELAY_15MS)
                                 break;
-                            cmd_time += DELAY15_TIME;
-                            reg_command |= CM_HEAD_LOAD;
+                            cmd_time += DELAY_15MS;
+                            hld = true;
                         }
                         if (!drive->hlt){
                             if (time - cmd_time < HLT_TIME)
@@ -90,9 +90,9 @@ void FDC::update(s32 clk){
                             cmd_time += HLT_TIME;
                         }
                         if (reg_track != drive->track){
-                            if (time - cmd_time < DISK_TURN_TIME*5)
+                            if (time - cmd_time < DISK_TURN_PERIOD*5)
                                 break;
-                            cmd_time += DISK_TURN_TIME*5;
+                            cmd_time += DISK_TURN_PERIOD*5;
                             reg_status |= ST_SEEK_ERROR;
                         }
                     }
@@ -100,82 +100,13 @@ void FDC::update(s32 clk){
                     break;
                 case 0x08: // Read sector
                 case 0x09: // Read sectors
-                    if (reg_command & CM_DELAY){
-                        if (time - cmd_time < DELAY15_TIME)
-                            break;
-                        cmd_time += DELAY15_TIME;
-                        reg_command &= ~CM_DELAY;
-                    }
-                    if (!drive->hlt){
-                        if (time - cmd_time < HLT_TIME)
-                            break;
-                        cmd_time += HLT_TIME;
-                        drive->hlt = true;
-                    }
-                    //if (time - cmd_time < (data_idx ? DRQ_TIME: DRQ_TIME*100))
-                    if (time - cmd_time < DRQ_TIME)
-                    //if (time - cmd_time < DRQ_TIME)
-                        break;
-                    cmd_time += DRQ_TIME;
-                    //if (time - cmd_time >= DRQ_TIME){
-                    if (reg_status & ST_DRQ){
-                        reg_status |= ST_LOST_DATA;
-                        reg_status &= ~(ST_DRQ | ST_BUSY);
-                        break;
-                    }
-                    if (data_idx >= 0x100){
-                        if (!(reg_command & CM_MULTISEC) || reg_sector >= 0x11){
-                            reg_status &= ~ST_BUSY;
-                            break;
-                        }
-                        reg_sector++;
-                        data_idx = 0;
-                    }
-                    if (!data_idx && (reg_track != drive->track || reg_sector < 1 || reg_sector > 0x11)){
-                        if (time - cmd_time < DISK_TURN_TIME*5)
-                            break;
-                        cmd_time += DISK_TURN_TIME*5;
-                        reg_status |= ST_RNF;
-                        reg_status &= ~ST_BUSY;
-                        break;
-                    }
-                    reg_data = drive->data[drive->track * 0x2000 + (reg_system & SS_HEAD ? 0 : 0x1000) + (reg_sector - 1) * 0x100 + data_idx++];
-                    reg_status |= ST_DRQ;
-                    break;
                 case 0x0A: // Write sector
                 case 0x0B: // Write sectors
-                    if (time - cmd_time < DRQ_TIME)
-                        break;
-                    cmd_time += DRQ_TIME;
-                    if (reg_status & ST_DRQ){
-                        reg_status |= ST_LOST_DATA;
-                        reg_status &= ~(ST_DRQ | ST_BUSY);
-                        break;
-                    }
-                    if (data_idx >= 0x100){
-                        if (!(reg_command & CM_MULTISEC) || reg_sector >= 0x11){
-                            reg_status &= ~ST_BUSY;
-                            break;
-                        }
-                        reg_sector++;
-                        data_idx = 0;
-                    }
-                    if (!data_idx && (reg_track != drive->track || reg_sector < 1 || reg_sector > 0x11)){
-                        if (time - cmd_time < DISK_TURN_TIME*5)
-                            break;
-                        cmd_time += DISK_TURN_TIME*5;
-                        reg_status |= ST_RNF;
-                        reg_status &= ~ST_BUSY;
-                        break;
-                    }
-                    drive->data[drive->track * 0x2000 + (reg_system & SS_HEAD ? 0 : 0x1000) + (reg_sector - 1) * 0x100 + data_idx++] = reg_data;
-                    reg_status |= ST_DRQ;
-                    break;
                 case 0x0C: // Read address
                     if (reg_command & CM_DELAY){
-                        if (time - cmd_time < DELAY15_TIME)
+                        if (time - cmd_time < DELAY_15MS)
                             break;
-                        cmd_time += DELAY15_TIME;
+                        cmd_time += DELAY_15MS;
                         reg_command &= ~CM_DELAY;
                     }
                     if (!drive->hlt){
@@ -184,40 +115,28 @@ void FDC::update(s32 clk){
                         cmd_time += HLT_TIME;
                         drive->hlt = true;
                     }
-                    //if (time - cmd_time < (data_idx ? DRQ_TIME: DRQ_TIME*100))
-                    if (time - cmd_time < DRQ_TIME)
+                    /*
+                    if (!data_idx && (reg_track != drive->track || reg_sector < 1 || reg_sector > 0x11)){
+                        if (time - cmd_time < DISK_TURN_PERIOD*5)
+                            break;
+                        cmd_time += DISK_TURN_PERIOD*5;
+                        reg_status |= ST_RNF;
+                        reg_status &= ~ST_BUSY;
                         break;
-                    cmd_time += DRQ_TIME;
-                    //if (time - cmd_time >= DRQ_TIME){
+                    }*/
                     if (reg_status & ST_DRQ){
+                        if (time - cmd_time < DRQ_WIDTH)
+                            break;
+                        //printf("LOST DATA time: %d, cmd_time: %d, elapsed: %d, DRQ PERIOD: %d, DRQ_WIDTH: %d\n", time, cmd_time, time - cmd_time, DRQ_PERIOD, DRQ_WIDTH);
+                        cmd_time += DRQ_WIDTH;
                         reg_status |= ST_LOST_DATA;
                         reg_status &= ~(ST_DRQ | ST_BUSY);
                         break;
                     }
-                    if (data_idx >= 6){
-                        reg_sector = drive->track;
-                        reg_status &= ~ST_BUSY;
-                    }
-                    switch (data_idx++){
-                        case 0x00:
-                            reg_data = drive->track;
-                            break;
-                        case 0x01:
-                            reg_data = reg_system & SS_HEAD ? 1 : 0;
-                            break;
-                        case 0x02:
-                            reg_data = time % 0x10 + 1;
-                            break;
-                        case 0x03: // Sector size = 256b
-                            reg_data = 1;
-                            break;
-                        case 0x04: // CRC
-                            reg_data = time % 0x100;
-                            break;
-                         case 0x05:
-                            reg_data = time % 0x100;
-                            break;
-                    }
+                    if (time - cmd_time < DRQ_PERIOD)
+                        break;
+                    //printf("Set DRQ time: %d, cmd_time: %d, elapsed: %d\n", time, cmd_time, time - cmd_time);
+                    cmd_time += DRQ_PERIOD;
                     reg_status |= ST_DRQ;
                     break;
                 case 0x0D: // Force interrupt
@@ -251,13 +170,51 @@ void FDC::read(u16 port, u8 *byte, s32 clk){
                 *byte = reg_sector;
                 break;
             case 0x03:
-                switch (reg_command >> 4){
-                    case 0x08: // Read sector
-                    case 0x09: // Read sectors
-                    case 0x0C: // Read address
-                    case 0x0E: // Read track
-                        reg_status &= ~ST_DRQ;
-                        break;
+                if (reg_status & ST_DRQ){
+                    switch (reg_command >> 4){
+                        case 0x08: // Read sector
+                        case 0x09: // Read sectors
+                        case 0x0E: // Read track
+                            reg_data = drive->data[drive->track * 0x2000 + (reg_system & SS_HEAD ? 0 : 0x1000) + (reg_sector - 1) * 0x100 + data_idx];
+                            if (++data_idx >= 0x100){
+                                if (!(reg_command & CM_MULTISEC) || reg_sector >= 0x11){
+                                    reg_status &= ~ST_BUSY;
+                                }else{
+                                    reg_sector++;
+                                    data_idx = 0;
+                                }
+                            }
+                            reg_status &= ~ST_DRQ;
+                            break;
+                        case 0x0C: // Read address
+                            //printf("Read time: %d, cmd_time: %d, elapsed: %d\n", time, cmd_time, time - cmd_time);
+                            switch (data_idx){
+                                case 0x00:
+                                    reg_data = drive->track;
+                                    break;
+                                case 0x01:
+                                    reg_data = reg_system & SS_HEAD ? 1 : 0;
+                                    break;
+                                case 0x02:
+                                    reg_data = time % 0x10 + 1;
+                                    break;
+                                case 0x03: // Sector size = 256b
+                                    reg_data = 1;
+                                    break;
+                                case 0x04: // CRC
+                                    reg_data = time % 0x100;
+                                    break;
+                                 case 0x05:
+                                    reg_data = time % 0x100;
+                                    break;
+                            }
+                            if (++data_idx >= 6){
+                                reg_sector = drive->track;
+                                reg_status &= ~ST_BUSY;
+                            }
+                            reg_status &= ~ST_DRQ;
+                            break;
+                    }
                 }
                 *byte = reg_data;
                 break;
@@ -281,7 +238,7 @@ void FDC::write(u16 port, u8 byte, s32 clk){
     }else{
         switch ((port >> 5) & 0x3){
             case 0x00: // 0x1F
-                if ((byte & 0xF0) == 0xF0 && byte & 0x08) // The unknown bits is threated as "Forced Interrupt" command.
+                if ((byte & 0xF0) == 0xF0 && byte & 0x08)
                     break;
                 //if ((byte & 0xF0) == 0xF0 && byte & 0x08) // The unknown bits is threated as "Forced Interrupt" command.
                 //    byte &= 0xD0;
@@ -289,27 +246,28 @@ void FDC::write(u16 port, u8 byte, s32 clk){
                     break;
                 time = cmd_time = 0;
                 reg_command = byte;
+                printf("COMMAND: %02x\n", byte);
                 switch (byte >> 4){
                     case 0x00: // Restore.
                         reg_track = 0xFF;
                         reg_data = 0x00;
                         step_cnt = ABS(reg_data - reg_track);
                         step_dir = reg_data > reg_track ? 1 : -1;
-                        hld &= byte & (CM_HEAD_LOAD | CM_VERIFY);
+                        hld = byte & CM_HEAD_LOAD;
                         reg_status &= ~ST_SEEK_ERROR;
                         reg_status |= ST_BUSY;
                         break;
                     case 0x01: // Seek
                         step_cnt = ABS(reg_data - reg_track);
                         step_dir = reg_data > reg_track ? 1 : -1;
-                        hld &= byte & (CM_HEAD_LOAD | CM_VERIFY);
+                        hld = byte & CM_HEAD_LOAD;
                         reg_status &= ~ST_SEEK_ERROR;
                         reg_status |= ST_BUSY;
                         break;
                     case 0x02: // Step
                     case 0x03: // Step modify
                         step_cnt = 1;
-                        hld &= byte & (CM_HEAD_LOAD | CM_VERIFY);
+                        hld = byte & CM_HEAD_LOAD;
                         reg_status &= ~ST_SEEK_ERROR;
                         reg_status |= ST_BUSY;
                         break;
@@ -317,7 +275,7 @@ void FDC::write(u16 port, u8 byte, s32 clk){
                     case 0x05: // Step forward modify
                         step_cnt = 1;
                         step_dir = 1;
-                        hld &= byte & (CM_HEAD_LOAD | CM_VERIFY);
+                        hld = byte & CM_HEAD_LOAD;
                         reg_status &= ~ST_SEEK_ERROR;
                         reg_status |= ST_BUSY;
                         break;
@@ -325,11 +283,10 @@ void FDC::write(u16 port, u8 byte, s32 clk){
                     case 0x07: // Step backward modify
                         step_dir = -1;
                         step_cnt = 1;
-                        hld &= byte & (CM_HEAD_LOAD | CM_VERIFY);
+                        hld = byte & CM_HEAD_LOAD;
                         reg_status &= ~ST_SEEK_ERROR;
                         reg_status |= ST_BUSY;
                         break;
-                    // Type II
                     case 0x08: // Read sector
                     case 0x09: // Read sectors
                     case 0x0C: // Read address
@@ -358,14 +315,26 @@ void FDC::write(u16 port, u8 byte, s32 clk){
                 reg_sector = byte;
                 break;
             case 0x03: // 0x7F
-                switch (reg_command >> 4){
-                    case 0x0A: // Write sector
-                    case 0x0B: // Write sectors
-                    case 0x0F: // Write track
-                        reg_status &= ~ST_DRQ;
-                        break;
-                }
                 reg_data = byte;
+                if (reg_status & ST_DRQ){
+                    switch (reg_command >> 4){
+                        case 0x0A: // Write sector
+                        case 0x0B: // Write sectors
+                        case 0x0F: // Write track
+                            drive->data[drive->track * 0x2000 + (reg_system & SS_HEAD ? 0 : 0x1000) + (reg_sector - 1) * 0x100 + data_idx] = reg_data;
+                            if (++data_idx >= 0x100){
+                                if (!(reg_command & CM_MULTISEC) || reg_sector >= 0x11){
+                                    cmd_time = time;
+                                    reg_status &= ~ST_BUSY;
+                                }else{
+                                    reg_sector++;
+                                    data_idx = 0;
+                                }
+                            }
+                            reg_status &= ~ST_DRQ;
+                            break;
+                    }
+                }
                 break;
         }
     }

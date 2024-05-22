@@ -40,12 +40,13 @@
 //#define ST_RECORD_TYPE                0b00100000          // Data type from address mark.
 
 // Time in CPU clocks.
-#define DISK_TURN_TIME              Msec(200)               // Disk revolution time - 200ms.
-#define INDEX_PULSE_TIME            Usec(10)                // Width.
-#define DRQ_TIME                    Usec(24)                // i/o data ready.
-#define HLT_TIME                    Msec(50)                // Head load timeing (HLT) 30-100ms. HLD=1/HLT=1 Head is complete engaged.
-#define DELAY15_TIME                Msec(15)                // Delay 15ms.
-#define IDLE_TIME                   DISK_TURN_TIME*15       // idle state (non-busy) 15 index pulses have occured.
+#define DISK_TURN_PERIOD            Msec(200)               // Disk revolution time.
+#define INDEX_PULSE_WIDTH           Usec(10)                // Index sensor high level while.
+#define DRQ_PERIOD                  Usec(35)                //
+#define DRQ_WIDTH                   Usec(25)                // Time for servicing DRQ and avoid "lost data".
+#define HLT_TIME                    Msec(50)                // "Head load timeing" HLT 30-100ms. HLD=1/HLT=1 Head is complete engaged.
+#define DELAY_15MS                  Msec(15)                // Delay 15ms.
+#define IDLE_WIDTH                  DISK_TURN_PERIOD*15     // idle state (non-busy) 15 index pulses have occured.
 
 struct FDD {
     bool hlt = false;
@@ -87,7 +88,7 @@ private:
     s32 data_idx;
     s32 last_clk;
     s32 time;
-    s32 step_rate[4] = { Msec(3)/75, Msec(6), Msec(10), Msec(15) };
+    s32 step_rate[4] = { Msec(3)/70, Msec(6), Msec(10), Msec(15) };
 };
 
 #pragma pack(1)
