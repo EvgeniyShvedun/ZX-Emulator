@@ -107,11 +107,11 @@ namespace UI {
                     case SDLK_F4:
                         open(UI_Settings);
                         break;
-                    case SDLK_F7:
-                        open(UI_Debugger);
-                        break;
+                    //case SDLK_F7:
+                    //    open(UI_Debugger);
+                    //    break;
                 }
-            } else 
+            } else
                 if (event.key.keysym.sym == SDLK_ESCAPE && !IsPopupOpen(NULL, ImGuiPopupFlags_AnyPopup))
                     hide();
         }
@@ -392,7 +392,7 @@ namespace UI {
     bool is_modal(){
         return mode == UI_SaveFile || mode == UI_Debugger;
     }
-        
+
     void set_alpha(float alpha){
         ImGuiStyle &style = GetStyle();
         style.Colors[ImGuiCol_WindowBg] = ImVec4(0.01f, 0.01f, 0.01f, alpha);

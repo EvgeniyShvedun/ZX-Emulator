@@ -1,4 +1,3 @@
-//#define AY_RATE                     (1774400 / 8.0)
 #define AY_RATE                     (Z80_FREQ / 16)
 #define CHANNEL_AMP                 (0xFFFF / 6)
 #define FRACT_BITS                  14
