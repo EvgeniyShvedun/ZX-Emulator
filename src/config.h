@@ -36,9 +36,9 @@ struct Cfg {
         float ay_side_level = 1.0;
         float ay_center_level = 0.7;
         float ay_penetr_level = 0.3;
-        float ay_volume = 1.0f;
-        float speaker_volume = 0.70f;
-        float tape_volume = 0.35f;
+        float ay_volume = 0.7f;
+        float speaker_volume = 0.50f;
+        float tape_volume = 0.25f;
     } audio;
     struct UI {
         float alpha = 0.95f;
