@@ -64,7 +64,7 @@ void Board::setup(Hardware model){
         ROM_Bank rom;
         s32 clk;
     } profile[sizeof(Hardware)] = {
-        { ROM_128, 71680 }, 
+        { ROM_128, 71680 },
         { ROM_128, 70908 },
         { ROM_48, 69888 }
     };
@@ -144,7 +144,7 @@ void Board::set_full_screen(bool state){
 void Board::set_vsync(bool state){
     SDL_GL_SetSwapInterval(state ? 1 : 0);
 }
- 
+
 void Board::reset(){
     cpu.reset();
     ula.reset();
@@ -238,7 +238,7 @@ void Board::run(Cfg &cfg){
             }
         }
         glBindTexture(GL_TEXTURE_2D, screen_texture);
-        glBegin(GL_QUADS);  
+        glBegin(GL_QUADS);
         glTexCoord2f(0.0f, 1.0f); glVertex2f(0.0f, viewport_height);
         glTexCoord2f(1.0f, 1.0f); glVertex2f(viewport_width, viewport_height);
         glTexCoord2f(1.0f, 0.0f); glVertex2f(viewport_width, 0.0f);

@@ -1,6 +1,6 @@
 #define AY_RATE                     (Z80_FREQ / 16)
-#define CHANNEL_AMP                 (0xFFFF / 6)
-#define FRACT_BITS                  14
+#define CHANNEL_AMP                 (0xFFFF / 16)
+#define FRACT_BITS                  10
 
 enum AY_Register {
     ToneALow, ToneAHigh,

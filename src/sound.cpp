@@ -11,6 +11,7 @@
 #include "ula.h"
 #include "z80.h"
 #include "sound.h"
+#include <math.h>
 
 Sound::Sound(){
     reset();
@@ -47,36 +48,35 @@ void Sound::set_lpf(int sample_rate, int lpf_rate){
 }
 
 void Sound::set_ay_volume(float volume, AY_Mixer channel_mode, float side_level, float center_level, float penetr_level){
-    switch(channel_mode){
-        case ABC:
-            for (int i = 0; i < 0x10; i++){
-                mixer[Left][A][i] = CHANNEL_AMP * volume_table[i] * volume * side_level;
-                mixer[Right][C][i] = CHANNEL_AMP * volume_table[i] * volume * side_level;
-                mixer[Left][B][i] = CHANNEL_AMP * volume_table[i] * volume * center_level;
-                mixer[Right][B][i] = CHANNEL_AMP * volume_table[i] * volume * center_level;
-                mixer[Left][C][i] = CHANNEL_AMP * volume_table[i] * volume * penetr_level;
-                mixer[Right][A][i] = CHANNEL_AMP * volume_table[i] * volume * penetr_level;
-            }
-            break;
-        case ACB:
-            for (int i = 0; i < 0x10; i++){
-                mixer[Left][A][i] = CHANNEL_AMP * volume_table[i] * volume * side_level;
-                mixer[Right][B][i] = CHANNEL_AMP * volume_table[i] * volume * side_level;
-                mixer[Left][C][i] = CHANNEL_AMP * volume_table[i] * volume * center_level;
-                mixer[Right][C][i] = CHANNEL_AMP * volume_table[i] * volume * center_level;
-                mixer[Left][B][i] = CHANNEL_AMP * volume_table[i] * volume * penetr_level;
-                mixer[Right][A][i] = CHANNEL_AMP * volume_table[i] * volume * penetr_level;
-            }
-            break;
-        case Mono:
-            for (int i = 0; i < 0x10; i++){
-                mixer[Left][A][i] = CHANNEL_AMP * volume_table[i] * volume;
-                mixer[Left][B][i] = CHANNEL_AMP * volume_table[i] * volume;
-                mixer[Left][C][i] = CHANNEL_AMP * volume_table[i] * volume;
-                mixer[Right][A][i] = CHANNEL_AMP * volume_table[i] * volume;
-                mixer[Right][B][i] = CHANNEL_AMP * volume_table[i] * volume;
-                mixer[Right][C][i] = CHANNEL_AMP * volume_table[i] * volume;
-            }
+    for (int i = 0; i < 0x10; i++){
+        //float ay_level = volume_table[i];
+        float ay_level = 1.0f / pow(sqrt(2), (15-i));
+        switch(channel_mode){
+            case ABC:
+                mixer[Left][A][i] = CHANNEL_AMP * ay_level * volume * side_level;
+                mixer[Right][C][i] = CHANNEL_AMP * ay_level * volume * side_level;
+                mixer[Left][B][i] = CHANNEL_AMP * ay_level * volume * center_level;
+                mixer[Right][B][i] = CHANNEL_AMP * ay_level * volume * center_level;
+                mixer[Left][C][i] = CHANNEL_AMP * ay_level * volume * penetr_level;
+                mixer[Right][A][i] = CHANNEL_AMP * ay_level * volume * penetr_level;
+                break;
+            case ACB:
+                mixer[Left][A][i] = CHANNEL_AMP * ay_level * volume * side_level;
+                mixer[Right][B][i] = CHANNEL_AMP * ay_level * volume * side_level;
+                mixer[Left][C][i] = CHANNEL_AMP * ay_level * volume * center_level;
+                mixer[Right][C][i] = CHANNEL_AMP * ay_level * volume * center_level;
+                mixer[Left][B][i] = CHANNEL_AMP * ay_level * volume * penetr_level;
+                mixer[Right][A][i] = CHANNEL_AMP * ay_level * volume * penetr_level;
+                break;
+            case Mono:
+                mixer[Left][A][i] = CHANNEL_AMP * ay_level * volume;
+                mixer[Left][B][i] = CHANNEL_AMP * ay_level * volume;
+                mixer[Left][C][i] = CHANNEL_AMP * ay_level * volume;
+                mixer[Right][A][i] = CHANNEL_AMP * ay_level * volume;
+                mixer[Right][B][i] = CHANNEL_AMP * ay_level * volume;
+                mixer[Right][C][i] = CHANNEL_AMP * ay_level * volume;
+                break;
+        }
     }
 }
 

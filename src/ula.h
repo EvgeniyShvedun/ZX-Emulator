@@ -34,14 +34,14 @@
 
 class ULA : public Memory {
     enum Type { Border = 0x00, Paper = 0x01, Last = 0x02};
-    struct Table { 
+    struct Table {
         Type type;
         s32 clk;
         s32 len;
         int color;
         int pixel;
     };
-    public: 
+    public:
         ULA();
         inline void write_byte(u16 ptr, u8 byte, s32 clk){
             update(clk);
@@ -74,14 +74,15 @@ class ULA : public Memory {
                 (((unsigned short)(0x3F*g)) << 5) |
                 ((unsigned short)(0x1F*b)));
         }
-        u16 *frame_buffer = NULL; 
+        u16 *frame_buffer = NULL;
         s32 update_clk = 0;
-        u32 palette[0x10];
+        u16 palette[0x10];
+        long long color64[0x10];
         u8 *display_page = NULL;
         u8 flash_mask = 0x7F;
-        u8 border_color = 0;
         Table table[ZX_SCREEN_HEIGHT*4];
         u16 pixel_table[0x10000*8];
+        u8 border_color;
         int frame_count = 0;
         int idx = 0;
 };
