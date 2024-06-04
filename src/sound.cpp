@@ -17,11 +17,11 @@ Sound::Sound(){
     reset();
 }
 
-void Sound::setup(int sample_rate, int lpf_rate, int frame_clk){
+void Sound::setup(int rate, int cutoff_rate, int frame_clk){
     reset();
-    cpu_fract = sample_rate / Z80_FREQ;
+    sample_rate = rate;
     ay_fract = (1 << FRACT_BITS) * AY_RATE / sample_rate;
-    set_lpf(sample_rate, lpf_rate);
+    set_lpf(cutoff_rate);
     if (device_id)
         SDL_CloseAudioDevice(device_id);
     frame_samples = frame_clk * (sample_rate / Z80_FREQ);
@@ -29,59 +29,59 @@ void Sound::setup(int sample_rate, int lpf_rate, int frame_clk){
     audio_spec.freq = sample_rate;
     audio_spec.format = AUDIO_S16;
     audio_spec.channels = 2;
-    audio_spec.samples = frame_samples * 2;
+    audio_spec.samples = frame_samples*2;//pow(2, ceil(log(71680 * 4 * (sample_rate / Z80_FREQ))/log(2)));
     audio_spec.callback = NULL;
     device_id = SDL_OpenAudioDevice(NULL, 0, &audio_spec, NULL, 0);
     if (!device_id)
         throw std::runtime_error("Open audio device");
-    if (!sound_frame)
-        sound_frame = new s16[sample_rate*2*3]; // Audio frame for 3 sec.
-    memset(sound_frame, 0x00, frame_samples*4);
-    SDL_QueueAudio(device_id, sound_frame, frame_samples*4);
+    if (!buffer)
+        buffer = new s16[frame_samples*2];
+    memset(buffer, 0x00, audio_spec.samples/2*4);
+    SDL_QueueAudio(device_id, buffer, audio_spec.samples/2*4);
     SDL_PauseAudioDevice(device_id, 0);
 }
 
-void Sound::set_lpf(int sample_rate, int lpf_rate){
-    float RC = 1.0 / (sample_rate * 2 * M_PI);
+void Sound::set_lpf(int cutoff_rate){
+    float RC = 1.0 / (cutoff_rate * 2 * M_PI);
     float dt = 1.0 / sample_rate;
-    lpf = (1 << FRACT_BITS) * dt / (RC + dt);
+    float alpha =  dt / (RC + dt);
+    lpf_fract = alpha * (1U << FRACT_BITS);
 }
 
 void Sound::set_ay_volume(float volume, AY_Mixer channel_mode, float side_level, float center_level, float penetr_level){
     for (int i = 0; i < 0x10; i++){
-        //float ay_level = volume_table[i];
-        float ay_level = 1.0f / pow(sqrt(2), (15-i));
+        u16 amp = MAX_AMP / pow(sqrt(2), (15-i)) * volume;
         switch(channel_mode){
             case ABC:
-                mixer[Left][A][i] = CHANNEL_AMP * ay_level * volume * side_level;
-                mixer[Right][C][i] = CHANNEL_AMP * ay_level * volume * side_level;
-                mixer[Left][B][i] = CHANNEL_AMP * ay_level * volume * center_level;
-                mixer[Right][B][i] = CHANNEL_AMP * ay_level * volume * center_level;
-                mixer[Left][C][i] = CHANNEL_AMP * ay_level * volume * penetr_level;
-                mixer[Right][A][i] = CHANNEL_AMP * ay_level * volume * penetr_level;
+                mixer[Left][A][i] = amp * side_level;
+                mixer[Right][C][i] = amp * side_level;
+                mixer[Left][B][i] = amp * center_level;
+                mixer[Right][B][i] = amp * center_level;
+                mixer[Left][C][i] = amp * penetr_level;
+                mixer[Right][A][i] = amp * penetr_level;
                 break;
             case ACB:
-                mixer[Left][A][i] = CHANNEL_AMP * ay_level * volume * side_level;
-                mixer[Right][B][i] = CHANNEL_AMP * ay_level * volume * side_level;
-                mixer[Left][C][i] = CHANNEL_AMP * ay_level * volume * center_level;
-                mixer[Right][C][i] = CHANNEL_AMP * ay_level * volume * center_level;
-                mixer[Left][B][i] = CHANNEL_AMP * ay_level * volume * penetr_level;
-                mixer[Right][A][i] = CHANNEL_AMP * ay_level * volume * penetr_level;
+                mixer[Left][A][i] = amp * side_level;
+                mixer[Right][B][i] = amp * side_level;
+                mixer[Left][C][i] = amp * center_level;
+                mixer[Right][C][i] = amp * center_level;
+                mixer[Left][B][i] = amp * penetr_level;
+                mixer[Right][A][i] = amp * penetr_level;
                 break;
             case Mono:
-                mixer[Left][A][i] = CHANNEL_AMP * ay_level * volume;
-                mixer[Left][B][i] = CHANNEL_AMP * ay_level * volume;
-                mixer[Left][C][i] = CHANNEL_AMP * ay_level * volume;
-                mixer[Right][A][i] = CHANNEL_AMP * ay_level * volume;
-                mixer[Right][B][i] = CHANNEL_AMP * ay_level * volume;
-                mixer[Right][C][i] = CHANNEL_AMP * ay_level * volume;
+                mixer[Left][A][i] = amp;
+                mixer[Left][B][i] = amp;
+                mixer[Left][C][i] = amp;
+                mixer[Right][A][i] = amp;
+                mixer[Right][B][i] = amp;
+                mixer[Right][C][i] = amp;
                 break;
         }
     }
 }
 
 Sound::~Sound(){
-    DELETE_ARRAY(sound_frame);
+    DELETE_ARRAY(buffer);
     if (device_id){
         SDL_CloseAudioDevice(device_id);
         device_id = 0;
@@ -89,13 +89,14 @@ Sound::~Sound(){
 }
 
 void Sound::update(int clk){
-    if (!sound_frame)
+    if (!buffer)
         return;
     u16 square = (
-        (rFE & TapeIn ? tape_volume : 0) +
-        (wFE & TapeOut ? tape_volume : 0) +
-        (wFE & Speaker ? speaker_volume : 0));
-    for (int now = clk * cpu_fract; pos < now; pos++){
+        ((rFE & TapeIn) ? MAX_AMP * tape_volume : 0) +
+        ((wFE & TapeOut) ? MAX_AMP * tape_volume : 0) +
+        ((wFE & Speaker) ? MAX_AMP * speaker_volume : 0));
+
+    for (int now = clk * (sample_rate / Z80_FREQ); pos < now; pos++){
         u16 mix_left, mix_right;
         tone_a_counter += ay_fract;
         if (tone_a_counter >= tone_a_limit){
@@ -139,10 +140,10 @@ void Sound::update(int clk){
             mix_left += mixer[Left][C][registers[VolC] & 0x10 ? envelope : registers[VolC]];
             mix_right += mixer[Right][C][registers[VolC] & 0x10 ? envelope : registers[VolC]];
         }
-        left += lpf * (mix_left - (left >> FRACT_BITS));
-        right += lpf * (mix_right - (right >> FRACT_BITS));
-        sound_frame[pos * 2] = left >> FRACT_BITS;
-        sound_frame[pos * 2 + 1] = right >> FRACT_BITS;
+        left += lpf_fract * (mix_left - (left >> FRACT_BITS));
+        right += lpf_fract * (mix_right - (right >> FRACT_BITS));
+        buffer[pos * 2] = left >> FRACT_BITS;
+        buffer[pos * 2 + 1] = right >> FRACT_BITS;
     }
 }
 
@@ -240,9 +241,10 @@ void Sound::frame(int frame_clk){
 }
 
 void Sound::queue(){
+    //u32 frame_samples = frame_clk * (sample_rate / Z80_FREQ);
     if (SDL_GetAudioDeviceStatus(device_id) == SDL_AUDIO_PLAYING){
         while (SDL_GetQueuedAudioSize(device_id) > (audio_spec.samples - frame_samples) * 4)
             SDL_Delay(1);
-        SDL_QueueAudio(device_id, sound_frame, frame_samples * 4);
+        SDL_QueueAudio(device_id, buffer, frame_samples * 4);
     }
 }

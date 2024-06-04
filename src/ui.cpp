@@ -29,11 +29,11 @@
 #include "mouse.h"
 #include "board.h"
 #include "ui.h"
-//#include "ui_debugger.h"
 
 #define LABEL_WIDTH                       140
 #define KBD_IMAGE_PATH                    "data/kbd_layout.png"
 //#define DEBUGGER
+//#define STYLE_EDITOR
 
 using namespace ImGui;
 
@@ -107,9 +107,12 @@ namespace UI {
                     case SDLK_F4:
                         open(UI_Settings);
                         break;
-                    //case SDLK_F7:
-                    //    open(UI_Debugger);
-                    //    break;
+                    case SDLK_F9:
+#ifdef DEBUGGER
+                        open(UI_Debugger);
+#endif
+                        break;
+
                 }
             } else
                 if (event.key.keysym.sym == SDLK_ESCAPE && !IsPopupOpen(NULL, ImGuiPopupFlags_AnyPopup))
@@ -294,8 +297,8 @@ namespace UI {
                             Text("Low-pass cut");
                             SameLine(LABEL_WIDTH);
                             if (InputInt("##lpf", &cfg.audio.lpf_rate, 1000, 1000, ImGuiInputTextFlags_CharsDecimal | ImGuiInputTextFlags_CharsNoBlank | ImGuiInputTextFlags_EnterReturnsTrue)){
-                                cfg.audio.lpf_rate = std::min(std::max(cfg.audio.lpf_rate, 5000), 22000);
-                                board->sound.set_lpf(cfg.audio.dsp_rate, cfg.audio.lpf_rate);
+                                cfg.audio.lpf_rate = std::min(std::max(cfg.audio.lpf_rate, 5000), 25000);
+                                board->sound.set_lpf(cfg.audio.lpf_rate);
                             }
                             SeparatorText("Volume");
                             Text("AY");
@@ -371,7 +374,9 @@ namespace UI {
 #endif
                 break;
         }
-        //ShowStyleEditor();
+#ifdef STYLE_EDITOR
+        ShowStyleEditor();
+#endif
         //ShowDemoWindow();
         Render();
         ImGui_ImplOpenGL3_RenderDrawData(GetDrawData());

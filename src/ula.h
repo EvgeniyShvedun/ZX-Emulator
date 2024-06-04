@@ -74,15 +74,14 @@ class ULA : public Memory {
                 (((unsigned short)(0x3F*g)) << 5) |
                 ((unsigned short)(0x1F*b)));
         }
-        u16 *frame_buffer = NULL;
         s32 update_clk = 0;
-        u16 palette[0x10];
-        long long color64[0x10];
+        int idx = 0;
+        Table table[ZX_SCREEN_HEIGHT*4];
+        u8 border_color;
         u8 *display_page = NULL;
         u8 flash_mask = 0x7F;
-        Table table[ZX_SCREEN_HEIGHT*4];
+        u16 palette[0x10];
         u16 pixel_table[0x10000*8];
-        u8 border_color;
+        u16 *frame_buffer = NULL;
         int frame_count = 0;
-        int idx = 0;
 };

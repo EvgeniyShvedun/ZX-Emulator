@@ -31,17 +31,17 @@ struct Cfg {
     } video;
     struct Audio {
         int dsp_rate = 44100;
-        int lpf_rate = 11050;
-        int ay_mixer_mode = ABC;
-        float ay_side_level = 1.0;
-        float ay_center_level = 0.7;
-        float ay_penetr_level = 0.3;
-        float ay_volume = 0.7f;
+        int lpf_rate = 20000;
+        int ay_mixer_mode = ACB;
+        float ay_side_level = 0.90f;
+        float ay_center_level = 0.70f;
+        float ay_penetr_level = 0.30f;
+        float ay_volume = 0.80f;
         float speaker_volume = 0.50f;
         float tape_volume = 0.25f;
     } audio;
     struct UI {
-        float alpha = 0.95f;
+        float alpha = 0.90f;
         bool gamepad = false;
     } ui;
 };

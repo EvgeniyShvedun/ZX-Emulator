@@ -13,8 +13,7 @@
 ULA::ULA(){
     for (int i = 0x00; i < 0x10; i++){
         float bright = i & 0x08 ? HIGH_BRIGHTNESS : LOW_BRIGHTNESS;
-        color64[i] = palette[i] = RGBA4444(bright*((i >> 1) % 2), bright*((i >> 2) % 2), bright*(i % 2), 1.0f);
-        color64[i] |= (color64[i] << 48) | (color64[i] << 32) | (color64[i] << 16);
+        palette[i] = RGBA4444(bright*((i >> 1) % 2), bright*((i >> 2) % 2), bright*(i % 2), 1.0f);
     }
     for (int i = 0; i < 0x10000; i++){
         u16 paper_color = palette[(i >> 11) & 0x0F];
@@ -46,40 +45,33 @@ ULA::ULA(){
         table[BORDER_TOP_HEIGHT+192*3+i].len = ZX_SCREEN_WIDTH/2;
     }
     table[BORDER_TOP_HEIGHT + 192*3 + (ZX_SCREEN_HEIGHT - BORDER_TOP_HEIGHT - 192)].clk = 0xFFFFFF;
+    table[BORDER_TOP_HEIGHT + 192*3 + (ZX_SCREEN_HEIGHT - BORDER_TOP_HEIGHT - 192)].len = 0;
     reset();
 }
 
 void ULA::update(s32 clk){
     while (update_clk < clk){
         int offset = update_clk - table[idx].clk;
-        int clocks = MIN(clk, table[idx].clk + table[idx].len) - update_clk;
-        update_clk += clocks;
+        int limit = offset + MIN(clk, table[idx].clk + table[idx].len) - update_clk;
         if (table[idx].type == Border){
-            long long color = color64[border_color];
-            for (int end = offset + (clocks & ~3); offset < end; offset += 4){
-                *(long long*)(&frame_buffer[offset*2])= color;
-                *(long long*)(&frame_buffer[offset*2+4]) = color;
+            u32 color = palette[border_color];
+            for (; offset < limit; offset++){
+                frame_buffer[offset * 2] = color;
+                frame_buffer[offset * 2 + 1] = color;
             }
-            for (clocks &= 3; clocks--; offset++)
-                ((u32*)frame_buffer)[offset] = (u32)color;
         }else{
-            u8 *color = &display_page[table[idx].color + offset/4];
-            u8 *pixel = &display_page[table[idx].pixel + offset/4];
-            if (offset % 4){
-                u32* src = (u32*)(&pixel_table[(((*color++ & flash_mask) << 8) | *pixel++) << 3]);
+            u8 *color = &display_page[table[idx].color + (offset >> 2)];
+            u8 *pixel = &display_page[table[idx].pixel + (offset >> 2)];
+            while (offset < limit){
+                void *src = &pixel_table[(((*color++ & flash_mask) << 8) | *pixel++) << 3];
                 do {
-                    ((u32*)frame_buffer)[offset] = src[offset % 4];
-                } while (--clocks && ++offset % 4);
+                    ((u32*)frame_buffer)[offset] = ((u32*)src)[offset & 3];
+                } while (++offset & 3);
             }
-            for (int end = offset + (clocks & ~3); offset < end; offset += 4){
-                long long *src = &((long long*)pixel_table)[(((*color++ & flash_mask) << 8) | *pixel++)<<1];
-                *(long long*)(&frame_buffer[offset*2]) = src[0];
-                *(long long*)(&frame_buffer[offset*2+4]) = src[1];
-            }
-            for (clocks &= 3; clocks--; offset++)
-                ((u32*)frame_buffer)[offset] = ((u32*)(&pixel_table[(((*color & flash_mask) << 8) | *pixel) << 3]))[offset % 4];
         }
-        if (clk >= table[idx].clk + table[idx].len){
+        if (limit < table[idx].len)
+            update_clk = clk;
+        else{
             frame_buffer += table[idx].len*2;
             update_clk = table[++idx].clk;
         }
@@ -97,7 +89,7 @@ void ULA::frame(s32 frame_clk){
 
 void ULA::reset(){
     Memory::reset();
-    display_page = !(Memory::Memory::port_7FFD & ULA_PAGE5) ? Memory::ram[5] : Memory::ram[7];
+    display_page = Memory::Memory::port_7FFD & ULA_PAGE5 ? Memory::ram[7] : Memory::ram[5];
     border_color = 7;
     update_clk = table[0].clk;
     idx = 0;

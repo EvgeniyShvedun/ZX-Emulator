@@ -226,9 +226,9 @@ void Board::run(Cfg &cfg){
                             }
                             break;
                     }
+                case SDL_KEYUP:
                     if (event.key.keysym.mod & (KMOD_NUM | KMOD_CAPS))
                         SDL_SetModState(KMOD_NONE);
-                case SDL_KEYUP:
                     keyboard.event(event);
                     break;
                 default:

@@ -1,6 +1,6 @@
 #define AY_RATE                     (Z80_FREQ / 16)
-#define CHANNEL_AMP                 (0xFFFF / 6)
-#define FRACT_BITS                  15
+#define MAX_AMP                     (0xFFFF / 6)
+#define FRACT_BITS                  14
 
 enum AY_Register {
     ToneALow, ToneAHigh,
@@ -24,11 +24,11 @@ class Sound : public Device {
     public:
         Sound();
         ~Sound();
-        void setup(int sample_rate, int lpf_rate, int frame_clk);
-        void set_lpf(int sample_rate, int lpf_rate);
+        void setup(int sample_rate, int cutoff_rate, int frame_clk);
+        void set_lpf(int cutoff_rate);
         void set_ay_volume(float volume, AY_Mixer channel_mode, float side_level, float center_level, float penetr_level);
-        void set_speaker_volume(float volume) { speaker_volume = CHANNEL_AMP * volume; };
-        void set_tape_volume(float volume) { tape_volume = CHANNEL_AMP * volume; };
+        void set_speaker_volume(float volume) { speaker_volume = volume; };
+        void set_tape_volume(float volume) { tape_volume = volume; };
         void update(s32 clk);
         void queue();
 
@@ -37,13 +37,14 @@ class Sound : public Device {
         void frame(s32 frame_clk);
         void reset();
 
+
     protected:
-        s16 *sound_frame = NULL;
+        s16 *buffer = NULL;
         SDL_AudioDeviceID device_id = 0;
         SDL_AudioSpec audio_spec;
         s32 sample_rate;
         u32 frame_samples;
-        float cpu_fract;
+        float cpu_inc;
         u32 ay_fract;
         u32 tone_a_counter, tone_b_counter, tone_c_counter, noise_counter, envelope_counter;
         u32 tone_a_limit, tone_b_limit, tone_c_limit, noise_limit, envelope_limit;
@@ -100,10 +101,11 @@ class Sound : public Device {
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
         };
         // Posted to comp.sys.sinclair in Dec 2001 by Matthew Westcott.
+        /*
         const float volume_table[0x10] = {
             0.000000, 0.013748, 0.020462, 0.029053, 0.042343, 0.061844, 0.084718, 0.136903,
             0.169130, 0.264667, 0.352712, 0.449942, 0.570382, 0.687281, 0.848172, 1.000000
-        };
+        };*/
         u16 mixer[sizeof(AY_Stereo)][sizeof(AY_Channel)][0x10];
         /* Channel A fine pitch            8-bit (0-255)
            Channel A course pitch          4-bit (0-15)
@@ -123,8 +125,8 @@ class Sound : public Device {
            I/O port B                      8-bit (0-255) */
         u8 registers[0x10];
         u8 wFE, rFE, wFFFD;
-        u16 speaker_volume, tape_volume;
+        float speaker_volume, tape_volume;
         u32 left, right;
-        u32 lpf;
+        u32 lpf_fract;
         s32 pos;
 };
