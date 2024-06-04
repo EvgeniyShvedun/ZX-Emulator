@@ -23,8 +23,8 @@
 #include "board.h"
 #include "ui.h"
 
-//#define TIME
-//#define FRAME_LIMIT 50000
+#define TIME
+#define FRAME_LIMIT 50000
 
 Board::Board(Cfg &cfg) : cfg(cfg) {
     glEnable(GL_TEXTURE_2D);

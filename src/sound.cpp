@@ -45,7 +45,7 @@ void Sound::set_lpf(int cutoff_rate){
     float RC = 1.0 / (cutoff_rate * 2 * M_PI);
     float dt = 1.0 / sample_rate;
     float alpha =  dt / (RC + dt);
-    lpf_fract = alpha * (1U << FRACT_BITS);
+    lpf_fract =(1U << FRACT_BITS) * alpha;
 }
 
 void Sound::set_ay_volume(float volume, AY_Mixer channel_mode, float side_level, float center_level, float penetr_level){

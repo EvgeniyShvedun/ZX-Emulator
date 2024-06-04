@@ -54,10 +54,10 @@ void ULA::update(s32 clk){
         int offset = update_clk - table[idx].clk;
         int limit = offset + MIN(clk, table[idx].clk + table[idx].len) - update_clk;
         if (table[idx].type == Border){
-            u32 color = palette[border_color];
+            u32 color = palette[border_color]; // GCC is faster with this.
             for (; offset < limit; offset++){
-                frame_buffer[offset * 2] = color;
-                frame_buffer[offset * 2 + 1] = color;
+                frame_buffer[offset*2] = color;
+                frame_buffer[offset*2 + 1] = color;
             }
         }else{
             u8 *color = &display_page[table[idx].color + (offset >> 2)];

@@ -138,7 +138,7 @@ namespace UI {
                 if (Begin("Exit", NULL, UI_WindowFlags | ImGuiWindowFlags_AlwaysAutoResize)){// | ImGuiWindowFlags_NoDecoration)){
                     Dummy(ImVec2(0.0f, 10.0f));
                     SetCursorPosX((GetWindowWidth() - CalcTextSize(exit_agree).x)*0.5f);
-                    Text(exit_agree);
+                    TextUnformatted(exit_agree);
                     Dummy(ImVec2(0.0f, 10.0f));
                     SetCursorPosX((GetWindowWidth() - style.ItemSpacing.x - btn_size.x*2)*0.5f);
                     if (Button("Yes", btn_size))
@@ -201,7 +201,7 @@ namespace UI {
                                 board->set_vsync(cfg.video.vsync & !cfg.main.full_speed);
                             SeparatorText("BIOS");
                             for (int i = 0; i < (int)sizeof(ROM_Bank) - 1; i++){
-                                Text(label[i]);
+                                TextUnformatted(label[i]);
                                 SameLine(LABEL_WIDTH);
                                 SetNextItemWidth(-FLT_MIN - btn_small.x - style.ItemSpacing.x);
                                 float path_width = GetContentRegionAvail().x - btn_small.x - style.ItemSpacing.x - style.FramePadding.x;
