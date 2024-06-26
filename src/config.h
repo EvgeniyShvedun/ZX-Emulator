@@ -34,8 +34,8 @@ struct Cfg {
         int lpf_rate = 20000;
         int ay_mixer_mode = ACB;
         float ay_side_level = 0.90f;
-        float ay_center_level = 0.70f;
-        float ay_penetr_level = 0.30f;
+        float ay_center_level = 0.45f;
+        float ay_penetr_level = 0.25f;
         float ay_volume = 0.80f;
         float speaker_volume = 0.50f;
         float tape_volume = 0.25f;
