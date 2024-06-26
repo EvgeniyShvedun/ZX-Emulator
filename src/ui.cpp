@@ -266,14 +266,14 @@ namespace UI {
                             if (RadioButton("CRT", &cfg.video.filter, Linear))
                                 board->set_texture_filter(Linear);
                             SetCursorPosX(LABEL_WIDTH);
-                            if (!cfg.main.full_speed){
+                            if (cfg.main.full_speed){
+                                bool value = false;
+                                BeginDisabled();
+                                Checkbox("V-Sync", &value);
+                                EndDisabled();
+                            }else
                                 if (Checkbox("V-Sync", &cfg.video.vsync))
                                     board->set_vsync(cfg.video.vsync);
-                            }else{
-                                BeginDisabled();
-                                Checkbox("V-Sync", &cfg.video.vsync);
-                                EndDisabled();
-                            }
                             Spacing();
                             SetCursorPosX(GetWindowWidth()-btn_size.x-style.WindowPadding.x);
                             if (Button("Defaults", btn_size)){

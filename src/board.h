@@ -30,8 +30,6 @@ class Board : public IO {
         Z80 cpu;
         Cfg &cfg;
         SDL_Window *window = NULL;
-        GLuint screen_texture = 0;
-        GLuint pbo = 0;
         int viewport_width = SCREEN_WIDTH;
         int viewport_height = SCREEN_HEIGHT;
         // Devices

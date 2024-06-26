@@ -32,6 +32,24 @@
 #define BORDER_TOP_HEIGHT   20
 #define BORDER_SIDE_WIDTH   32
 
+inline unsigned short RGBA4444(float r, float g, float b, float a){
+    return ((((unsigned short)(0x0F*r)) << 12) |
+        (((unsigned short)(0x0F*g)) << 8) |
+        (((unsigned short)(0x0F*b)) << 4) |
+        ((unsigned short)(0x0F*a)));
+}
+inline unsigned short RGBA5551(float r, float g, float b, float a){
+    return ((((unsigned short)(0x1F*r)) << 11) |
+        (((unsigned short)(0x1F*g)) << 6) |
+        (((unsigned short)(0x1F*b)) << 1) |
+        ((unsigned short)(a ? 1 : 0)));
+}
+inline unsigned short RGB565(float r, float g, float b){
+    return ((((unsigned short)(0x1F*r)) << 11) |
+        (((unsigned short)(0x3F*g)) << 5) |
+        ((unsigned short)(0x1F*b)));
+}
+
 class ULA : public Memory {
     enum Type { Border = 0x00, Paper = 0x01, Last = 0x02};
     struct Table {
@@ -47,7 +65,7 @@ class ULA : public Memory {
             update(clk);
             page_wr[ptr >> 0x0E][ptr] = byte;
         }
-        void frame_setup(u16 *buffer) { frame_buffer = buffer; };
+        void frame_setup(void *buffer) { frame_buffer = (u16*)buffer; };
         void update(s32 clk);
 
         void read(u16 port, u8 *byte, s32 clk);
@@ -55,33 +73,16 @@ class ULA : public Memory {
         void frame(s32 clk);
         void reset();
 
-        u8 get_border_color() { return border_color; };
+        u8 get_border_color() { return border_color & 0x07; };
     private:
-        inline unsigned short RGBA4444(float r, float g, float b, float a){
-            return ((((unsigned short)(0x0F*r)) << 12) |
-                (((unsigned short)(0x0F*g)) << 8) |
-                (((unsigned short)(0x0F*b)) << 4) |
-                ((unsigned short)(0x0F*a)));
-        }
-        inline unsigned short RGBA5551(float r, float g, float b, float a){
-            return ((((unsigned short)(0x1F*r)) << 11) |
-                (((unsigned short)(0x1F*g)) << 6) |
-                (((unsigned short)(0x1F*b)) << 1) |
-                ((unsigned short)(a ? 1 : 0)));
-        }
-        inline unsigned short RGB565(float r, float g, float b){
-            return ((((unsigned short)(0x1F*r)) << 11) |
-                (((unsigned short)(0x3F*g)) << 5) |
-                ((unsigned short)(0x1F*b)));
-        }
         s32 update_clk = 0;
-        int idx = 0;
+        s32 idx = 0;
         Table table[ZX_SCREEN_HEIGHT*4];
-        u8 border_color;
+        u16 border_color;
         u8 *display_page = NULL;
         u8 flash_mask = 0x7F;
-        u16 palette[0x10];
-        u16 pixel_table[0x10000*8];
+        //u16 palette[0x10];
+        u8 pixel_table[0x10000*8];
+        s32 frame_count = 0;
         u16 *frame_buffer = NULL;
-        int frame_count = 0;
 };

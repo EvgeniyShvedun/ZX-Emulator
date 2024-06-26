@@ -8,16 +8,12 @@
 #include "device.h"
 #include "memory.h"
 #include "ula.h"
-#include <emmintrin.h>
+//#include <emmintrin.h>
 
 ULA::ULA(){
-    for (int i = 0x00; i < 0x10; i++){
-        float bright = i & 0x08 ? HIGH_BRIGHTNESS : LOW_BRIGHTNESS;
-        palette[i] = RGBA4444(bright*((i >> 1) % 2), bright*((i >> 2) % 2), bright*(i % 2), 1.0f);
-    }
     for (int i = 0; i < 0x10000; i++){
-        u16 paper_color = palette[(i >> 11) & 0x0F];
-        u16 ink_color = palette[(((i & 0x700) | ((i >> 3) & 0x800)) >> 8) & 0x0F];
+        u8 paper_color = (i >> 11) & 0x0F;
+        u8 ink_color = (((i & 0x700) | ((i >> 3) & 0x800)) >> 8) & 0x0F;
         for (int b = 0; b < 8; b++)
             pixel_table[i * 8 + b] = (((i >> 8) & 0x80) >> b) ^ (i & (0x80 >> b)) ? ink_color : paper_color;
     }
@@ -54,25 +50,22 @@ void ULA::update(s32 clk){
         int offset = update_clk - table[idx].clk;
         int limit = offset + MIN(clk, table[idx].clk + table[idx].len) - update_clk;
         if (table[idx].type == Border){
-            u32 color = palette[border_color]; // GCC is faster with this.
-            for (; offset < limit; offset++){
-                frame_buffer[offset*2] = color;
-                frame_buffer[offset*2 + 1] = color;
-            }
+            while (offset < limit)
+                frame_buffer[offset++] = border_color;
         }else{
             u8 *color = &display_page[table[idx].color + (offset >> 2)];
             u8 *pixel = &display_page[table[idx].pixel + (offset >> 2)];
             while (offset < limit){
                 void *src = &pixel_table[(((*color++ & flash_mask) << 8) | *pixel++) << 3];
                 do {
-                    ((u32*)frame_buffer)[offset] = ((u32*)src)[offset & 3];
+                    frame_buffer[offset] = ((u16*)src)[offset & 3];
                 } while (++offset & 3);
             }
         }
         if (limit < table[idx].len)
             update_clk = clk;
         else{
-            frame_buffer += table[idx].len*2;
+            frame_buffer += table[idx].len;
             update_clk = table[++idx].clk;
         }
     }
@@ -89,8 +82,8 @@ void ULA::frame(s32 frame_clk){
 
 void ULA::reset(){
     Memory::reset();
-    display_page = Memory::Memory::port_7FFD & ULA_PAGE5 ? Memory::ram[7] : Memory::ram[5];
-    border_color = 7;
+    display_page = Memory::port_7FFD & ULA_PAGE5 ? Memory::ram[7] : Memory::ram[5];
+    border_color = 0x0707;
     update_clk = table[0].clk;
     idx = 0;
 }
@@ -98,9 +91,9 @@ void ULA::reset(){
 void ULA::write(u16 port, u8 byte, s32 clk){
     Memory::write(port, byte, clk);
     if (!(port & 0x01)){
-        if (border_color ^ (byte & 0x07)){
+        if ((border_color & 0x07) ^ (byte & 0x07)){
             update(clk);
-            border_color = byte & 0x07;
+            border_color = (byte & 0x07) * 0x0101;
         }
     }else{
         if (!(port & 0x8002)){ // 7FFD decoded if A2 and A15 is zero.
@@ -115,7 +108,7 @@ void ULA::write(u16 port, u8 byte, s32 clk){
 }
 
 void ULA::read(u16 port, u8 *byte, s32 clk){
-    if (port == 0xFF){ /////////////////
+    if (port == 0xFF){
         update(clk);
         if (table[idx].type == Paper && clk >= table[idx].clk && clk < table[idx].clk + table[idx].len)
             *byte &= display_page[table[idx].color + (clk - table[idx].clk) / 4];

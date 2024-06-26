@@ -13,7 +13,7 @@ LIBS := -static ./ext/glew/Win32/glew32s.lib -lopengl32 -lSDL2_image \
 SRCS = ext/imgui/imgui.cpp ext/imgui/imgui_draw.cpp ext/imgui/imgui_tables.cpp ext/imgui/imgui_widgets.cpp \
 	ext/imgui/backends/imgui_impl_sdl2.cpp ext/imgui/backends/imgui_impl_opengl3.cpp \
 	ext/ImGuiFileDialog/ImGuiFileDialog.cpp \
-	main.cpp ula.cpp z80.cpp memory.cpp board.cpp joystick.cpp keyboard.cpp mouse.cpp sound.cpp tape.cpp floppy.cpp disasm.cpp snapshot.cpp config.cpp ui.cpp
+	main.cpp video.cpp ula.cpp z80.cpp memory.cpp board.cpp joystick.cpp keyboard.cpp mouse.cpp sound.cpp tape.cpp floppy.cpp disasm.cpp snapshot.cpp config.cpp ui.cpp
 OBJS = $(addsuffix .o, $(basename $(SRCS)))
 
 TARGET = ../emulator.exe
