@@ -33,8 +33,11 @@ void FDC::update(s32 clk){
             printf("Command %02x, status: %02x, sys: %02x, fdd.track: %02x, reg_trk: %02x, reg_sec: %02x, reg_dat: %02x, step_dir: %02x, idx: %02x, time: %d, clk: %d\n", reg_command, reg_status, reg_system, drive->track, reg_track, reg_sector, reg_data, step_dir, data_idx, time, clk);
     #endif
     reg_status &= ~ST_NOT_READY;
-    if (!drive->data)
+    if (!drive->data){
         reg_status |= ST_NOT_READY;
+        reg_status &= ~ST_BUSY;
+        return;
+    }
     if (time - cmd_time > IDLE_WIDTH){
         hld = drive->hlt = false;
     }else{
