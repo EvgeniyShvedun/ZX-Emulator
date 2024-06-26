@@ -48,19 +48,16 @@ const vec4 Palette[0x10] = vec4[0x10](
     vec4(1.0, 1.0, 1.0, 1.0) // 7 White
 );
 void main(){
-    gl_FragColor = Palette[int(texture2D(Screen, TexCoord).r * 255.0)];
+    gl_FragColor = Palette[int(texture2D(Screen, TexCoord).r * 255)];
 }
 )";
     int viewport_width = -1;
     int viewport_height = -1;
-    u16 *pbo_data = NULL;
     GLuint screen_texture = 0;
-    GLuint palette_texture = 0;
     GLuint pbo = 0;
     GLuint vertex = 0;
     GLuint fragment = 0;
     GLuint program = 0;
-    GLushort palette[0x100];
 
     void shader_error(const char *msg, GLuint shader){
         GLchar info[0x100];
@@ -80,6 +77,7 @@ void main(){
         glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
         glBindTexture(GL_TEXTURE_2D, 0);
         glGenBuffers(1, &pbo);
+
         vertex = glCreateShader(GL_VERTEX_SHADER);
         glShaderSource(vertex, 1, &vertex_src, NULL);
         glCompileShader(vertex);
@@ -115,7 +113,7 @@ void main(){
         glEnd();
         glUseProgram(0);
         glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pbo);
-        glBufferData(GL_PIXEL_UNPACK_BUFFER, ZX_SCREEN_WIDTH * ZX_SCREEN_HEIGHT, NULL, GL_DYNAMIC_DRAW);
+        glBufferData(GL_PIXEL_UNPACK_BUFFER, ZX_SCREEN_WIDTH * ZX_SCREEN_HEIGHT, NULL, GL_STATIC_DRAW);
         return glMapBuffer(GL_PIXEL_UNPACK_BUFFER, GL_WRITE_ONLY);
     }
 
