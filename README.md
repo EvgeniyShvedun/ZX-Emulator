@@ -8,4 +8,4 @@ cd src; ln -s build/Makefile.linux Makefile; make -j
 Cross build for Win64:
 cd src; ln -s build/Makefile.w64 Makefile; make -j
 
-clang++ is recomended.
+The clang++ for compilation is recomended.
