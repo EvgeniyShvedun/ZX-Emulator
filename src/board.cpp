@@ -99,11 +99,12 @@ void Board::set_full_screen(bool state){
     }else{
         SDL_ShowCursor(SDL_DISABLE);
         SDL_SetWindowFullscreen(window, 0);
-        viewport_width = cfg.video.screen_width;
-        viewport_height = cfg.video.screen_height;
         SDL_SetWindowSize(window, cfg.video.screen_width, cfg.video.screen_height);
-        Video::viewport_setup(cfg.video.screen_width, cfg.video.screen_height);
     }
+    SDL_GetWindowSize(window, &cfg.video.screen_width, &cfg.video.screen_height);
+    Video::viewport_setup(cfg.video.screen_width, cfg.video.screen_height);
+    viewport_width = cfg.video.screen_width;
+    viewport_height = cfg.video.screen_height;
 }
 
 void Board::set_vsync(bool state){
