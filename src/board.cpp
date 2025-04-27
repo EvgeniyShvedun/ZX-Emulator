@@ -105,6 +105,7 @@ void Board::set_full_screen(bool state){
     Video::viewport_setup(cfg.video.screen_width, cfg.video.screen_height);
     viewport_width = cfg.video.screen_width;
     viewport_height = cfg.video.screen_height;
+    SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
 }
 
 void Board::set_vsync(bool state){
