@@ -24,8 +24,7 @@
 #include "ui.h"
 
 #define CONFIG_PATH         "zx.dat"
-#define SOFTWARE            "ZX-Spectrum emulator v1.2"
-#define COPYRIGHT           "Evgeniy Shvedun 2006-2025"
+#define TITLE               "ZX-Spectrum emulator v1.2"
 
 SDL_Window *window = NULL;
 const char* glsl_version = "#version 130";
@@ -48,7 +47,6 @@ int fatal_error(const char *msg){
 }
 
 int main(int argc, char **argv){
-    printf("%s, %s.\n", SOFTWARE, COPYRIGHT);
     Cfg &cfg = Config::load(CONFIG_PATH);
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMECONTROLLER) != 0)
         return fatal_error();
@@ -57,7 +55,7 @@ int main(int argc, char **argv){
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-    if (!(window = SDL_CreateWindow(SOFTWARE, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, cfg.video.screen_width, cfg.video.screen_height,
+    if (!(window = SDL_CreateWindow(TITLE, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, cfg.video.screen_width, cfg.video.screen_height,
         (SDL_WindowFlags)(SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI | (cfg.video.full_screen ? SDL_WINDOW_FULLSCREEN : 0)))))
         return fatal_error();
     SDL_SetWindowMinimumSize(window, SCREEN_WIDTH, SCREEN_HEIGHT);
