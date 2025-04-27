@@ -24,8 +24,8 @@
 #include "ui.h"
 
 #define CONFIG_PATH         "zx.dat"
-#define SOFTWARE            "ZX-Spectrum emulator v1.1.1"
-#define COPYRIGHT           "Evgeniy Shvedun 2006-2024"
+#define SOFTWARE            "ZX-Spectrum emulator v1.2"
+#define COPYRIGHT           "Evgeniy Shvedun 2006-2025"
 
 SDL_Window *window = NULL;
 const char* glsl_version = "#version 130";
