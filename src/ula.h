@@ -65,7 +65,7 @@ class ULA : public Memory {
             update(clk);
             page_wr[ptr >> 0x0E][ptr] = byte;
         }
-        void frame_setup(void *buffer) { frame_buffer = (u16*)buffer; };
+        void frame_setup(u16 *buffer) { frame_buffer = buffer; };
         void update(s32 clk);
 
         void read(u16 port, u8 *byte, s32 clk);
@@ -81,8 +81,8 @@ class ULA : public Memory {
         u16 border_color;
         u8 *display_page = NULL;
         u8 flash_mask = 0x7F;
-        //u16 palette[0x10];
-        u8 pixel_table[0x10000*8];
-        s32 frame_count = 0;
+        u16 palette[0x10];
+        u16 pixel_table[0x10000*8];
         u16 *frame_buffer = NULL;
+        s32 frame_count = 0;
 };

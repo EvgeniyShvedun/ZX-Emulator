@@ -9,3 +9,5 @@ F7 - Maximal speed
 
 F11 - Reset
 F12 - Reset TRDOS
+
+Ctrl+Enter - Full screen mode

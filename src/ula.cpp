@@ -11,9 +11,13 @@
 //#include <emmintrin.h>
 
 ULA::ULA(){
+    for (int i = 0x00; i < 0x10; i++){
+        float bright = i & 0x08 ? HIGH_BRIGHTNESS : LOW_BRIGHTNESS;
+        palette[i] = RGBA4444(bright*((i >> 1) % 2), bright*((i >> 2) % 2), bright*(i % 2), 1.0f);
+    }
     for (int i = 0; i < 0x10000; i++){
-        u8 paper_color = (i >> 11) & 0x0F;
-        u8 ink_color = (((i & 0x700) | ((i >> 3) & 0x800)) >> 8) & 0x0F;
+        u16 paper_color = palette[(i >> 11) & 0x0F];
+        u16 ink_color = palette[(((i & 0x700) | ((i >> 3) & 0x800)) >> 8) & 0x0F];
         for (int b = 0; b < 8; b++)
             pixel_table[i * 8 + b] = (((i >> 8) & 0x80) >> b) ^ (i & (0x80 >> b)) ? ink_color : paper_color;
     }
@@ -50,22 +54,25 @@ void ULA::update(s32 clk){
         int offset = update_clk - table[idx].clk;
         int limit = offset + MIN(clk, table[idx].clk + table[idx].len) - update_clk;
         if (table[idx].type == Border){
-            while (offset < limit)
-                frame_buffer[offset++] = border_color;
+            u32 color = palette[border_color]; // GCC not optimize this in loop body. Clang is ok.
+            for (; offset < limit; offset++){
+                frame_buffer[offset * 2] = color;
+                frame_buffer[offset * 2 + 1] = color;
+            }
         }else{
             u8 *color = &display_page[table[idx].color + (offset >> 2)];
             u8 *pixel = &display_page[table[idx].pixel + (offset >> 2)];
             while (offset < limit){
                 void *src = &pixel_table[(((*color++ & flash_mask) << 8) | *pixel++) << 3];
                 do {
-                    frame_buffer[offset] = ((u16*)src)[offset & 3];
+                    ((u32*)frame_buffer)[offset] = ((u32*)src)[offset & 3];
                 } while (++offset & 3);
             }
         }
         if (limit < table[idx].len)
             update_clk = clk;
         else{
-            frame_buffer += table[idx].len;
+            frame_buffer += table[idx].len*2;
             update_clk = table[++idx].clk;
         }
     }
@@ -83,7 +90,7 @@ void ULA::frame(s32 frame_clk){
 void ULA::reset(){
     Memory::reset();
     display_page = Memory::port_7FFD & ULA_PAGE5 ? Memory::ram[7] : Memory::ram[5];
-    border_color = 0x0707;
+    border_color = 0x07;
     update_clk = table[0].clk;
     idx = 0;
 }
@@ -91,9 +98,9 @@ void ULA::reset(){
 void ULA::write(u16 port, u8 byte, s32 clk){
     Memory::write(port, byte, clk);
     if (!(port & 0x01)){
-        if ((border_color & 0x07) ^ (byte & 0x07)){
+        if (border_color ^ (byte & 0x07)){
             update(clk);
-            border_color = (byte & 0x07) * 0x0101;
+            border_color = byte & 0x07;
         }
     }else{
         if (!(port & 0x8002)){ // 7FFD decoded if A2 and A15 is zero.

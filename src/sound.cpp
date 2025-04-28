@@ -118,7 +118,7 @@ void Sound::update(int clk){
         if (noise_counter >= noise_limit){
             noise_counter -= noise_limit;
             noise_seed = (noise_seed >> 1) ^ ((noise_seed & 1) ? 0x14000 : 0);
-            noise = noise_seed & 0x01;
+            //noise = noise_seed & 0x01;
         }
         envelope_counter += ay_fract;
         if (envelope_counter >= envelope_limit){
@@ -221,10 +221,10 @@ void Sound::read(u16 port, u8 *byte, s32 clk){
 }
 
 void Sound::reset(){
-    tone_a = tone_b = tone_c = noise = 0;
+    tone_a = tone_b = tone_c = noise = true;
     tone_a_counter = tone_b_counter = tone_c_counter = noise_counter = envelope_counter = 0;
     noise_seed = 12345;
-    for (wFFFD= 0; wFFFD < 0x10; wFFFD++){
+    for (wFFFD = 0x0; wFFFD < 0x0F; wFFFD++){
         write(0xFFFD, wFFFD, 0);
         write(0xBFFD, 0x00, 0);
     }

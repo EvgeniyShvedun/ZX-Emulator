@@ -1,6 +1,6 @@
 namespace Video {
     void setup();
-    void* update();
+    u16* update();
     void frame();
     void viewport_setup(int width, int height);
     void set_filter(Filter filter);

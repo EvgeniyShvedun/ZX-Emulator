@@ -205,7 +205,7 @@ void Board::run(Cfg &cfg){
                     break;
             }
         }
-        void *frame_buffer = Video::update();
+        u16 *frame_buffer = Video::update();
         if (!UI::is_modal()){
             ula.frame_setup(frame_buffer);
             cpu.frame(&ula, this, frame_clk);
