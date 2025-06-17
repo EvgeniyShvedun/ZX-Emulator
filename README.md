@@ -1,4 +1,4 @@
-ZX-Spectrum Emulator.
+# ZX-Spectrum Emulator.
 
 Emulates Z80/ULA/AY close to the original, supports z80/sna/trd/scl/tap file format.
 
