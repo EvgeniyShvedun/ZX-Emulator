@@ -118,7 +118,7 @@ void Sound::update(int clk){
         if (noise_counter >= noise_limit){
             noise_counter -= noise_limit;
             noise_seed = (noise_seed >> 1) ^ ((noise_seed & 1) ? 0x14000 : 0);
-            //noise = noise_seed & 0x01;
+            noise = noise_seed & 0x01;
         }
         envelope_counter += ay_fract;
         if (envelope_counter >= envelope_limit){
