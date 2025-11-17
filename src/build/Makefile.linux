@@ -3,7 +3,6 @@
 #
 SDL = sdl2-config
 
-CXX	= clang++
 CXXFLAGS := -O -fomit-frame-pointer -pipe -Wall -Wno-int-to-pointer-cast \
 		$(shell $(SDL) --cflags)
 LIBS := -lGLEW -lGL -ldl -lSDL2_image \
