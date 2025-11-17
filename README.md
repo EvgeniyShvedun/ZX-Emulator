@@ -3,10 +3,10 @@
 Emulates Z80/ULA/AY close to the original, supports z80/sna/trd/scl/tap file format.
 
 Build for Linux:
-cd src; ln -s build/Makefile.linux Makefile; make release -j
+cd src; ln -s build/Makefile.linux Makefile; make release
 
 Cross build for Win64:
-cd src; ln -s build/Makefile.w64 Makefile; make release -j
+cd src; ln -s build/Makefile.w64 Makefile; make release
 
 It is recommended to use clang++ for compilation.
 
