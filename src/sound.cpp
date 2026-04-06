@@ -20,7 +20,7 @@ Sound::Sound(){
 void Sound::setup(int rate, int cutoff_rate, int frame_clk){
     reset();
     sample_rate = rate;
-    ay_fract = (1 << FRACT_BITS) * AY_RATE / sample_rate;
+    ay_increment = AY_RATE / sample_rate;
     set_lpf(cutoff_rate);
     if (device_id)
         SDL_CloseAudioDevice(device_id);
@@ -98,29 +98,29 @@ void Sound::update(int clk){
 
     for (int now = clk * (sample_rate / Z80_FREQ); pos < now; pos++){
         u16 mix_left, mix_right;
-        tone_a_counter += ay_fract;
+        tone_a_counter += ay_increment;
         if (tone_a_counter >= tone_a_limit){
             tone_a_counter -= tone_a_limit;
             tone_a ^= true;
         }
-        tone_b_counter += ay_fract;
+        tone_b_counter += ay_increment;
         if (tone_b_counter >= tone_b_limit){
             tone_b_counter -= tone_b_limit;
             tone_b ^= true;
         }
-        tone_c_counter += ay_fract;
+        tone_c_counter += ay_increment;
         if (tone_c_counter >= tone_c_limit){
             tone_c_counter -= tone_c_limit;
             tone_c ^= true;
 
         }
-        noise_counter += ay_fract;
+        noise_counter += ay_increment;
         if (noise_counter >= noise_limit){
             noise_counter -= noise_limit;
             noise_seed = (noise_seed >> 1) ^ ((noise_seed & 1) ? 0x14000 : 0);
             noise = noise_seed & 0x01;
         }
-        envelope_counter += ay_fract;
+        envelope_counter += ay_increment;
         if (envelope_counter >= envelope_limit){
             envelope_counter -= envelope_limit;
             if (++envelope_pos >= 0x20)
@@ -164,20 +164,20 @@ void Sound::write(u16 port, u8 byte, s32 clk){
                     case ToneAHigh:
                         registers[ToneAHigh] &= 0x0F;
                     case ToneALow:
-                        tone_a_limit = (registers[ToneAHigh] << 0x08 | registers[ToneALow]) << FRACT_BITS;
+                        tone_a_limit = registers[ToneAHigh] << 0x08 | registers[ToneALow];
                         break;
                     case ToneBHigh:
                         registers[ToneBHigh] &= 0x0F;
                     case ToneBLow:
-                        tone_b_limit = (registers[ToneBHigh] << 0x08 | registers[ToneBLow]) << FRACT_BITS;
+                        tone_b_limit = registers[ToneBHigh] << 0x08 | registers[ToneBLow];
                         break;
                     case ToneCHigh:
                         registers[ToneCHigh] &= 0x0F;
                     case ToneCLow:
-                        tone_c_limit = (registers[ToneCHigh] << 0x08 | registers[ToneCLow]) << FRACT_BITS;
+                        tone_c_limit = registers[ToneCHigh] << 0x08 | registers[ToneCLow];
                         break;
                     case Noise:
-                        noise_limit = (registers[Noise] & 0x1F) << FRACT_BITS;
+                        noise_limit = registers[Noise] & 0x1F;
                         break;
                     case Mixer: // bit (0 - 7/5?)
                         break;
@@ -192,7 +192,7 @@ void Sound::write(u16 port, u8 byte, s32 clk){
                         break;
                     case EnvHigh:
                     case EnvLow:
-                        envelope_limit = ((registers[EnvHigh] << 0x8 | registers[EnvLow])*2) << FRACT_BITS;
+                        envelope_limit = (registers[EnvHigh] << 0x8 | registers[EnvLow])*2;
                         break;
                     case EnvShape:
                         registers[EnvShape] &= 0x0F;

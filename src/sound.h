@@ -44,10 +44,9 @@ class Sound : public Device {
         SDL_AudioSpec audio_spec;
         s32 sample_rate;
         u32 frame_samples;
-        float cpu_inc;
-        u32 ay_fract;
-        u32 tone_a_counter, tone_b_counter, tone_c_counter, noise_counter, envelope_counter;
-        u32 tone_a_limit, tone_b_limit, tone_c_limit, noise_limit, envelope_limit;
+        float ay_increment;
+        float tone_a_counter, tone_b_counter, tone_c_counter, noise_counter, envelope_counter;
+        float tone_a_limit, tone_b_limit, tone_c_limit, noise_limit, envelope_limit;
         bool tone_a, tone_b, tone_c, noise;
         u8 envelope;
         s32 envelope_pos;
