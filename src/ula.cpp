@@ -115,9 +115,9 @@ void ULA::write(u16 port, u8 byte, s32 clk){
 }
 
 void ULA::read(u16 port, u8 *byte, s32 clk){
-    if (port == 0xFF){
+    if ((port & 0xFF) == 0xFF){
         update(clk);
         if (table[idx].type == Paper && clk >= table[idx].clk && clk < table[idx].clk + table[idx].len)
-            *byte &= display_page[table[idx].color + (clk - table[idx].clk) / 4];
+            *byte = display_page[table[idx].color + (clk - table[idx].clk) / 4];
     }
 }

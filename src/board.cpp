@@ -215,24 +215,6 @@ void Board::run(Cfg &cfg){
             tape.frame(frame_clk);
             sound.frame(frame_clk);
             ula.frame(frame_clk);
-            /*
-            // Update the PBO and setup async byte-transfer to the screen texture.
-            glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pbo);
-            glBufferData(GL_PIXEL_UNPACK_BUFFER, ZX_SCREEN_WIDTH * ZX_SCREEN_HEIGHT * sizeof(GLushort), NULL, GL_DYNAMIC_DRAW);
-            ula.frame_setup((u16*)glMapBuffer(GL_PIXEL_UNPACK_BUFFER, GL_WRITE_ONLY));
-            cpu.frame(&ula, this, frame_clk);
-            cpu.interrupt(&ula);
-            cpu.clk -= frame_clk;
-            fdc.frame(frame_clk);
-            tape.frame(frame_clk);
-            sound.frame(frame_clk);
-            ula.frame(frame_clk);
-            glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
-            // Start update texture.
-            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, ZX_SCREEN_WIDTH, ZX_SCREEN_HEIGHT, GL_RGBA, GL_UNSIGNED_SHORT_4_4_4_4, NULL);
-            glBindTexture(GL_TEXTURE_2D, 0);
-            glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
-            */
             if (!cfg.main.full_speed)
                 sound.queue();
         }else
