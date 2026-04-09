@@ -37,7 +37,6 @@
 #define ST_LOST_DATA                0b00000100              // Data timeout.
 #define ST_RNF                      0b00010000              // Record not found.
 #define ST_WRITE_FAULT              0b00100000              // FDD fault to write.
-//#define ST_RECORD_TYPE                0b00100000          // Data type from address mark.
 
 // Time in CPU clocks.
 #define DISK_TURN_PERIOD            Msec(200)               // Disk revolution time.

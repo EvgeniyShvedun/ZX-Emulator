@@ -24,7 +24,7 @@ ULA::ULA(){
     for (int i = 0; i < BORDER_TOP_HEIGHT; i++){
         table[i].type = Border;
         table[i].clk = START_CLK + LINE_CLK*i;
-        table[i].len = ZX_SCREEN_WIDTH/2;
+        table[i].len = DISPLAY_WIDTH/2;
     }
     for (int i = 0; i < 192; i++){
         table[BORDER_TOP_HEIGHT+i*3+0].type = Border;
@@ -39,13 +39,13 @@ ULA::ULA(){
         table[BORDER_TOP_HEIGHT+i*3+2].clk = START_CLK + LINE_CLK*(BORDER_TOP_HEIGHT + i) + BORDER_SIDE_WIDTH/2 + 256/2;
         table[BORDER_TOP_HEIGHT+i*3+2].len = BORDER_SIDE_WIDTH/2;
     }
-    for (int i = 0; i < (ZX_SCREEN_HEIGHT - BORDER_TOP_HEIGHT - 192); i++){
+    for (int i = 0; i < (DISPLAY_HEIGHT - BORDER_TOP_HEIGHT - 192); i++){
         table[BORDER_TOP_HEIGHT+192*3+i].type = Border;
         table[BORDER_TOP_HEIGHT+192*3+i].clk = START_CLK + LINE_CLK*(BORDER_TOP_HEIGHT+192+i);
-        table[BORDER_TOP_HEIGHT+192*3+i].len = ZX_SCREEN_WIDTH/2;
+        table[BORDER_TOP_HEIGHT+192*3+i].len = DISPLAY_WIDTH/2;
     }
-    table[BORDER_TOP_HEIGHT + 192*3 + (ZX_SCREEN_HEIGHT - BORDER_TOP_HEIGHT - 192)].clk = 0xFFFFFF;
-    table[BORDER_TOP_HEIGHT + 192*3 + (ZX_SCREEN_HEIGHT - BORDER_TOP_HEIGHT - 192)].len = 0;
+    table[BORDER_TOP_HEIGHT + 192*3 + (DISPLAY_HEIGHT - BORDER_TOP_HEIGHT - 192)].clk = 0xFFFFFF;
+    table[BORDER_TOP_HEIGHT + 192*3 + (DISPLAY_HEIGHT - BORDER_TOP_HEIGHT - 192)].len = 0;
     reset();
 }
 

@@ -4,14 +4,13 @@
 #include "config.h"
 
 namespace Config {
-    Cfg data;
-    Cfg defaults;
+    Cfg data, defaults;
     Cfg& load(const char *path){
         FILE *fp = fopen(path, "r");
-        if (!fp || fread(&data, 1, sizeof(data), fp) != sizeof(data) || strcmp(data.format_id, CONFIG_H_MODIFIED)){
+        if (!fp || fread(&data, 1, sizeof(data), fp) != sizeof(data) || strcmp(data.format_id, CONFIG_MODIFIED)){
             printf("WARN: Set the settings to default.\n");
             memcpy(&data, &defaults, sizeof(data));
-            strcpy(data.format_id, CONFIG_H_MODIFIED);
+            strcpy(data.format_id, CONFIG_MODIFIED);
         }
         if (fp)
             fclose(fp);

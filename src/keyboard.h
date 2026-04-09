@@ -1,5 +1,4 @@
 /*
- 
  Line | Port | Lower 5 bits
  ------------------------------
  0    | 7FFE | B, N, M,SH, SP
@@ -10,7 +9,6 @@
  5    | FBFE | T, R, E, W, Q
  6    | FDFE | G, F, D, S, A
  7    | FEFE | V, C, X, Z, CH
-
  */
 
 class Keyboard : public Device {

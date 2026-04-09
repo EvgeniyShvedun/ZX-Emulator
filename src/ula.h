@@ -77,7 +77,7 @@ class ULA : public Memory {
     private:
         s32 update_clk = 0;
         s32 idx = 0;
-        Table table[ZX_SCREEN_HEIGHT*4];
+        Table table[DISPLAY_HEIGHT*4];
         u16 border_color;
         u8 *display_page = NULL;
         u8 flash_mask = 0x7F;

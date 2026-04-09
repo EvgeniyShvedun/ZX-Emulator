@@ -37,26 +37,26 @@ void Joystick::read(u16 port, u8 *byte, s32 clk){
 }
 
 void Joystick::event(SDL_Event &event){
-    if (event.type != SDL_CONTROLLERBUTTONDOWN && event.type != SDL_CONTROLLERBUTTONUP)
-        return;
-    switch (event.cbutton.button){
-        case SDL_CONTROLLER_BUTTON_DPAD_LEFT:
-             button(JB_Left, event.cbutton.state);
-             break;
-        case SDL_CONTROLLER_BUTTON_DPAD_RIGHT:
-             button(JB_Right, event.cbutton.state);
-             break;
-        case SDL_CONTROLLER_BUTTON_DPAD_DOWN:
-             button(JB_Down, event.cbutton.state);
-             break;
-        case SDL_CONTROLLER_BUTTON_DPAD_UP:
-             button(JB_Up, event.cbutton.state);
-             break;
-        case SDL_CONTROLLER_BUTTON_A:
-             button(JB_A, event.cbutton.state);
-             break;
-        case SDL_CONTROLLER_BUTTON_B:
-             button(JB_B, event.cbutton.state);
-             break;
+    if (event.type == SDL_CONTROLLERBUTTONDOWN || event.type == SDL_CONTROLLERBUTTONUP){
+        switch (event.cbutton.button){
+            case SDL_CONTROLLER_BUTTON_DPAD_LEFT:
+                button(JB_Left, event.cbutton.state);
+                break;
+            case SDL_CONTROLLER_BUTTON_DPAD_RIGHT:
+                button(JB_Right, event.cbutton.state);
+                break;
+            case SDL_CONTROLLER_BUTTON_DPAD_DOWN:
+                button(JB_Down, event.cbutton.state);
+                break;
+            case SDL_CONTROLLER_BUTTON_DPAD_UP:
+                button(JB_Up, event.cbutton.state);
+                break;
+            case SDL_CONTROLLER_BUTTON_A:
+                button(JB_A, event.cbutton.state);
+                break;
+            case SDL_CONTROLLER_BUTTON_B:
+                button(JB_B, event.cbutton.state);
+                break;
+        }
     }
 }

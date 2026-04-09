@@ -1,4 +1,3 @@
-
 namespace Disasm {
     enum Opcode {
         ADC, ADD, AND, BIT, CALL, CCF, CP, CPD,

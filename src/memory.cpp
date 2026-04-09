@@ -73,7 +73,7 @@ void Memory::write(u16 port, u8 byte, s32 clk){
 }
 
 bool Memory::trap_trdos(u16 pc){
-    if (page_rd[0] == rom[ROM_48] && pc >> 8 == 0x3D){/////
+    if (page_rd[0] == rom[ROM_48] && pc >> 8 == 0x3D){
         page_rd[0] = page_ex[0] = rom[ROM_Trdos];
         page_ex[1] = trap[ROM_Trdos] - PAGE_SIZE*1;
         page_ex[2] = trap[ROM_Trdos] - PAGE_SIZE*2;

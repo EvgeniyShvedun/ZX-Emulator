@@ -188,7 +188,6 @@ void FDC::read(u16 port, u8 *byte, s32 clk){
                             reg_status &= ~ST_DRQ;
                             break;
                         case 0x0C: // Read address
-                            //printf("Read time: %d, cmd_time: %d, elapsed: %d\n", time, cmd_time, time - cmd_time);
                             switch (data_idx){
                                 case 0x00:
                                     reg_data = drive->track;

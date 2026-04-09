@@ -403,32 +403,32 @@ namespace Disasm {
                         operand = hex(operand, memory->read_byte_ex(ptr));
                         ptr += 2;
                         break;
-                   case 'l': // DJNZ, JR.
+                   case 'l': // DJNZ, JR
                         *operand++ = '#';
                         offset = (s8)memory->read_byte_ex(ptr++);
                         operand = hex(operand, (ptr + offset) >> 8);
                         operand = hex(operand, (ptr + offset) & 0xFF);
                         break;
-                   case 'y':
+                   case 'y': // 8-bit operands
                         operand = copy(operand, opr_8[(byte >> 3) & 0x07]);
                         break;
                    case 'z':
                         operand = copy(operand, opr_8[byte & 0x07]);
                         break;
-                   case 'f':
+                   case 'f': // Conditions
                         operand = copy(operand, flags[(byte >> 3) & 0x07]);
                         break;
                    case 'c':
-                        operand = copy(operand, flags[((byte >> 3) & 0x07) - 4]); //?
+                        operand = copy(operand, flags[((byte >> 3) & 0x07) - 4]);
                         break;
-                   case 't':
+                   case 't': // Absolute values
                         *operand++ = '#';
                         operand = hex(operand, byte & (0x07 << 3));
                         break;
                    case 's':
                         operand = dec(operand, (byte >> 3) & 0x07);
                         break;
-                   case 'x':
+                   case 'x': // Index registers
                         operand = copy(operand, reg_ix);
                         break;
                    case 'X': // Read offset

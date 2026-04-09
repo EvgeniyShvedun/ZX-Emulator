@@ -25,7 +25,7 @@
 #include "ui.h"
 
 //#define TIME
-#define FRAME_LIMIT 50000
+//#define FRAME_LIMIT 50000
 
 Board::Board(Cfg &cfg) : cfg(cfg) {
     Video::setup();

@@ -23,9 +23,10 @@ void Keyboard::button(unsigned short port, char mask, bool state){
 
 void Keyboard::read(u16 port, u8 *byte, s32 clk){
     if (!(port & 0x01)){
-        for (int i = 0; i < 8; i++)
+        for (int i = 0; i < 8; i++){
             if (!(port & (0x8000 >> i)))
                 *byte &= kbd[i];
+        }
     }
 }
 
@@ -210,4 +211,3 @@ void Keyboard::event(SDL_Event &event){
             break;
     }
 }
-

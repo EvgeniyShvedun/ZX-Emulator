@@ -1,16 +1,15 @@
-#define ZX_SCREEN_WIDTH             320L
-#define ZX_SCREEN_HEIGHT            240L
-#define SCREEN_WIDTH                (ZX_SCREEN_WIDTH*2L)
-#define SCREEN_HEIGHT               (ZX_SCREEN_HEIGHT*2L)
-#define ASPECT_RATIO                ((float)SCREEN_WIDTH/(float)SCREEN_HEIGHT)
-#define CONFIG_H_MODIFIED           __TIMESTAMP__
+#define DISPLAY_WIDTH               320L
+#define DISPLAY_HEIGHT              240L
+#define SCREEN_WIDTH                (DISPLAY_WIDTH*2L)
+#define SCREEN_HEIGHT               (DISPLAY_HEIGHT*2L)
+#define ASPECT_RATIO                ((float)DISPLAY_WIDTH/(float)DISPLAY_HEIGHT)
+#define CONFIG_MODIFIED             __TIMESTAMP__
 
 enum Hardware { HW_Pentagon_128, HW_Sinclair_128, HW_Sinclair_48 };
 enum AY_Mixer { ABC, ACB, Mono };
 enum Filter {  Nearest, Linear };
 enum ROM_Bank { ROM_Trdos, ROM_128, ROM_48 };
 
-//#pragma pack(1)
 struct Cfg {
     char format_id[32];
     struct Main {
@@ -45,7 +44,6 @@ struct Cfg {
         bool gamepad = false;
     } ui;
 };
-//#pragma pack()
 
 namespace Config {
     Cfg& load(const char *path);

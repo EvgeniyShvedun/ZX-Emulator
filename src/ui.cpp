@@ -243,11 +243,11 @@ namespace UI {
                             SameLine(LABEL_WIDTH);
                             SetNextItemWidth(-FLT_MIN);
 
-                            int screen_size = (float)cfg.video.screen_width / cfg.video.screen_height == ASPECT_RATIO ? std::min(((float)cfg.video.screen_width - SCREEN_WIDTH) / ZX_SCREEN_WIDTH, 3.0f) : 4;
+                            int screen_size = (float)cfg.video.screen_width / cfg.video.screen_height == ASPECT_RATIO ? std::min(((float)cfg.video.screen_width - SCREEN_WIDTH) / DISPLAY_WIDTH, 3.0f) : 4;
                             if (!cfg.video.full_screen){
                                 if (Combo("##screen_size", &screen_size, "640x480\0""960x720\0""1280x960\0""1600x1200\0\0"))
                                     if (screen_size >= 0 && screen_size <= 3)
-                                        board->set_window_size(SCREEN_WIDTH+ZX_SCREEN_WIDTH*screen_size, SCREEN_HEIGHT+ZX_SCREEN_HEIGHT*screen_size);
+                                        board->set_window_size(SCREEN_WIDTH+DISPLAY_WIDTH*screen_size, SCREEN_HEIGHT+DISPLAY_HEIGHT*screen_size);
                             }else{
                                 BeginDisabled();
                                 Combo("##screen_size", &screen_size, "640x480\0""960x720\0""1280x960\0""1600x1200\0\0");

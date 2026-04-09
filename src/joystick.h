@@ -16,5 +16,5 @@ class Joystick : public Device {
         void event(SDL_Event &event);
     private:
         SDL_GameController *controller;        
-        u8 port_r1F = 0xC0;
+        u8 port_r1F = 0b11000000;
 };

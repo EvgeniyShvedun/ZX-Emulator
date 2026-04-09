@@ -62,7 +62,6 @@ int main(int argc, char **argv){
     if (!(gl_context = SDL_GL_CreateContext(window)))
         return fatal_error();
     SDL_GL_MakeCurrent(window, gl_context);
-    //glewExperimental = true;
     if (glewInit() != GLEW_OK)
         return fatal_error("GLEW initialization");
     SDL_SetWindowIcon(window, IMG_Load("data/icon.png"));
