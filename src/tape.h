@@ -1,13 +1,9 @@
-#define TAP_FLAG_HEADER 0
-#define TAP_TYPE_PROGRAM 0
-
-#define TAPE_EAR_IN                 0b1000000
-
 #define SILENCE_TIME                (int)(Z80_FREQ * 1.0)
 #define TONE_PERIOD                 2168
 #define TONE_PULSES                 (int)(3223 * 2.0)
 #define ONE_PERIOD                  1710
 #define ZERO_PERIOD                 855
+#define EAR_IN                      0b1000000
 
 class Tape : public Device {
     public:

@@ -19,7 +19,7 @@ Tape::Tape(){
     last_clk = 0;
     time = 0;
     idx = 0;
-    pFE = ~TAPE_EAR_IN;
+    pFE = ~EAR_IN;
     stop();
 }
 
@@ -80,18 +80,18 @@ void Tape::update(s32 clk){
                 state = TONE;
                 break;
             case TONE:
-                pFE ^= TAPE_EAR_IN;
+                pFE ^= EAR_IN;
                 if (++pulse < TONE_PULSES)
                     break;
                 pulse = 0;
                 state = SYNC_1;
                 break;
             case SYNC_1:
-                pFE ^= TAPE_EAR_IN;
+                pFE ^= EAR_IN;
                 state = SYNC_2;
                 break;
             case SYNC_2:
-                pFE ^= TAPE_EAR_IN;
+                pFE ^= EAR_IN;
                 block_end = p_data[idx++];
                 block_end |= p_data[idx++] << 8;
                 block_end += idx;
@@ -112,7 +112,7 @@ void Tape::update(s32 clk){
                 break;
             case ONE:
             case ZERO:
-                pFE ^= TAPE_EAR_IN;
+                pFE ^= EAR_IN;
                 if (!pulse++)
                     break;
                 pulse = 0;

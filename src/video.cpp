@@ -66,6 +66,7 @@ namespace Video {
         }
         glBindTexture(GL_TEXTURE_2D, 0);
     }
+
     void viewport_setup(int width, int height){
         glViewport(0, 0, (GLsizei)width, (GLsizei)height);
         glMatrixMode(GL_PROJECTION);
