@@ -1,3 +1,7 @@
+#define UI_WindowFlags ImGuiWindowFlags_NoCollapse | \
+    ImGuiWindowFlags_NoScrollbar | \
+    ImGuiWindowFlags_NoResize
+
 namespace UI {
     enum UI_Mode { UI_None, UI_Exit, UI_KbdLayout, UI_OpenFile, UI_SaveFile, UI_Settings, UI_Debugger };
     void setup(Cfg &cfg, SDL_Window *window, SDL_GLContext context, const char *glsl_version);

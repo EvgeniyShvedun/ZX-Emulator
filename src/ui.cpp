@@ -107,12 +107,11 @@ namespace UI {
                     case SDLK_F4:
                         open(UI_Settings);
                         break;
-                    case SDLK_F9:
 #ifdef DEBUGGER
+                    case SDLK_F9:
                         open(UI_Debugger);
-#endif
                         break;
-
+#endif
                 }
             } else
                 if (event.key.keysym.sym == SDLK_ESCAPE && !IsPopupOpen(NULL, ImGuiPopupFlags_AnyPopup))
