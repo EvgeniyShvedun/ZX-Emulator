@@ -1,3 +1,5 @@
+#define Z80_FREQ            3579545.0
+
 #define CF                  0x01            // Carry
 #define NF                  0x02            // ADD(0) or SUB(1)
 #define PF                  0x04            // Parity and Overflow
@@ -5,10 +7,9 @@
 #define HF                  0x10            // Half carry used DAA
 #define F5                  0x20            // Bit 5 of result
 #define ZF                  0x40            // Zero
-#define SF                  0x80            // Negative. Bit 7 of result.
+#define SF                  0x80            // Negative. Bit 7 of result
 
-#define LD_IR_PF_CLK        18              // Time while PF-flag was not change (Undocumented behievior: LD A, I and LD A, R).
-#define Z80_FREQ            3579545.0
+#define LD_IR_PF_CLK        18              // Time while PF-flag was not change (Undocumented behievior: LD A, I and LD A, R)
 
 #define Reg16(reg16)\
     union {\
@@ -53,10 +54,10 @@ struct Z80_State {
     Reg16(memptr);   // Internal ptr
 
     s32 clk;
-    u8 im;           // Interrupt mode.
-    u8 iff1;         // Int is enabled.
-    u8 iff2;         // Save's iff1 while NMI.
-    u8 r8bit;        // 8 bbt of the R.
+    u8 im;           // Interrupt mode
+    u8 iff1;         // Interrupt enabled
+    u8 iff2;         // Stores the state of iff1 during NMI
+    u8 r8bit;        // 8th bit of the R register
 };
 
 struct Z80 : public Z80_State {

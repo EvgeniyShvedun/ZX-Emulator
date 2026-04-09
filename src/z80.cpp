@@ -3205,7 +3205,7 @@ void Z80::frame(ULA *memory, IO *io, s32 frame_clk){
                         a = irh;
                         f = (flag_sz53p[a] & (~PF)) | (f & CF);
                         // P/V contains contents of IFF2.
-                        // If an s32errupt occurs during execution of this instruction, the Parity flag contains a 0.
+                        // If an interrupt occurs during execution of this instruction, the Parity flag contains a 0.
                         if (iff2 && clk > LD_IR_PF_CLK)
                             f |= PF;
                         time(5);
@@ -3230,7 +3230,7 @@ void Z80::frame(ULA *memory, IO *io, s32 frame_clk){
                         a = (irl & 0x7F) | (r8bit & 0x80);
                         f = (flag_sz53p[a] & (~PF)) | (f & CF);
                         // P/V contains contents of IFF2.
-                        // If an s32errupt occurs during execution of this instruction, the Parity flag contains a 0.
+                        // If an interrupt occurs during execution of this instruction, the Parity flag contains a 0.
                         if (iff2 && clk > LD_IR_PF_CLK)
                             f |= PF;
                         time(5);
