@@ -1,3 +1,4 @@
+
 class Mouse : public Device {
     public:
         void motion(char x, char y);

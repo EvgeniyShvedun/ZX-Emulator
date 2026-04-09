@@ -1,12 +1,11 @@
 #define PAGE_SIZE           0x4000
 #define RAM_PAGES           8
 #define TRAP_TRDOS_BYTE     0x5B
-
 // Port 7FFD bits
-#define PAGE_MASK       0b00000111
-#define ULA_PAGE5       0b00001000
-#define BANK0_ROM48     0b00010000
-#define PORT_LOCKED     0b00100000
+#define PAGE_MASK           0b00000111
+#define ULA_PAGE5           0b00001000
+#define BANK0_ROM48         0b00010000
+#define PORT_LOCKED         0b00100000
 
 class Memory : public Device {
     public:

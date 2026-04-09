@@ -19,6 +19,7 @@ class Board : public IO {
 
         void read(u16 port, u8 *byte, s32 clk=0);
         void write(u16 port, u8 byte, s32 clk=0);
+
         Z80_State& cpu_state() { return cpu; };
 
         ULA ula;

@@ -27,8 +27,7 @@ void Mouse::wheel(char pos){
 }
 
 void  Mouse::read(u16 port, u8 *byte, s32 clk){
-    // A0, A5, A7, A8, A1
-    if (!(port & 0b100000)){
+    if (!(port & 0b100000)){ // A0, A5, A7, A8, A1
         if ((port & 0b10111111111) == 0b00011011111) // 0xFADF
             *byte &= wheel_button;
         if ((port & 0b10111111111) == 0b00111011111) // 0xFBDF
