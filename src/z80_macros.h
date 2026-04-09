@@ -779,13 +779,13 @@
     time(8);
 
 #define SBC16(rr0, rr1){\
-        u16 w = rr0 - rr1 - (f & CF);\
+        u32 w = rr0 - rr1 - (f & CF);\
         f = ((w >> 8) & (SF | F3 | F5)) | NF | ((((rr0 & 0xFFF) - (rr1 & 0xFFF) - (f & CF)) >> 8) & HF);\
-        if (w > rr0)\
+        if (w & 0x10000)\
             f |= CF;\
         if (((rr0 ^ rr1) & 0x8000) and ((rr0 ^ w) & 0x8000))\
             f |= PF;\
-        if (!w)\
+        if (!(w & 0xFFFF))\
             f |= ZF;\
         memptr = rr0 + 1;\
         rr0 = w;\
@@ -793,13 +793,13 @@
     time(11);
 
 #define ADC16(rr0, rr1){\
-        u16 w = rr0 + rr1 + (f & CF);\
+        u32 w = rr0 + rr1 + (f & CF);\
         f = ((w >> 8) & (SF | F3 | F5)) | ((((rr0 & 0xFFF) + (rr1 & 0xFFF) + (f & CF)) >> 8) & HF);\
-        if (w < rr0)\
+        if (w & 0x10000)\
             f |= CF;\
         if (!((rr0 ^ rr1) & 0x8000) and ((rr0 ^ w) & 0x8000))\
             f |= PF;\
-        if (!w)\
+        if (!(w & 0xFFFF))\
             f |= ZF;\
         memptr = rr0 + 1;\
         rr0 = w;\
