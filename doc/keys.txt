@@ -1,0 +1,13 @@
+F1 - Keyboard layout
+F2 - Open file
+F3 - Save file
+F4 - Settings
+
+F5 - Play/Stop tape
+F6 - Rewind tape to the beginning
+F7 - Maximal speed
+
+F11 - Reset
+F12 - Reset TRDOS
+
+Ctrl+Enter - Full screen mode
